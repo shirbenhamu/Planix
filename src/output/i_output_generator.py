@@ -1,0 +1,1 @@
+# IOutputGenerator Interface (Abstract Class)
