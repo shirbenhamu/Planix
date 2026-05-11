@@ -99,3 +99,35 @@ class ExamScheduler:
             raise ValueError("No matching exam periods found for the relevant exam courses.")
 
         return grouped_exams
+
+    def has_critical_exam_conflict(
+        self,
+        first_course: Course,
+        second_course: Course
+    ) -> bool:
+        for first_info in first_course.program_info:
+            for second_info in second_course.program_info:
+                same_program = first_info.program_id == second_info.program_id
+                same_year = first_info.year == second_info.year
+
+                both_elective = (
+                    first_info.requirement == "Elective"
+                    and second_info.requirement == "Elective"
+                )
+
+                if same_program and same_year and not both_elective:
+                    return True
+
+        return False
+
+    def has_same_date_critical_conflict(
+        self,
+        first_course: Course,
+        first_date,
+        second_course: Course,
+        second_date
+    ) -> bool:
+        if first_date != second_date:
+            return False
+
+        return self.has_critical_exam_conflict(first_course, second_course)
