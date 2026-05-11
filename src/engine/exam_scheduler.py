@@ -12,16 +12,19 @@ class ExamScheduler:
         exam_periods: List[ExamPeriod],
         selected_programs: List[str]
     ) -> Dict[Tuple[str, str], List[Schedule]]:
+        # Public entry point for the scheduling engine.
         relevant_courses = self.filter_relevant_exam_courses(
             courses,
             selected_programs
         )
 
+        # Group the relevant courses by semester and moed.
         grouped_exams = self.group_exams_by_semester_and_moed(
             relevant_courses,
             exam_periods
         )
 
+        # Generate all valid schedules for each group.
         return self.generate_all_valid_exam_schedules(grouped_exams)
 
     def filter_relevant_exam_courses(
@@ -32,15 +35,18 @@ class ExamScheduler:
         relevant_courses = []
 
         for course in courses:
+            # Only courses with an exam should be scheduled.
             if course.evaluation_method != "Exam":
                 continue
 
             relevant_program_info = []
 
+            # Keep only the program information that matches the selected programs.
             for info in course.program_info:
                 if info.program_id in selected_programs:
                     relevant_program_info.append(info)
 
+            # Add the course only if it belongs to at least one selected program.
             if relevant_program_info:
                 relevant_courses.append(
                     Course(
@@ -65,8 +71,11 @@ class ExamScheduler:
 
         for exam_period in exam_periods:
             key = (exam_period.semester, exam_period.moed)
+
+            # ExamPeriod already removes excluded dates.
             available_dates = exam_period.get_available_dates()
 
+            # Skip periods that have no available dates.
             if available_dates:
                 available_dates_by_period[key] = available_dates
 
@@ -86,6 +95,7 @@ class ExamScheduler:
         for exam_period in exam_periods:
             key = (exam_period.semester, exam_period.moed)
 
+            # Ignore periods that cannot be used for scheduling.
             if key not in available_dates_by_period:
                 continue
 
@@ -98,9 +108,11 @@ class ExamScheduler:
         for course in courses:
             course_semesters = set()
 
+            # A course may belong to more than one selected program.
             for info in course.program_info:
                 course_semesters.add(info.semester)
 
+            # Add the course to every matching semester group.
             for semester in course_semesters:
                 for key, group in grouped_exams.items():
                     period_semester, _ = key
@@ -108,6 +120,7 @@ class ExamScheduler:
                     if period_semester == semester:
                         group["courses"].append(course)
 
+        # Remove empty groups.
         grouped_exams = {
             key: group
             for key, group in grouped_exams.items()
@@ -129,11 +142,13 @@ class ExamScheduler:
                 same_program = first_info.program_id == second_info.program_id
                 same_year = first_info.year == second_info.year
 
+                # Two elective courses are allowed to overlap.
                 both_elective = (
                     first_info.requirement == "Elective"
                     and second_info.requirement == "Elective"
                 )
 
+                # A critical conflict exists only in the same program and year.
                 if same_program and same_year and not both_elective:
                     return True
 
@@ -146,6 +161,7 @@ class ExamScheduler:
         second_course: Course,
         second_date
     ) -> bool:
+        # Version 1.0 checks conflicts by date only, without exam hours.
         if first_date != second_date:
             return False
 
@@ -165,6 +181,7 @@ class ExamScheduler:
         valid_schedules = []
         current_scheduled_exams = []
 
+        # Build all valid combinations recursively.
         self._generate_schedule_combinations(
             courses,
             available_dates,
@@ -186,6 +203,7 @@ class ExamScheduler:
         current_scheduled_exams: List[ScheduledExam],
         valid_schedules: List[Schedule]
     ) -> None:
+        # All courses were scheduled, so save this schedule.
         if course_index == len(courses):
             valid_schedules.append(
                 Schedule(exams=current_scheduled_exams.copy())
@@ -195,6 +213,7 @@ class ExamScheduler:
         current_course = courses[course_index]
 
         for exam_date in available_dates:
+            # Add the exam only if it does not create a critical conflict.
             if self._can_add_exam_to_schedule(
                 current_course,
                 exam_date,
@@ -215,6 +234,7 @@ class ExamScheduler:
                     valid_schedules
                 )
 
+                # Backtrack and try the next possible date.
                 current_scheduled_exams.pop()
 
     def _can_add_exam_to_schedule(
@@ -244,6 +264,7 @@ class ExamScheduler:
             courses = group["courses"]
             available_dates = group["available_dates"]
 
+            # Generate schedules separately for each semester and moed.
             schedules_by_group[key] = self.generate_valid_schedules_for_group(
                 courses,
                 available_dates
