@@ -61,6 +61,23 @@ def run_manual_check():
                     f"Requirement: {info.requirement}"
                 )
 
+        print("\n--- Grouped Exams Test Results ---")
+
+        grouped_exams = scheduler.group_exams_by_semester_and_moed(
+            relevant_courses,
+            manager.get_exam_periods()
+        )
+
+        for key, group in grouped_exams.items():
+            semester, moed = key
+
+            print(f"\n{semester} - {moed}")
+            print(f"Available dates: {len(group['available_dates'])}")
+            print(f"Courses: {len(group['courses'])}")
+
+            for course in group["courses"]:
+                print(f"   {course.course_id} - {course.course_name}")
+
     except Exception as e:
         print(f"Error during manual check: {e}")
 
