@@ -154,6 +154,18 @@ def run_manual_check():
                         f"{scheduled_exam.exam_date}"
                     )
 
+        print("\n--- Scheduling Engine Public Interface Test Results ---")
+
+        generated_schedules = scheduler.generate_schedules(
+            manager.get_courses(),
+            manager.get_exam_periods(),
+            manager.get_selected_programs()
+        )
+
+        for key, schedules in generated_schedules.items():
+            semester, moed = key
+            print(f"{semester} - {moed}: {len(schedules)} schedules")
+
     except Exception as e:
         print(f"Error during manual check: {e}")
 

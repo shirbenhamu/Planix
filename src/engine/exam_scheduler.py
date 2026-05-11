@@ -6,6 +6,24 @@ from src.models.schedule import Schedule, ScheduledExam
 
 
 class ExamScheduler:
+    def generate_schedules(
+        self,
+        courses: List[Course],
+        exam_periods: List[ExamPeriod],
+        selected_programs: List[str]
+    ) -> Dict[Tuple[str, str], List[Schedule]]:
+        relevant_courses = self.filter_relevant_exam_courses(
+            courses,
+            selected_programs
+        )
+
+        grouped_exams = self.group_exams_by_semester_and_moed(
+            relevant_courses,
+            exam_periods
+        )
+
+        return self.generate_all_valid_exam_schedules(grouped_exams)
+
     def filter_relevant_exam_courses(
         self,
         courses: List[Course],
