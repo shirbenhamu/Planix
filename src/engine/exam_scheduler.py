@@ -38,19 +38,41 @@ class ExamScheduler:
 
         return relevant_courses
 
+    def generate_available_exam_dates(
+        self,
+        exam_periods: List[ExamPeriod]
+    ) -> Dict[Tuple[str, str], List[object]]:
+        available_dates_by_period = {}
+
+        for exam_period in exam_periods:
+            key = (exam_period.semester, exam_period.moed)
+            available_dates = exam_period.get_available_dates()
+
+            if available_dates:
+                available_dates_by_period[key] = available_dates
+
+        if not available_dates_by_period:
+            raise ValueError("No available exam dates found for scheduling.")
+
+        return available_dates_by_period
+
     def group_exams_by_semester_and_moed(
         self,
         courses: List[Course],
         exam_periods: List[ExamPeriod]
     ) -> Dict[Tuple[str, str], Dict[str, object]]:
+        available_dates_by_period = self.generate_available_exam_dates(exam_periods)
         grouped_exams = {}
 
         for exam_period in exam_periods:
             key = (exam_period.semester, exam_period.moed)
 
+            if key not in available_dates_by_period:
+                continue
+
             grouped_exams[key] = {
                 "exam_period": exam_period,
-                "available_dates": exam_period.get_available_dates(),
+                "available_dates": available_dates_by_period[key],
                 "courses": []
             }
 

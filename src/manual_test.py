@@ -61,6 +61,22 @@ def run_manual_check():
                     f"Requirement: {info.requirement}"
                 )
 
+        print("\n--- Available Exam Dates Test Results ---")
+
+        available_dates_by_period = scheduler.generate_available_exam_dates(
+            manager.get_exam_periods()
+        )
+
+        for key, available_dates in available_dates_by_period.items():
+            semester, moed = key
+
+            print(f"\n{semester} - {moed}")
+            print(f"Available dates: {len(available_dates)}")
+
+            if available_dates:
+                print(f"First date: {available_dates[0]}")
+                print(f"Last date: {available_dates[-1]}")
+
         print("\n--- Grouped Exams Test Results ---")
 
         grouped_exams = scheduler.group_exams_by_semester_and_moed(
