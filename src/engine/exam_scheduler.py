@@ -2,6 +2,7 @@ from typing import Dict, List, Tuple
 
 from src.models.course import Course
 from src.models.exam_period import ExamPeriod
+from src.models.schedule import Schedule, ScheduledExam
 
 
 class ExamScheduler:
@@ -131,3 +132,106 @@ class ExamScheduler:
             return False
 
         return self.has_critical_exam_conflict(first_course, second_course)
+
+    def generate_valid_schedules_for_group(
+        self,
+        courses: List[Course],
+        available_dates: List[object]
+    ) -> List[Schedule]:
+        if not courses:
+            raise ValueError("No courses provided for schedule generation.")
+
+        if not available_dates:
+            raise ValueError("No available dates provided for schedule generation.")
+
+        valid_schedules = []
+        current_scheduled_exams = []
+
+        self._generate_schedule_combinations(
+            courses,
+            available_dates,
+            0,
+            current_scheduled_exams,
+            valid_schedules
+        )
+
+        if not valid_schedules:
+            raise ValueError("No valid exam schedules found.")
+
+        return valid_schedules
+
+    def _generate_schedule_combinations(
+        self,
+        courses: List[Course],
+        available_dates: List[object],
+        course_index: int,
+        current_scheduled_exams: List[ScheduledExam],
+        valid_schedules: List[Schedule]
+    ) -> None:
+        if course_index == len(courses):
+            valid_schedules.append(
+                Schedule(exams=current_scheduled_exams.copy())
+            )
+            return
+
+        current_course = courses[course_index]
+
+        for exam_date in available_dates:
+            if self._can_add_exam_to_schedule(
+                current_course,
+                exam_date,
+                current_scheduled_exams
+            ):
+                current_scheduled_exams.append(
+                    ScheduledExam(
+                        course=current_course,
+                        exam_date=exam_date
+                    )
+                )
+
+                self._generate_schedule_combinations(
+                    courses,
+                    available_dates,
+                    course_index + 1,
+                    current_scheduled_exams,
+                    valid_schedules
+                )
+
+                current_scheduled_exams.pop()
+
+    def _can_add_exam_to_schedule(
+        self,
+        course: Course,
+        exam_date,
+        scheduled_exams: List[ScheduledExam]
+    ) -> bool:
+        for scheduled_exam in scheduled_exams:
+            if self.has_same_date_critical_conflict(
+                course,
+                exam_date,
+                scheduled_exam.course,
+                scheduled_exam.exam_date
+            ):
+                return False
+
+        return True
+
+    def generate_all_valid_exam_schedules(
+        self,
+        grouped_exams: Dict[Tuple[str, str], Dict[str, object]]
+    ) -> Dict[Tuple[str, str], List[Schedule]]:
+        schedules_by_group = {}
+
+        for key, group in grouped_exams.items():
+            courses = group["courses"]
+            available_dates = group["available_dates"]
+
+            schedules_by_group[key] = self.generate_valid_schedules_for_group(
+                courses,
+                available_dates
+            )
+
+        if not schedules_by_group:
+            raise ValueError("No valid schedules were generated.")
+
+        return schedules_by_group

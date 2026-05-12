@@ -131,6 +131,29 @@ def run_manual_check():
         else:
             print("Not enough relevant courses to test conflicts.")
 
+        print("\n--- Valid Exam Schedules Test Results ---")
+
+        schedules_by_group = scheduler.generate_all_valid_exam_schedules(
+            grouped_exams
+        )
+
+        for key, schedules in schedules_by_group.items():
+            semester, moed = key
+
+            print(f"\n{semester} - {moed}")
+            print(f"Valid schedules: {len(schedules)}")
+
+            if schedules:
+                first_schedule = schedules[0]
+                print("Sample schedule:")
+
+                for scheduled_exam in first_schedule.exams:
+                    print(
+                        f"   {scheduled_exam.course.course_id} - "
+                        f"{scheduled_exam.course.course_name} - "
+                        f"{scheduled_exam.exam_date}"
+                    )
+
     except Exception as e:
         print(f"Error during manual check: {e}")
 
