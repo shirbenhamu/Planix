@@ -94,6 +94,43 @@ def run_manual_check():
             for course in group["courses"]:
                 print(f"   {course.course_id} - {course.course_name}")
 
+        print("\n--- Critical Exam Conflict Test Results ---")
+
+        if len(relevant_courses) >= 2:
+            first_course = relevant_courses[0]
+            second_course = relevant_courses[1]
+
+            same_date = grouped_exams[("FALL", "Aleph")]["available_dates"][0]
+            different_date = grouped_exams[("FALL", "Aleph")]["available_dates"][1]
+
+            conflict_same_date = scheduler.has_same_date_critical_conflict(
+                first_course,
+                same_date,
+                second_course,
+                same_date
+            )
+
+            conflict_different_date = scheduler.has_same_date_critical_conflict(
+                first_course,
+                same_date,
+                second_course,
+                different_date
+            )
+
+            print(
+                f"Same date conflict between "
+                f"{first_course.course_name} and {second_course.course_name}: "
+                f"{conflict_same_date}"
+            )
+
+            print(
+                f"Different date conflict between "
+                f"{first_course.course_name} and {second_course.course_name}: "
+                f"{conflict_different_date}"
+            )
+        else:
+            print("Not enough relevant courses to test conflicts.")
+
     except Exception as e:
         print(f"Error during manual check: {e}")
 
