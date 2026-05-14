@@ -102,67 +102,28 @@ def run_manual_check():
             for course in group["courses"]:
                 print(f"   {course.course_id} - {course.course_name}")
 
-        print("\n--- Critical Exam Conflict Test Results ---")
-
-        # Check one valid and one invalid conflict case.
-        if len(relevant_courses) >= 2:
-            first_course = relevant_courses[0]
-            second_course = relevant_courses[1]
-
-            same_date = grouped_exams[("FALL", "Aleph")]["available_dates"][0]
-            different_date = grouped_exams[("FALL", "Aleph")]["available_dates"][1]
-
-            conflict_same_date = scheduler.has_same_date_critical_conflict(
-                first_course,
-                same_date,
-                second_course,
-                same_date
-            )
-
-            conflict_different_date = scheduler.has_same_date_critical_conflict(
-                first_course,
-                same_date,
-                second_course,
-                different_date
-            )
-
-            print(
-                f"Same date conflict between "
-                f"{first_course.course_name} and {second_course.course_name}: "
-                f"{conflict_same_date}"
-            )
-
-            print(
-                f"Different date conflict between "
-                f"{first_course.course_name} and {second_course.course_name}: "
-                f"{conflict_different_date}"
-            )
-        else:
-            print("Not enough relevant courses to test conflicts.")
-
         print("\n--- Valid Exam Schedules Test Results ---")
 
-        # Generate all valid schedules from the grouped data.
-        schedules_by_group = scheduler.generate_all_valid_exam_schedules(
-            grouped_exams
-        )
+        # Generate all valid schedules from the grouped data (Returns Generators!)
+        schedules_by_group = scheduler.generate_all_valid_exam_schedules(grouped_exams)
 
-        for key, schedules in schedules_by_group.items():
+        for key, schedules_generator in schedules_by_group.items():
             semester, moed = key
-
             print(f"\n{semester} - {moed}")
-            print(f"Valid schedules: {len(schedules)}")
 
-            if schedules:
-                first_schedule = schedules[0]
+            try:
+                # שולפים את השיבוץ הראשון כדי להדפיס דוגמה מבלי לרוץ על הכל
+                first_schedule = next(schedules_generator)
                 print("Sample schedule:")
-
                 for scheduled_exam in first_schedule.exams:
                     print(
                         f"   {scheduled_exam.course.course_id} - "
                         f"{scheduled_exam.course.course_name} - "
                         f"{scheduled_exam.exam_date}"
                     )
+                
+            except StopIteration:
+                print("No valid schedules found for this period.")
 
         print("\n--- Scheduling Engine Public Interface Test Results ---")
 
@@ -173,9 +134,12 @@ def run_manual_check():
             manager.get_selected_programs()
         )
 
-        for key, schedules in generated_schedules.items():
+        for key, schedule_generator in generated_schedules.items():
             semester, moed = key
-            print(f"{semester} - {moed}: {len(schedules)} schedules")
+            
+            # סופרים כמה תוצאות יש ב-Generator
+            count = sum(1 for _ in schedule_generator)
+            print(f"{semester} - {moed}: {count} schedules generated.")
 
     except Exception as e:
         print(f"Error during manual check: {e}")
