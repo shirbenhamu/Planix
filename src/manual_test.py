@@ -1,13 +1,13 @@
 import os
 
 from src.engine.exam_scheduler import ExamScheduler
-from src.parsers.text_file_parser import TextFileParser
+from src.parsers.parser_factory import ParserFactory
 from src.data_manager import DataManager
 
 
 def run_manual_check():
     # Create the main objects used for the manual test.
-    parser = TextFileParser()
+    parser = ParserFactory.create_parser("txt")
     manager = DataManager(parser)
     scheduler = ExamScheduler()
 
