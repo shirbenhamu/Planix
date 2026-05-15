@@ -1,8 +1,16 @@
 # Planix
-GitHub repository link: 
+
+GitHub repository: 
+
 https://github.com/shirbenhamu/Planix.git
-Jira Project Link:
+
+Jira Project Management:
+
 https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigin=eyJpIjoiNjYwMDQ0NDEyMjc5NDQwZTllNGM4ZmRhMmE4ZDc5ZmIiLCJwIjoiaiJ9
+
+UML Class diagram:
+
+https://lucid.app/lucidchart/5e0624da-5d3d-4cb0-92e7-47b7b6ca4a5f/edit?beaconFlowId=15FC1A3BBBF7DCDA&invitationId=inv_a936cf6e-3384-4679-9bd3-425eb9fd7ba1&page=0_0#
 
 ## Description
 
@@ -10,7 +18,7 @@ Planix is an exam scheduling system designed  to help students in the Faculty of
 
 Planix version 1.0 includes the base functionalities of the system and provides an automated solution for generating all possible exam schedule combinations without overlaps.
 
-Main Features:
+**Main Features:**
 
 Data Processing - The system reads and processes data from three different input files:
 A file containing all courses in the system
@@ -31,7 +39,7 @@ Moed A and Moed B exam sessions
 Exporting Results - 
 All generated schedules are exported into an external txt file in a clear and readable format.
 
-Technical Highlights:
+**Technical Highlights:**
 
 File-Based Architecture - The system is built around reading and processing structured data files as input.
 
@@ -48,6 +56,3 @@ Automated Combination Generation - The software systematically creates all possi
 ## Running example
 
 ![pic1](./proof/1.png)
-
-UML Class diagram:
-https://lucid.app/lucidchart/5e0624da-5d3d-4cb0-92e7-47b7b6ca4a5f/edit?beaconFlowId=15FC1A3BBBF7DCDA&invitationId=inv_a936cf6e-3384-4679-9bd3-425eb9fd7ba1&page=0_0#
