@@ -53,6 +53,6 @@ Automated Combination Generation - The software systematically creates all possi
 |`` |Run the system |
 |`` |Run the tests |
 
-## Running example
+## Running Example
 
 ![pic1](./proof/1.png)
