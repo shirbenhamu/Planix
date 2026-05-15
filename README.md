@@ -1,5 +1,7 @@
 # Planix
+GitHub repository link: 
 https://github.com/shirbenhamu/Planix.git
+Jira Project Link:
 https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigin=eyJpIjoiNjYwMDQ0NDEyMjc5NDQwZTllNGM4ZmRhMmE4ZDc5ZmIiLCJwIjoiaiJ9
 
 ## Description
