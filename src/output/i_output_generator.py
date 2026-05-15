@@ -8,11 +8,12 @@ Abstract method to write generated schedules to a destination.
 :param output_file_path: Target path for the output file.
 """
 
+
 class IOutputGenerator(ABC):
     @abstractmethod
     def write_schedules(
-        self, 
-        schedules_generators: Dict[Tuple[str, str], Iterator[Schedule]], 
+        self,
+        schedules_generators: Dict[Tuple[str, str], Iterator[Schedule]],
         output_file_path: str
     ) -> None:
         pass
