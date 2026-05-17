@@ -58,3 +58,15 @@ Automated Combination Generation - The software systematically creates all possi
 ## Running Example
 
 ![pic1](./proof/1.png)
+
+
+
+## Testing Framework
+
+The architecture includes a comprehensive testing suite designed to validate individual component state machines and end-to-end integration boundaries. The suite consists of **31 test cases** built entirely on top of the `pytest` framework.
+
+### Running All 31 Tests at Once
+The project includes a root-level configuration file (`pytest.ini`) that points directly to the active test directories. To execute the entire test suite simultaneously from the root directory (`Planix`), open your terminal and run:
+
+```bash
+python -m pytest -v
