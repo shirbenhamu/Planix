@@ -1,5 +1,7 @@
 # Planix
 
+<img src="./images/logo.png" width="300">
+
 GitHub repository: 
 
 https://github.com/shirbenhamu/Planix.git
