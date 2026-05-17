@@ -53,7 +53,7 @@ Automated Combination Generation - The software systematically creates all possi
 | Command | Description | 
 |---|---|
 |`` |Run the system |
-|`` |Run the tests |
+|`python -m pytest -v` |Run the tests |
 
 ## Running Example
 
