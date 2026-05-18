@@ -53,7 +53,7 @@ class TextFileParser(BaseParser):
         records = self.extract_records(file_path)
         courses = []
 
-        VALID_EVALUATION_METHODS = ['Exam', 'Project']
+        VALID_EVALUATION_METHODS = ['Exam', 'Project', 'Attendance']
         VALID_SEMESTERS = ['FALL', 'SPRI', 'SUMM']
         VALID_REQUIREMENTS = ['Mandatory', 'Elective', 'Obligatory']
 
