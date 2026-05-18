@@ -196,7 +196,7 @@ def test_generate_schedules_allows_same_day_for_electives(monkeypatch):
 
 
     # =========================================================================
-# בדיקות מקרי קצה עבור תאריכים מוחרגים (Excluded Dates Edge Cases)
+# exclude edge cases related to date exclusions and scheduling constraints
 # =========================================================================
 
 def test_generate_schedules_total_blockout_raises_value_error():
