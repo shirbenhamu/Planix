@@ -5,7 +5,7 @@ from typing import Dict, Tuple, Iterator, List
 from src.output.i_output_generator import IOutputGenerator
 from src.models.schedule import Schedule
 
-DEFAULT_MAX_RUNTIME_SECONDS = 30
+DEFAULT_MAX_RUNTIME_SECONDS = 29
 MAX_PER_PERIOD = 2000
 
 """
