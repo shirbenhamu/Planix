@@ -6,6 +6,7 @@ from src.engine.exam_scheduler import ExamScheduler
 from src.output.file_output_writer import FileOutputWriter
 from src.parsers.parser_factory import ParserFactory
 
+
 def main():
     print("Planix Exam Scheduler - Initializing...")
     start_time = time.time()
