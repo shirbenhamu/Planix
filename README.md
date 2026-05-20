@@ -68,7 +68,7 @@ Automated Combination Generation - The software systematically creates all possi
 **Running the tests**
 
 ![pic1](./images/runningTests.png)
-![pic1](./images/testsResult.png)
+![pic1](./images/resultTests.png)
 
 ## Testing Framework
 
