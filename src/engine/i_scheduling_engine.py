@@ -6,7 +6,7 @@ from typing import List, Dict, Tuple, Iterator
 from src.models.course import Course
 from src.models.schedule import Schedule
 from src.models.exam_period import ExamPeriod
-
+ 
 class ISchedulingEngine(ABC):
     @abstractmethod
     def generate_schedules(
