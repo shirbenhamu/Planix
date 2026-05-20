@@ -3,8 +3,9 @@ from typing import Dict, List, Tuple, Iterator, Set
 from src.models.course import Course
 from src.models.exam_period import ExamPeriod
 from src.models.schedule import Schedule, ScheduledExam
-
-class ExamScheduler:
+from src.engine.i_scheduling_engine import ISchedulingEngine
+ 
+class ExamScheduler(ISchedulingEngine):
     def generate_schedules(
         self,
         courses: List[Course],
