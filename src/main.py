@@ -4,13 +4,15 @@ from src.parsers.text_file_parser import TextFileParser
 from src.data_manager import DataManager
 from src.engine.exam_scheduler import ExamScheduler
 from src.output.file_output_writer import FileOutputWriter
+from src.parsers.parser_factory import ParserFactory
+
 
 def main():
     print("Planix Exam Scheduler - Initializing...")
     start_time = time.time()
 
     # Initialize core components
-    parser = TextFileParser()
+    parser = ParserFactory.create_parser("txt")
     manager = DataManager(parser)
     scheduler = ExamScheduler()
     writer = FileOutputWriter()
