@@ -52,14 +52,23 @@ Automated Combination Generation - The software systematically creates all possi
 ## Launching
 | Command | Description | 
 |---|---|
-|`` |Run the system |
-|`python -m pytest -v` |Run the tests |
+|`python -m src.main` |Run the system|
+|`python -m pytest -v` |Run the tests|
 
 ## Running Example
 
-![pic1](./proof/1.png)
+**Running the system**
 
+![pic1](./images/runningSystem.png)
 
+**Output file**
+
+![pic1](./images/output.png)
+
+**Running the tests**
+
+![pic1](./images/runningTests.png)
+![pic1](./images/testsResult.png)
 
 ## Testing Framework
 
