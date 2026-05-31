@@ -1,8 +1,25 @@
 import customtkinter as ctk
 import sys
 import os
+import ctypes
+from PIL import Image 
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(BASE_DIR)
+
+def load_custom_fonts():
+    if os.name == 'nt': 
+        fonts_dir = os.path.join(BASE_DIR, 'assets', 'fonts')
+        if not os.path.exists(fonts_dir):
+            print(f"Fonts directory not found at {fonts_dir}")
+            return
+        for font_file in os.listdir(fonts_dir):
+            if font_file.endswith(".ttf") or font_file.endswith(".otf"):
+                font_path = os.path.join(fonts_dir, font_file)
+                ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10 | 0x20, 0)
+
+load_custom_fonts()
+
 from src.ui.views.input_view import InputConfigurationView
 from src.ui.views.calendar_view import CalendarGridView 
 
@@ -10,142 +27,176 @@ class AppWindow(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("Planix 2.0")
-        self.geometry("1000x750") 
+        self.title("Planix")
+        self.geometry("1400x800") 
         
         ctk.set_appearance_mode("Dark") 
         ctk.set_default_color_theme("blue")
         
-        self.top_bar = ctk.CTkFrame(self, height=40, fg_color="transparent")
-        self.top_bar.pack(fill="x", padx=20, pady=10)
+        self.f_logo = ctk.CTkFont(family="Bruno Ace SC", size=22, weight="bold")
+        self.f_nav = ctk.CTkFont(family="Rubik", size=16, weight="bold")
+        self.f_switch = ctk.CTkFont(family="Rubik", size=14, weight="bold")
+
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container.pack(fill="both", expand=True)
         
-        self.lang_var = ctk.StringVar(value="he")
-        self.lang_switch = ctk.CTkSwitch(
-            self.top_bar, text="English", command=self._toggle_language,
-            variable=self.lang_var, onvalue="en", offvalue="he", font=("Arial", 14, "bold")
+        self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.content_frame.pack(fill="both", expand=True)
+
+        self.sidebar_visible = False
+        self.sidebar_width = 240
+        self.sidebar_frame = ctk.CTkFrame(self.main_container, width=self.sidebar_width, corner_radius=0, border_width=1)
+        
+        self.sidebar_title = ctk.CTkLabel(self.sidebar_frame, text="Planix", font=self.f_logo, text_color="#3b8ed0")
+        self.sidebar_title.pack(pady=(25, 20), padx=20)
+
+        self.nav_menu_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        self.nav_menu_frame.pack(fill="x", pady=10)
+        
+        self.btn_load_data = ctk.CTkButton(
+            self.nav_menu_frame, text="טעינת נתונים", font=self.f_nav, anchor="w", 
+            fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+            command=lambda: self._switch_view("input")
         )
-        self.lang_switch.pack(side="left")
+        self.btn_load_data.pack(fill="x", padx=10, pady=5)
+        
+        self.btn_calendar = ctk.CTkButton(
+            self.nav_menu_frame, text="לוח מבחנים שנתי", font=self.f_nav, anchor="w", 
+            fg_color="#3b8ed0", text_color="white", hover_color="#2a6d9e",
+            command=lambda: self._switch_view("calendar")
+        )
+        self.btn_calendar.pack(fill="x", padx=10, pady=5)
+
+        self.bottom_sidebar_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        self.bottom_sidebar_frame.pack(side="bottom", fill="x", pady=20)
+
+        try:
+            logo_path = os.path.join(BASE_DIR, "assets", "logo.png")
+            if os.path.exists(logo_path):
+                my_logo = ctk.CTkImage(light_image=Image.open(logo_path), dark_image=Image.open(logo_path), size=(130, 130))
+                self.logo_label = ctk.CTkLabel(self.bottom_sidebar_frame, image=my_logo, text="")
+                self.logo_label.pack(pady=(0, 20))
+        except Exception as e:
+            print(f"No logo found or error loading logo: {e}")
 
         self.theme_var = ctk.StringVar(value="Dark")
         self.theme_switch = ctk.CTkSwitch(
-            self.top_bar, text="מצב יום", command=self._toggle_theme,
-            variable=self.theme_var, onvalue="Light", offvalue="Dark", font=("Arial", 14, "bold")
+            self.bottom_sidebar_frame, text="מצב יום", command=self._toggle_theme,
+            variable=self.theme_var, onvalue="Light", offvalue="Dark", font=self.f_switch
         )
-        self.theme_switch.pack(side="right")
+        self.theme_switch.pack(pady=10, padx=20, anchor="w")
 
-        self.tabview = ctk.CTkTabview(self)
-        self.tabview.pack(fill="both", expand=True, padx=20, pady=10)
+        self.lang_var = ctk.StringVar(value="he")
+        self.lang_switch = ctk.CTkSwitch(
+            self.bottom_sidebar_frame, text="English", command=self._toggle_language,
+            variable=self.lang_var, onvalue="en", offvalue="he", font=self.f_switch
+        )
+        self.lang_switch.pack(pady=10, padx=20, anchor="w")
+
+        self.bind("<Motion>", self._check_hover_close) 
+
+        self.views_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.views_container.pack(fill="both", expand=True, padx=0, pady=0)
+
+        self.input_view = InputConfigurationView(self.views_container)
+        self.calendar_view = CalendarGridView(self.views_container)
         
-        # תוקן סדר המילים בטאבים!
-        self.tab_input_name = "נתונים טעינתו קלט הגדרות"
-        self.tab_calendar_name = "(פלט) מבחנים לוח"
+        self.calendar_view.hamburger_btn.bind("<Enter>", self._open_sidebar)
+        self.input_view.hamburger_btn.bind("<Enter>", self._open_sidebar)
+
+        self.calendar_view.init_grid([]) 
+        self.input_view.display_programs_list({})
         
-        self.tabview.add(self.tab_input_name)
-        self.tabview.add(self.tab_calendar_name)
-
-        self.input_view = InputConfigurationView(self.tabview.tab(self.tab_input_name))
-        self.input_view.pack(fill="both", expand=True)
-
-        self.calendar_view = CalendarGridView(self.tabview.tab(self.tab_calendar_name))
-        self.calendar_view.pack(fill="both", expand=True)
-
-        self.tabview.set(self.tab_calendar_name)
-
-        # ==========================================
-        # הזרקת נתוני דמה לבדיקה בלבד
-        # ==========================================
-        dummy_programs = {
-            "83101": "הנדסת מחשבים" if self.lang_var.get() == "he" else "Computer Engineering",
-            "83102": "הנדסת חשמל" if self.lang_var.get() == "he" else "Electrical Engineering"
-        }
-        self.input_view.display_programs_list(dummy_programs)
-        
-        self.dummy_calendar_data = {
-            "1-2": {"day_text": "1", "exams": [{"name": "מבני נתונים", "course_id": "83104", "type": "חובה"}]},
-            "1-3": {"day_text": "2"},
-            "1-4": {"day_text": "3"},
-            "1-5": {"day_text": "4", "is_excluded": True}, 
-            "1-6": {"day_text": "5", "is_excluded": True}, 
+        def mock_load_programs(file_path):
+            dummy_programs = {
+                "83101": "הנדסת מחשבים" if self.lang_var.get() == "he" else "Computer Engineering",
+                "83102": "הנדסת חשמל" if self.lang_var.get() == "he" else "Electrical Engineering",
+                "83200": "הנדסת תוכנה" if self.lang_var.get() == "he" else "Software Engineering"
+            }
+            self.input_view.display_programs_list(dummy_programs)
             
-            "2-0": {"day_text": "6", "exams": [
-                {"name": "אלגוריתמים", "course_id": "83105", "type": "חובה"},
-                {"name": "הסתברות", "course_id": "83106", "type": "בחירה"} 
-            ]},
-            "2-1": {"day_text": "7"},
-            "2-2": {"day_text": "8", "exams": [{"name": "מערכות הפעלה", "course_id": "83107", "type": "חובה"}]},
-            "2-3": {"day_text": "9"},
-            "2-4": {"day_text": "10", "is_excluded": True}, 
-            "2-5": {"day_text": "11", "is_excluded": True},
-            "2-6": {"day_text": "12", "is_excluded": True},
-            
-            "3-0": {"day_text": "13"},
-            "3-1": {"day_text": "14", "exams": [{"name": "מבוא ל-AI", "course_id": "83110", "type": "בחירה"}]},
-        }
-        
-        self.calendar_view.render_calendar_data(self.dummy_calendar_data)
+        self.input_view.on_load_programs = mock_load_programs
 
-        # ==========================================
-        # לוגיקת פריזנטר "מדומה" לבדיקת הממשק
-        # ==========================================
-        
+        def mock_program_selected(prog_id):
+            if prog_id == "83101":
+                courses = [
+                    {"name": "מבני נתונים", "id": "83104", "year": "א", "semester": "ב", "is_mandatory": True},
+                    {"name": "מערכות הפעלה", "id": "83107", "year": "ב", "semester": "א", "is_mandatory": True}
+                ]
+            else:
+                courses = [{"name": "הסתברות", "id": "83106", "year": "ב", "semester": "ב", "is_mandatory": False}]
+            self.input_view.display_program_courses(courses)
+            
+        self.input_view.on_program_selected = mock_program_selected
+
+        def mock_load_data(file_path):
+            month_indices = [1, 2, 5, 6, 7, 8] 
+            self.calendar_view.init_grid(month_indices) 
+            
+            dummy_data = {}
+            for row in range(len(month_indices)):
+                for col in range(31):
+                    dummy_data[f"{row+1}-{col}"] = {"day_text": str(col + 1)}
+
+            dummy_data["1-14"]["exams"] = [{"short_name": "אלג", "course_id": "83105", "type": "ח", "program": "חשמל"}]
+            dummy_data["1-18"]["exams"] = [{"short_name": "הסת", "course_id": "83106", "type": "ב", "program": "תוכנ"}]
+            self.calendar_view.render_calendar_data(dummy_data)
+            self._switch_view("calendar")
+            
+        self.input_view.on_load_dates = mock_load_data
+        self.input_view.on_load_courses = mock_load_data
+
         def mock_exclude_handler(cell_key):
             if cell_key in self.dummy_calendar_data:
                 current_status = self.dummy_calendar_data[cell_key].get("is_excluded", False)
                 self.dummy_calendar_data[cell_key]["is_excluded"] = not current_status
             else:
                 self.dummy_calendar_data[cell_key] = {"is_excluded": True}
-            self.calendar_view.render_calendar_data(self.dummy_calendar_data)
+            self.calendar_view.update_single_cell(cell_key, self.dummy_calendar_data[cell_key])
+            
         self.calendar_view.on_exclude_clicked = mock_exclude_handler
-
-        self.calendar_view.on_range_update_clicked = lambda s, e: print(f"Update Range: {s} - {e}")
-        self.calendar_view.on_filter_clicked = lambda: print("Filter Dialog Triggered")
-
-        # --- לוגיקת ניווט מדומה חיה ---
+        self.calendar_view.on_export_clicked = lambda p: print(f"File saved: {p}")
+        
         self.current_mock_page = 1
-        self.total_mock_pages = 45
+        self.total_mock_pages = 100
         self.calendar_view.update_pagination(self.current_mock_page, self.total_mock_pages)
 
-        def mock_next():
-            if self.current_mock_page < self.total_mock_pages:
-                self.current_mock_page += 1
-                self.calendar_view.update_pagination(self.current_mock_page, self.total_mock_pages)
-                
-        def mock_prev():
-            if self.current_mock_page > 1:
-                self.current_mock_page -= 1
-                self.calendar_view.update_pagination(self.current_mock_page, self.total_mock_pages)
+        self._switch_view("calendar") 
 
-        def mock_page_jump(page_num):
-            if 1 <= page_num <= self.total_mock_pages:
-                self.current_mock_page = page_num
-                self.calendar_view.update_pagination(self.current_mock_page, self.total_mock_pages)
+    def _switch_view(self, view_name):
+        if view_name == "input":
+            self.calendar_view.pack_forget()
+            self.input_view.pack(fill="both", expand=True)
+            self.btn_load_data.configure(fg_color="#3b8ed0", text_color="white")
+            self.btn_calendar.configure(fg_color="transparent", text_color=("gray10", "gray90"))
+        else:
+            self.input_view.pack_forget()
+            self.calendar_view.pack(fill="both", expand=True)
+            self.btn_calendar.configure(fg_color="#3b8ed0", text_color="white")
+            self.btn_load_data.configure(fg_color="transparent", text_color=("gray10", "gray90"))
 
-        self.calendar_view.on_next_clicked = mock_next
-        self.calendar_view.on_prev_clicked = mock_prev
-        self.calendar_view.on_page_jump = mock_page_jump
+    def _open_sidebar(self, event=None):
+        if not self.sidebar_visible:
+            self.sidebar_frame.place(relx=0.0, rely=0.0, relheight=1.0, anchor="nw")
+            self.sidebar_frame.lift()
+            self.sidebar_visible = True
 
-        # --- ייצוא ושמירת קובץ אמיתית לבדיקה ---
-        def mock_export(file_path):
-            try:
-                # אשכרה מייצר קובץ כדי שתוכל לראות שזה עובד!
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write("Planix 2.0 Export Test\n")
-                    f.write(f"Exported schedule page: {self.current_mock_page}\n")
-                    f.write("This proves the UI properly passed the path to the Presenter!")
-                print(f"Success! File saved at: {file_path}")
-            except Exception as e:
-                print(f"Failed to save file: {e}")
-
-        self.calendar_view.on_export_clicked = mock_export
+    def _check_hover_close(self, event):
+        if not self.sidebar_visible: return
+        mouse_x_in_window = event.x_root - self.winfo_rootx()
+        if mouse_x_in_window > (self.sidebar_width + 10):
+            self.sidebar_frame.place_forget()
+            self.sidebar_visible = False
 
     def _toggle_language(self):
         new_lang = self.lang_var.get()
         self.lang_switch.configure(text="עברית" if new_lang == "en" else "English")
         self.theme_switch.configure(text="מצב יום" if self.theme_var.get() == "Dark" else "מצב לילה" if new_lang == "he" else "Light Mode" if self.theme_var.get() == "Dark" else "Dark Mode")
+        self.btn_load_data.configure(text="\u200Fטעינת נתונים\u200F" if new_lang == "he" else "Load Data")
+        self.btn_calendar.configure(text="\u200Fלוח מבחנים שנתי\u200F" if new_lang == "he" else "Annual Schedule")
         
         self.input_view.update_language(new_lang)
         self.calendar_view.update_language(new_lang)
-        self.calendar_view.render_calendar_data(self.dummy_calendar_data)
 
     def _toggle_theme(self):
         self._fade_out(1.0, 0.90, self._apply_theme_switch)
@@ -153,31 +204,27 @@ class AppWindow(ctk.CTk):
     def _apply_theme_switch(self):
         new_theme = self.theme_var.get()
         ctk.set_appearance_mode(new_theme)
-        
         is_hebrew = self.lang_var.get() == "he"
         if new_theme == "Light":
             self.theme_switch.configure(text="מצב לילה" if is_hebrew else "Dark Mode")
         else:
             self.theme_switch.configure(text="מצב יום" if is_hebrew else "Light Mode")
-            
         self.update_idletasks() 
         self._fade_in(0.90, 1.0)
 
     def _fade_out(self, current_alpha, target_alpha, callback):
         if current_alpha > target_alpha:
-            current_alpha -= 0.02 
+            current_alpha -= 0.05 
             self.attributes("-alpha", current_alpha)
             self.after(10, lambda: self._fade_out(current_alpha, target_alpha, callback)) 
-        else:
-            callback()
+        else: callback()
 
     def _fade_in(self, current_alpha, target_alpha):
         if current_alpha < target_alpha:
-            current_alpha += 0.02
+            current_alpha += 0.05
             self.attributes("-alpha", current_alpha)
             self.after(10, lambda: self._fade_in(current_alpha, target_alpha))
-        else:
-            self.attributes("-alpha", 1.0)
+        else: self.attributes("-alpha", 1.0)
 
 if __name__ == "__main__":
     app = AppWindow()
