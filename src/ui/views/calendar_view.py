@@ -1,20 +1,23 @@
 import customtkinter as ctk
 from tkinter import filedialog
-from typing import Callable, Dict
+from typing import Callable, Dict, List
 
 TRANSLATIONS = {
-    "title": {"he": "תצוגת לוח מבחנים", "en": "Exam Schedule View"},
-    "prev": {"he": "הקודם", "en": "Previous"},
-    "next": {"he": "הבא", "en": "Next"},
-    "exclude_btn": {"he": "תאריך החרג", "en": "Exclude Date"}, # יוצג כ- "החרג תאריך"
-    "export_btn": {"he": "לוח הורד", "en": "Download Schedule"}, # יוצג כ- "הורד לוח"
-    "start_date": {"he": "תאריך התחלה (DD/MM/YYYY)", "en": "Start Date (DD/MM/YYYY)"},
-    "end_date": {"he": "תאריך סיום (DD/MM/YYYY)", "en": "End Date (DD/MM/YYYY)"},
-    "update_range": {"he": "טווח עדכן", "en": "Update Range"}, 
-    "filter_btn": {"he": "מערכות ומיון סינון", "en": "Filter & Sort Schedules"}, 
+    "title": {"he": "שנת הלימודים תשפ\"ו", "en": "Academic Year 2026"},
+    "exclude_btn": {"he": "תאריך החרג", "en": "Exclude Date"},
+    "export_btn": {"he": "📥", "en": "📥"},
+    "start_date": {"he": "התחלה", "en": "Start"},
+    "end_date": {"he": "סיום", "en": "End"},
+    "update_range": {"he": "עדכן", "en": "Update"},
+    "filter_btn": {"he": "מערכות סינון", "en": "Filter & Sort"},
+    "empty_state": {"he": "יש לטעון קבצי נתונים (קורסים ותאריכים) כדי להציג את הלוח.", "en": "Please load data files (courses and dates) to view the schedule."},
     "days": {
-        "he": ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
-        "en": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        "he": ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"],
+        "en": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+    },
+    "months": {
+        "he": ["ינו", "פבר", "מרץ", "אפר", "מאי", "יונ", "יול", "אוג", "ספט", "אוק", "נוב", "דצמ"],
+        "en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     }
 }
 
@@ -27,7 +30,13 @@ class CalendarGridView(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.current_lang = "he"
         
-        # --- Callbacks ---
+        base_family = "Rubik"
+        self.f_title = ctk.CTkFont(family=base_family, size=16, weight="bold")
+        self.f_btn = ctk.CTkFont(family=base_family, size=12, weight="bold")
+        self.f_header = ctk.CTkFont(family=base_family, size=11, weight="bold")
+        self.f_card = ctk.CTkFont(family=base_family, size=9, weight="bold")
+        self.f_empty = ctk.CTkFont(family=base_family, size=18, weight="bold")
+
         self.on_next_clicked: Callable[[], None] = None
         self.on_prev_clicked: Callable[[], None] = None
         self.on_page_jump: Callable[[int], None] = None 
@@ -38,183 +47,186 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_filter_clicked: Callable[[], None] = None 
         
         self.day_headers = [] 
+        self.month_labels = []
         self.grid_cells = {}  
         self.selected_cell_key = None 
+        self.active_month_indices = []
         
         self._setup_ui()
+        self._setup_empty_state()
         self.update_language(self.current_lang)
+        self.show_empty_state() 
 
     def _setup_ui(self):
-        self.controls_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.controls_frame.pack(fill="x", pady=(10, 0), padx=20)
+        self.toolbar_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.toolbar_frame.pack(fill="x", pady=(5, 5), padx=5)
         
-        self.title_label = ctk.CTkLabel(self.controls_frame, text="", font=("Arial", 20, "bold"))
-        self.title_label.pack(side="right", padx=10)
+        self.hamburger_btn = ctk.CTkLabel(self.toolbar_frame, text="☰", font=("Arial", 22), cursor="hand2")
+        self.hamburger_btn.pack(side="left", padx=(5, 10))
         
-        self.export_btn = ctk.CTkButton(self.controls_frame, text="", fg_color="#28a745", hover_color="#218838", command=self._handle_export)
-        self.export_btn.pack(side="right", padx=10)
+        self.schedule_title = ctk.CTkLabel(self.toolbar_frame, text="", font=self.f_title, text_color="#3b8ed0")
+        self.schedule_title.pack(side="left", padx=10)
         
-        self.exclude_btn = ctk.CTkButton(self.controls_frame, text="", fg_color="#b22222", hover_color="#8b0000", command=self._handle_exclude)
-        self.exclude_btn.pack(side="left", padx=20)
-
-        self.nav_frame = ctk.CTkFrame(self.controls_frame, fg_color="transparent")
-        self.nav_frame.pack(side="left", padx=10)
-        
-        self.next_btn = ctk.CTkButton(self.nav_frame, text="", width=70, command=self._handle_next)
-        self.next_btn.pack(side="left", padx=5)
-        
-        self.page_frame = ctk.CTkFrame(self.nav_frame, fg_color="transparent")
-        self.page_frame.pack(side="left", padx=10)
-        
-        self.current_page_entry = ctk.CTkEntry(self.page_frame, width=45, justify="center")
-        self.current_page_entry.pack(side="left")
+        self.nav_frame = ctk.CTkFrame(self.toolbar_frame, fg_color="transparent")
+        self.nav_frame.pack(side="left", padx=15)
+        self.prev_btn = ctk.CTkButton(self.nav_frame, text="<", font=self.f_btn, width=30, height=26, command=self._handle_prev)
+        self.prev_btn.pack(side="left", padx=2)
+        self.current_page_entry = ctk.CTkEntry(self.nav_frame, width=35, height=26, justify="center", font=self.f_btn)
+        self.current_page_entry.pack(side="left", padx=2)
         self.current_page_entry.bind("<Return>", self._handle_page_jump) 
-        
-        self.total_pages_label = ctk.CTkLabel(self.page_frame, text=" / 1", font=("Arial", 16, "bold"))
-        self.total_pages_label.pack(side="left", padx=(5, 0))
-        
-        self.prev_btn = ctk.CTkButton(self.nav_frame, text="", width=70, command=self._handle_prev)
-        self.prev_btn.pack(side="left", padx=5)
+        self.total_pages_label = ctk.CTkLabel(self.nav_frame, text="/ 1", font=self.f_btn)
+        self.total_pages_label.pack(side="left", padx=2)
+        self.next_btn = ctk.CTkButton(self.nav_frame, text=">", font=self.f_btn, width=30, height=26, command=self._handle_next)
+        self.next_btn.pack(side="left", padx=2)
 
-        self.tools_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.tools_frame.pack(fill="x", pady=5, padx=20)
+        self.range_frame = ctk.CTkFrame(self.toolbar_frame, fg_color="transparent")
+        self.range_frame.pack(side="left", padx=15)
+        self.start_entry = ctk.CTkEntry(self.range_frame, width=70, height=26, font=self.f_btn)
+        self.start_entry.pack(side="left", padx=2)
+        self.end_entry = ctk.CTkEntry(self.range_frame, width=70, height=26, font=self.f_btn)
+        self.end_entry.pack(side="left", padx=2)
+        self.update_range_btn = ctk.CTkButton(self.range_frame, text="", font=self.f_btn, width=50, height=26, command=self._handle_update_range)
+        self.update_range_btn.pack(side="left", padx=2)
 
-        self.filter_btn = ctk.CTkButton(self.tools_frame, text="", fg_color="#4B0082", hover_color="#300052", command=self._handle_filter)
-        self.range_frame = ctk.CTkFrame(self.tools_frame, fg_color="transparent")
-        
-        self.start_entry = ctk.CTkEntry(self.range_frame, width=170)
-        self.end_entry = ctk.CTkEntry(self.range_frame, width=170)
-        self.update_range_btn = ctk.CTkButton(self.range_frame, text="", width=100, command=self._handle_update_range)
+        self.export_btn = ctk.CTkButton(self.toolbar_frame, text="📥", fg_color="#28a745", hover_color="#218838", font=("Arial", 16), height=26, width=35, command=self._handle_export)
+        self.export_btn.pack(side="right", padx=5)
+        self.exclude_btn = ctk.CTkButton(self.toolbar_frame, text="", font=self.f_btn, fg_color="#b22222", hover_color="#8b0000", height=26, width=80, command=self._handle_exclude)
+        self.exclude_btn.pack(side="right", padx=5)
+        self.filter_btn = ctk.CTkButton(self.toolbar_frame, text="", font=self.f_btn, fg_color="#4B0082", hover_color="#300052", height=26, width=90, command=self._handle_filter)
+        self.filter_btn.pack(side="right", padx=5)
 
         self.grid_frame = ctk.CTkFrame(self)
-        self.grid_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        for i in range(7):
+
+    def _setup_empty_state(self):
+        self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.empty_icon = ctk.CTkLabel(self.empty_state_frame, text="📁", font=("Arial", 60))
+        self.empty_icon.pack(pady=(50, 10))
+        self.empty_text = ctk.CTkLabel(self.empty_state_frame, text="", font=self.f_empty, text_color="gray50")
+        self.empty_text.pack()
+
+    def show_empty_state(self):
+        self.grid_frame.pack_forget()
+        self.empty_state_frame.pack(fill="both", expand=True)
+
+    def hide_empty_state(self):
+        self.empty_state_frame.pack_forget()
+        self.grid_frame.pack(fill="both", expand=True, padx=10, pady=(2, 10))
+
+    def init_grid(self, month_indices: List[int]):
+        if not month_indices:
+            self.show_empty_state()
+            return
+            
+        self.hide_empty_state()
+        self.active_month_indices = month_indices
+        for widget in self.grid_frame.winfo_children(): widget.destroy()
+        self.day_headers.clear()
+        self.month_labels.clear()
+        self.grid_cells.clear()
+
+        for i in range(31):
             self.grid_frame.grid_columnconfigure(i, weight=1)
-            
-        for i in range(7):
-            lbl = ctk.CTkLabel(self.grid_frame, text="", font=("Arial", 14, "bold"), fg_color=("gray80", "gray30"), corner_radius=5)
+        self.grid_frame.grid_columnconfigure(31, weight=0, minsize=40)
+        
+        self.grid_frame.grid_rowconfigure(0, minsize=25)
+        days = TRANSLATIONS["days"][self.current_lang]
+        for i in range(31):
+            day_text = days[i % 7]
+            text = f"\u200F{day_text}\u200F" if self.current_lang == "he" else day_text
+            lbl = ctk.CTkLabel(self.grid_frame, text=text, font=self.f_header, fg_color=("gray80", "gray30"), corner_radius=0)
+            lbl.grid(row=0, column=i, sticky="nsew", padx=1, pady=1)
             self.day_headers.append(lbl)
-            
-        for row in range(1, 6):
-            self.grid_frame.grid_rowconfigure(row, weight=1)
-            for col in range(7):
-                cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=("gray70", "gray40"), fg_color=("gray90", "gray20"))
-                self.grid_cells[f"{row}-{col}"] = cell
-                self._bind_cell_click(cell, f"{row}-{col}")
+
+        for row_idx, month_idx in enumerate(month_indices, start=1):
+            self.grid_frame.grid_rowconfigure(row_idx, weight=1) 
+            for col in range(31):
+                cell_key = f"{row_idx}-{col}"
+                cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=("gray70", "gray40"), fg_color=("gray90", "gray20"), corner_radius=0)
+                cell.grid(row=row_idx, column=col, sticky="nsew", padx=1, pady=1)
+                self.grid_cells[cell_key] = cell
+                self._bind_cell_click(cell, cell_key)
+                
+            m_text = TRANSLATIONS["months"][self.current_lang][month_idx]
+            display_m = f"\u200F{m_text}\u200F" if self.current_lang == "he" else m_text
+            m_lbl = ctk.CTkLabel(self.grid_frame, text=display_m, font=self.f_header)
+            m_lbl.grid(row=row_idx, column=31, sticky="nsew", padx=2)
+            self.month_labels.append(m_lbl)
 
     def _bind_cell_click(self, widget, cell_key):
         widget.bind("<Button-1>", lambda e: self._handle_cell_click(cell_key))
 
+    def update_single_cell(self, cell_key: str, cell_data: dict):
+        cell_frame = self.grid_cells.get(cell_key)
+        if not cell_frame: return
+        for widget in cell_frame.winfo_children(): widget.destroy()
+            
+        if cell_data.get("is_excluded", False):
+            cell_frame.configure(fg_color=("#ffcccc", "#4d0000")) 
+        else:
+            cell_frame.configure(fg_color=("gray90", "gray20"))
+            
+        date_num = cell_data.get("day_text", "")
+        if date_num:
+            anchor = "ne" if self.current_lang == "he" else "nw"
+            day_lbl = ctk.CTkLabel(cell_frame, text=date_num, font=self.f_card, text_color=("gray50", "gray60"))
+            day_lbl.pack(anchor=anchor, padx=2, pady=0) 
+        
+        for exam in cell_data.get("exams", []):
+            card_color = "#3b8ed0" if exam.get("type") == "ח" else "#2fa572" 
+            card = ctk.CTkFrame(cell_frame, fg_color=card_color, corner_radius=2)
+            card.pack(fill="both", expand=True, padx=1, pady=1)
+            self._bind_cell_click(card, cell_key)
+            
+            txt = f"{exam.get('short_name', '')}\n{exam.get('course_id', '')}\n{exam.get('type', '')}|{exam.get('program', '')}"
+            lbl = ctk.CTkLabel(card, text=txt, font=self.f_card, text_color="white", justify="center")
+            lbl.pack(padx=0, pady=0)
+            self._bind_cell_click(lbl, cell_key)
+            
+        if self.selected_cell_key == cell_key:
+            cell_frame.configure(border_color="#3b8ed0", border_width=2)
+
+    def render_calendar_data(self, grid_data: Dict[str, dict]):
+        if not grid_data:
+            self.show_empty_state()
+            return
+        self.hide_empty_state()
+        for cell_key in self.grid_cells.keys():
+            data = grid_data.get(cell_key, {})
+            self.update_single_cell(cell_key, data)
+
     def update_pagination(self, current_page: int, total_pages: int):
         self.current_page_entry.delete(0, "end")
         self.current_page_entry.insert(0, str(current_page))
-        self.total_pages_label.configure(text=f" / {total_pages}")
-
-    def render_calendar_data(self, grid_data: Dict[str, dict]):
-        for row in range(1, 6):
-            for col in range(7):
-                cell_key = f"{row}-{col}"
-                cell_frame = self.grid_cells[cell_key]
-                
-                for widget in cell_frame.winfo_children():
-                    widget.destroy()
-                
-                cell_data = grid_data.get(cell_key)
-                if not cell_data:
-                    cell_frame.configure(fg_color=("gray90", "gray20"))
-                    continue
-                
-                if cell_data.get("is_excluded", False):
-                    cell_frame.configure(fg_color=("#ffcccc", "#4d0000")) 
-                else:
-                    cell_frame.configure(fg_color=("gray90", "gray20"))
-                
-                anchor = "ne" if self.current_lang == "he" else "nw"
-                day_lbl = ctk.CTkLabel(cell_frame, text=cell_data.get("day_text", ""), font=("Arial", 12, "bold"))
-                day_lbl.pack(anchor=anchor, padx=5, pady=2)
-                self._bind_cell_click(day_lbl, cell_key) 
-                
-                for exam in cell_data.get("exams", []):
-                    card_color = "#3b8ed0" if exam.get("type") == "חובה" else "#2fa572" 
-                    card = ctk.CTkFrame(cell_frame, fg_color=card_color, corner_radius=4)
-                    card.pack(fill="x", padx=4, pady=2)
-                    self._bind_cell_click(card, cell_key)
-                    
-                    exam_name = exam.get('name', '')
-                    exam_id = exam.get('course_id', '')
-                    display_text = f"\u200F{exam_name}\u200F" if self.current_lang == "he" else exam_name
-                    
-                    name_lbl = ctk.CTkLabel(card, text=display_text, font=("Arial", 11, "bold"), text_color="white")
-                    name_lbl.pack(padx=2, pady=1)
-                    self._bind_cell_click(name_lbl, cell_key)
-                    
-                    id_lbl = ctk.CTkLabel(card, text=exam_id, font=("Arial", 10), text_color="white")
-                    id_lbl.pack(padx=2, pady=1)
-                    self._bind_cell_click(id_lbl, cell_key)
-                    
-        if self.selected_cell_key and self.selected_cell_key in self.grid_cells:
-            self.grid_cells[self.selected_cell_key].configure(border_color="#3b8ed0", border_width=3)
+        self.total_pages_label.configure(text=f"/ {total_pages}")
 
     def update_language(self, lang: str):
         self.current_lang = lang
-        self.title_label.configure(text=format_text("title", lang))
-        self.prev_btn.configure(text=format_text("prev", lang))
-        self.next_btn.configure(text=format_text("next", lang))
+
+        self.schedule_title.configure(text=format_text("title", lang))
         self.exclude_btn.configure(text=format_text("exclude_btn", lang))
         self.export_btn.configure(text=format_text("export_btn", lang))
-        
         self.filter_btn.configure(text=format_text("filter_btn", lang))
         self.update_range_btn.configure(text=format_text("update_range", lang))
         self.start_entry.configure(placeholder_text=format_text("start_date", lang))
         self.end_entry.configure(placeholder_text=format_text("end_date", lang))
-        
-        self.next_btn.pack_forget()
-        self.page_frame.pack_forget()
-        self.prev_btn.pack_forget()
-        
-        if lang == "he":
-            self.next_btn.pack(side="right", padx=5)
-            self.page_frame.pack(side="right", padx=10)
-            self.prev_btn.pack(side="right", padx=5)
-            
-            self.filter_btn.pack_forget()
-            self.range_frame.pack_forget()
-            self.filter_btn.pack(side="left", padx=10)
-            self.range_frame.pack(side="right", padx=10)
-            self.start_entry.pack(side="right", padx=5)
-            self.end_entry.pack(side="right", padx=5)
-            self.update_range_btn.pack(side="right", padx=5)
-        else:
-            self.next_btn.pack(side="left", padx=5)
-            self.page_frame.pack(side="left", padx=10)
-            self.prev_btn.pack(side="left", padx=5)
-            
-            self.filter_btn.pack_forget()
-            self.range_frame.pack_forget()
-            self.filter_btn.pack(side="right", padx=10)
-            self.range_frame.pack(side="left", padx=10)
-            self.start_entry.pack(side="left", padx=5)
-            self.end_entry.pack(side="left", padx=5)
-            self.update_range_btn.pack(side="left", padx=5)
+        self.empty_text.configure(text=format_text("empty_state", lang))
 
         days = TRANSLATIONS["days"][lang]
         for i, header in enumerate(self.day_headers):
-            display_col = 6 - i if lang == "he" else i
-            text = f"\u200F{days[i]}\u200F" if lang == "he" else days[i]
-            header.configure(text=text)
-            header.grid(row=0, column=display_col, sticky="nsew", padx=2, pady=2)
+            day_text = days[i % 7]
+            header.configure(text=f"\u200F{day_text}\u200F" if lang == "he" else day_text)
             
-        for row in range(1, 6):
-            for col in range(7):
-                display_col = 6 - col if lang == "he" else col
-                self.grid_cells[f"{row}-{col}"].grid(row=row, column=display_col, sticky="nsew", padx=2, pady=2)
-                
-                cell = self.grid_cells[f"{row}-{col}"]
-                if cell.winfo_children():
-                    day_lbl = cell.winfo_children()[0]
-                    if isinstance(day_lbl, ctk.CTkLabel):
-                        day_lbl.pack_configure(anchor="ne" if lang == "he" else "nw")
+        months = TRANSLATIONS["months"][lang]
+        for i, m_lbl in enumerate(self.month_labels):
+            if i < len(self.active_month_indices):
+                m_text = months[self.active_month_indices[i]]
+                m_lbl.configure(text=f"\u200F{m_text}\u200F" if lang == "he" else m_text)
+            
+        for cell_frame in self.grid_cells.values():
+            if cell_frame.winfo_children():
+                date_lbl = cell_frame.winfo_children()[0]
+                if isinstance(date_lbl, ctk.CTkLabel):
+                    date_lbl.pack_configure(anchor="ne" if lang == "he" else "nw")
 
     def _handle_next(self):
         if self.on_next_clicked: self.on_next_clicked()
@@ -225,8 +237,7 @@ class CalendarGridView(ctk.CTkFrame):
             try:
                 page = int(self.current_page_entry.get())
                 self.on_page_jump(page)
-            except ValueError:
-                pass 
+            except ValueError: pass 
     def _handle_export(self):
         file_path = filedialog.asksaveasfilename(
             defaultextension=".txt",
@@ -243,7 +254,7 @@ class CalendarGridView(ctk.CTkFrame):
             self.grid_cells[self.selected_cell_key].configure(border_color=("gray70", "gray40"), border_width=1)
         self.selected_cell_key = cell_key
         if self.selected_cell_key in self.grid_cells:
-            self.grid_cells[self.selected_cell_key].configure(border_color="#3b8ed0", border_width=3)
+            self.grid_cells[self.selected_cell_key].configure(border_color="#3b8ed0", border_width=2)
         if self.on_date_selected: 
             self.on_date_selected(cell_key)
     def _handle_update_range(self):

@@ -1,175 +1,179 @@
 import customtkinter as ctk
-from typing import Callable, Dict
+from tkinter import filedialog
+from typing import Callable, Dict, List
 
-# מילון התרגומים שלנו (קל לתחזוקה ולהוספת שפות בעתיד)
 TRANSLATIONS = {
-    "title": {"he": "הגדרות קלט וטעינת נתונים", "en": "Input Configuration & Data Loading"},
-    "load_courses": {"he": "טען קובץ קורסים", "en": "Load Courses File"},
-    "load_dates": {"he": "טען קובץ תאריכים", "en": "Load Dates File"},
-    "full_mode": {"he": "החלפת נתונים מלאה", "en": "Full Data Replacement"},
-    "inc_mode": {"he": "עדכון נתונים (הוספה)", "en": "Incremental Data Update"},
-    "programs_title": {"he": "בחר תוכניות לימוד (עד 5)", "en": "Select Study Programs (Max 5)"},
-    "details_title": {"he": "פרטי התוכנית", "en": "Program Details"},
-    "details_placeholder": {"he": "בחר תוכנית מהרשימה כדי לראות את הקורסים שלה כאן.", "en": "Select a program from the list to view its courses here."},
+    "title": {"he": "העלאת נתונים", "en": "Data Upload"},
+    "load_mode": {"he": "מצב טעינה", "en": "Load Mode"},
+    "mode_replace": {"he": "החלפה", "en": "Replace"},
+    "mode_append": {"he": "הוספה", "en": "Append"},
+    "mode_update": {"he": "עדכון", "en": "Update"},
+    "files_title": {"he": "קבצי נתונים", "en": "Data Files"},
+    "btn_load_courses": {"he": "טען קובץ קורסים", "en": "Load Courses"},
+    "btn_load_dates": {"he": "טען קובץ תאריכים", "en": "Load Dates"},
+    "btn_load_programs": {"he": "טען קובץ תוכניות", "en": "Load Programs"},
+    "programs_title": {"he": "בחירת תוכניות לימוד (עד 5)", "en": "Select Study Programs (Max 5)"},
+    "details_title": {"he": "פרטי תוכנית", "en": "Program Details"},
+    "no_selection": {"he": "בחר תוכנית מהרשימה כדי לראות את הקורסים שלה כאן.", "en": "Select a program from the list to view its courses here."},
+    "type_hova": {"he": "חובה", "en": "Mandatory"},
+    "type_bhira": {"he": "בחירה", "en": "Elective"}
 }
 
 def format_text(key: str, lang: str) -> str:
-    """שולף את הטקסט מהמילון, ומוסיף תו כיווניות רק אם השפה היא עברית"""
     text = TRANSLATIONS[key][lang]
-    if lang == "he":
-        return f"\u200F{text}\u200F"
-    return text
+    return f"\u200F{text}\u200F" if lang == "he" else text
 
 class InputConfigurationView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
+        self.current_lang = "he"
         
-        self.current_lang = "he" # שפת ברירת מחדל
+        base_family = "Rubik"
+        self.f_title = ctk.CTkFont(family=base_family, size=20, weight="bold")
+        self.f_header = ctk.CTkFont(family=base_family, size=16, weight="bold")
+        self.f_sub = ctk.CTkFont(family=base_family, size=14, weight="bold")
+        self.f_reg = ctk.CTkFont(family=base_family, size=14)
+        self.f_small = ctk.CTkFont(family=base_family, size=12)
+
+        self.on_program_selected: Callable[[str], None] = None
+        self.on_load_courses: Callable[[str], None] = None
+        self.on_load_dates: Callable[[str], None] = None
+        self.on_load_programs: Callable[[str], None] = None 
         
-        # --- Callbacks ---
-        self.on_load_courses_clicked: Callable[[], None] = None
-        self.on_load_dates_clicked: Callable[[], None] = None
-        self.on_upload_mode_changed: Callable[[str], None] = None
-        self.on_program_toggled: Callable[[str, bool], None] = None  
-        self.on_program_info_clicked: Callable[[str], None] = None   
-        
-        self.checkboxes = {} 
-        
+        self.checkboxes = []
         self._setup_ui()
-        self.update_language(self.current_lang) # טעינת הטקסטים בפעם הראשונה
+        self.update_language(self.current_lang)
 
     def _setup_ui(self):
-        # הרכיבים נוצרים ללא טקסט - הטקסט יוזרק מיד לאחר מכן
-        self.title_label = ctk.CTkLabel(self, text="", font=("Arial", 20, "bold"))
-        self.title_label.pack(pady=20)
+        self.toolbar_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.toolbar_frame.pack(fill="x", pady=(5, 0), padx=5)
+        self.hamburger_btn = ctk.CTkLabel(self.toolbar_frame, text="☰", font=("Arial", 22), cursor="hand2")
+        self.hamburger_btn.pack(side="left", padx=(5, 10))
 
-        self.files_frame = ctk.CTkFrame(self)
-        self.files_frame.pack(pady=10, padx=20, fill="x")
+        self.title_label = ctk.CTkLabel(self, text="", font=self.f_title, text_color="#3b8ed0")
+        self.title_label.pack(pady=(0, 20))
+
+        self.main_split = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_split.pack(fill="both", expand=True, padx=20, pady=10)
+        self.main_split.grid_columnconfigure(0, weight=2) 
+        self.main_split.grid_columnconfigure(1, weight=1) 
+        self.main_split.grid_rowconfigure(0, weight=1)
+
+        self.details_panel = ctk.CTkFrame(self.main_split)
+        self.details_panel.grid(row=0, column=0, sticky="nsew", padx=10)
+        self.details_title = ctk.CTkLabel(self.details_panel, text="", font=self.f_header)
+        self.details_title.pack(anchor="center", pady=(15, 10))
+        self.details_scroll = ctk.CTkScrollableFrame(self.details_panel, fg_color=("gray90", "gray20"))
+        self.details_scroll.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        self.empty_details_lbl = ctk.CTkLabel(self.details_scroll, text="", font=self.f_reg, text_color="gray50")
+        self.empty_details_lbl.pack(pady=40)
+
+        self.controls_panel = ctk.CTkFrame(self.main_split)
+        self.controls_panel.grid(row=0, column=1, sticky="nsew", padx=10)
         
-        self.courses_btn = ctk.CTkButton(self.files_frame, text="", command=self._handle_courses_click)
-        self.courses_btn.pack(side="right", padx=10, pady=10)
+        self.mode_frame = ctk.CTkFrame(self.controls_panel, fg_color=("gray85", "gray25"))
+        self.mode_frame.pack(fill="x", padx=15, pady=15)
+        self.mode_title = ctk.CTkLabel(self.mode_frame, text="", font=self.f_sub)
+        self.mode_title.pack(anchor="e", padx=10, pady=(10, 5))
         
-        self.dates_btn = ctk.CTkButton(self.files_frame, text="", command=self._handle_dates_click)
-        self.dates_btn.pack(side="right", padx=10, pady=10)
+        self.load_mode_var = ctk.StringVar(value="replace")
+        self.rb_replace = ctk.CTkRadioButton(self.mode_frame, text="", variable=self.load_mode_var, value="replace", font=self.f_reg)
+        self.rb_replace.pack(anchor="e", padx=20, pady=5)
+        self.rb_append = ctk.CTkRadioButton(self.mode_frame, text="", variable=self.load_mode_var, value="append", font=self.f_reg)
+        self.rb_append.pack(anchor="e", padx=20, pady=5)
+        self.rb_update = ctk.CTkRadioButton(self.mode_frame, text="", variable=self.load_mode_var, value="update", font=self.f_reg)
+        self.rb_update.pack(anchor="e", padx=20, pady=(5, 15))
 
-        self.mode_var = ctk.StringVar()
-        self.mode_menu = ctk.CTkOptionMenu(
-            self.files_frame, 
-            variable=self.mode_var,
-            values=[],
-            command=self._handle_mode_change
-        )
-        self.mode_menu.pack(side="left", padx=10, pady=10)
-
-        self.programs_main_frame = ctk.CTkFrame(self)
-        self.programs_main_frame.pack(pady=10, padx=20, fill="both", expand=True)
+        self.files_frame = ctk.CTkFrame(self.controls_panel, fg_color=("gray85", "gray25"))
+        self.files_frame.pack(fill="x", padx=15, pady=10)
+        self.files_title = ctk.CTkLabel(self.files_frame, text="", font=self.f_sub)
+        self.files_title.pack(anchor="e", padx=10, pady=(10, 5))
         
-        self.programs_main_frame.grid_columnconfigure(0, weight=2) 
-        self.programs_main_frame.grid_columnconfigure(1, weight=1) 
-        self.programs_main_frame.grid_rowconfigure(0, weight=1)
+        self.btn_courses = ctk.CTkButton(self.files_frame, text="", font=self.f_reg, command=self._handle_load_courses)
+        self.btn_courses.pack(fill="x", padx=20, pady=5)
+        self.btn_dates = ctk.CTkButton(self.files_frame, text="", font=self.f_reg, command=self._handle_load_dates)
+        self.btn_dates.pack(fill="x", padx=20, pady=5)
+        self.btn_programs = ctk.CTkButton(self.files_frame, text="", font=self.f_reg, command=self._handle_load_programs)
+        self.btn_programs.pack(fill="x", padx=20, pady=(5, 15))
 
-        self.programs_list_frame = ctk.CTkScrollableFrame(self.programs_main_frame, label_text="")
-        self.programs_list_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-
-        self.program_details_frame = ctk.CTkFrame(self.programs_main_frame)
-        self.program_details_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.programs_frame = ctk.CTkFrame(self.controls_panel, fg_color=("gray85", "gray25"))
+        self.programs_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        self.programs_title = ctk.CTkLabel(self.programs_frame, text="", font=self.f_sub)
+        self.programs_title.pack(anchor="e", padx=10, pady=(10, 5))
         
-        self.details_label = ctk.CTkLabel(self.program_details_frame, text="", font=("Arial", 16, "bold"))
-        self.details_label.pack(pady=10)
-        
-        self.details_textbox = ctk.CTkTextbox(self.program_details_frame, wrap="word", font=("Arial", 14))
-        self.details_textbox.pack(fill="both", expand=True, padx=10, pady=10)
-        self.details_textbox.configure(state="disabled")
+        self.programs_list_frame = ctk.CTkScrollableFrame(self.programs_frame, fg_color="transparent")
+        self.programs_list_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
-    # ==========================================
-    # Language Management
-    # ==========================================
-    
+    def _handle_load_courses(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        if file_path and self.on_load_courses: self.on_load_courses(file_path)
+
+    def _handle_load_dates(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        if file_path and self.on_load_dates: self.on_load_dates(file_path)
+
+    def _handle_load_programs(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        if file_path and self.on_load_programs: self.on_load_programs(file_path)
+
+    def display_programs_list(self, programs: Dict[str, str]):
+        for cb in self.checkboxes: cb.destroy()
+        self.checkboxes.clear()
+        anchor = "e" if self.current_lang == "he" else "w"
+        for prog_id, prog_name in programs.items():
+            display_text = f"\u200F{prog_name} ({prog_id})\u200F" if self.current_lang == "he" else f"{prog_name} ({prog_id})"
+            cb = ctk.CTkCheckBox(self.programs_list_frame, text=display_text, font=self.f_reg, command=lambda pid=prog_id: self._handle_program_click(pid))
+            cb.pack(anchor=anchor, pady=5, padx=10)
+            self.checkboxes.append(cb)
+
+    def _handle_program_click(self, prog_id):
+        if self.on_program_selected: self.on_program_selected(prog_id)
+
+    def display_program_courses(self, courses: List[dict]):
+        for widget in self.details_scroll.winfo_children(): widget.destroy()
+        if not courses:
+            self.empty_details_lbl = ctk.CTkLabel(self.details_scroll, text=format_text("no_selection", self.current_lang), font=self.f_reg, text_color="gray50")
+            self.empty_details_lbl.pack(pady=40)
+            return
+
+        anchor = "e" if self.current_lang == "he" else "w"
+        for course in courses:
+            card = ctk.CTkFrame(self.details_scroll, corner_radius=5, border_width=1, border_color=("gray70", "gray40"))
+            card.pack(fill="x", pady=5, padx=5)
+            c_name = course.get('name', '')
+            c_id = course.get('id', '')
+            c_type = format_text("type_hova" if course.get('is_mandatory') else "type_bhira", self.current_lang)
+            c_sem = course.get('semester', '')
+            c_year = course.get('year', '')
+            
+            title = f"\u200F{c_name} ({c_id})\u200F" if self.current_lang == "he" else f"{c_name} ({c_id})"
+            info = f"\u200Fשנה {c_year} | סמסטר {c_sem} | {c_type}\u200F" if self.current_lang == "he" else f"Year {c_year} | Sem {c_sem} | {c_type}"
+            
+            ctk.CTkLabel(card, text=title, font=self.f_sub).pack(anchor=anchor, padx=10, pady=(5, 0))
+            ctk.CTkLabel(card, text=info, font=self.f_small, text_color="gray60").pack(anchor=anchor, padx=10, pady=(0, 5))
+
     def update_language(self, lang: str):
-        """פונקציה ציבורית לעדכון שפת הממשק באופן מיידי"""
         self.current_lang = lang
         
-        # עדכון כותרות וכפתורים
         self.title_label.configure(text=format_text("title", lang))
-        self.courses_btn.configure(text=format_text("load_courses", lang))
-        self.dates_btn.configure(text=format_text("load_dates", lang))
-        
-        # עדכון תפריט גלילה
-        full_mode_text = format_text("full_mode", lang)
-        inc_mode_text = format_text("inc_mode", lang)
-        self.mode_menu.configure(values=[full_mode_text, inc_mode_text])
-        # שמירה על הבחירה הנוכחית בעת שינוי שפה
-        if self.mode_var.get() in [TRANSLATIONS["full_mode"]["he"], TRANSLATIONS["full_mode"]["en"]]:
-            self.mode_var.set(full_mode_text)
-        else:
-            self.mode_var.set(inc_mode_text)
-            
-        self.programs_list_frame.configure(label_text=format_text("programs_title", lang))
-        self.details_label.configure(text=format_text("details_title", lang))
-        
-        # עדכון טקסט הפלייסחולדר (רק אם המשתמש לא לחץ על תוכנית עדיין)
-        current_details = self.details_textbox.get("1.0", "end-1c").strip()
-        if current_details in [f"\u200F{TRANSLATIONS['details_placeholder']['he']}\u200F", TRANSLATIONS['details_placeholder']['en'], ""]:
-            self.details_textbox.configure(state="normal")
-            self.details_textbox.delete("1.0", "end")
-            self.details_textbox.insert("1.0", format_text("details_placeholder", lang))
-            self.details_textbox.configure(state="disabled")
+        self.mode_title.configure(text=format_text("load_mode", lang))
+        self.rb_replace.configure(text=format_text("mode_replace", lang))
+        self.rb_append.configure(text=format_text("mode_append", lang))
+        self.rb_update.configure(text=format_text("mode_update", lang))
+        self.files_title.configure(text=format_text("files_title", lang))
+        self.btn_courses.configure(text=format_text("btn_load_courses", lang))
+        self.btn_dates.configure(text=format_text("btn_load_dates", lang))
+        self.btn_programs.configure(text=format_text("btn_load_programs", lang))
+        self.programs_title.configure(text=format_text("programs_title", lang))
+        self.details_title.configure(text=format_text("details_title", lang))
+        if hasattr(self, 'empty_details_lbl') and self.empty_details_lbl.winfo_exists():
+            self.empty_details_lbl.configure(text=format_text("no_selection", lang))
 
-    # ==========================================
-    # Public Methods (API) - לפריזנטר
-    # ==========================================
-    
-    def display_programs_list(self, programs: Dict[str, str]):
-        for widget in self.programs_list_frame.winfo_children():
-            widget.destroy()
-        self.checkboxes.clear()
-        
-        for prog_id, prog_name in programs.items():
-            row_frame = ctk.CTkFrame(self.programs_list_frame, fg_color="transparent")
-            row_frame.pack(fill="x", pady=2)
-            
-            var = ctk.BooleanVar()
-            # מחיל את הכיווניות רק אם המערכת כרגע בעברית
-            display_text = f"\u200F{prog_name} ({prog_id})\u200F" if self.current_lang == "he" else f"{prog_name} ({prog_id})"
-            
-            cb = ctk.CTkCheckBox(
-                row_frame, 
-                text=display_text, 
-                variable=var,
-                command=lambda pid=prog_id, v=var: self._handle_program_toggle(pid, v.get())
-            )
-            cb.pack(side="right", padx=5)
-            self.checkboxes[prog_id] = cb
-
-            info_btn = ctk.CTkButton(
-                row_frame, text="ℹ️", width=30, fg_color="gray",
-                command=lambda pid=prog_id: self._handle_program_info_click(pid)
-            )
-            info_btn.pack(side="left", padx=5)
-
-    def display_program_details(self, details_text: str):
-        self.details_textbox.configure(state="normal")
-        self.details_textbox.delete("1.0", "end")
-        
-        if self.current_lang == "he":
-            formatted_lines = [f"\u200F{line}\u200F" for line in details_text.split("\n")]
-            formatted_text = "\n".join(formatted_lines)
-        else:
-            formatted_text = details_text
-            
-        self.details_textbox.insert("1.0", formatted_text)
-        self.details_textbox.configure(state="disabled")
-
-    # ==========================================
-    # Internal Event Handlers
-    # ==========================================
-    def _handle_courses_click(self):
-        if self.on_load_courses_clicked: self.on_load_courses_clicked()
-    def _handle_dates_click(self):
-        if self.on_load_dates_clicked: self.on_load_dates_clicked()
-    def _handle_mode_change(self, new_mode: str):
-        if self.on_upload_mode_changed: self.on_upload_mode_changed(new_mode)
-    def _handle_program_toggle(self, prog_id: str, is_selected: bool):
-        if self.on_program_toggled: self.on_program_toggled(prog_id, is_selected)
-    def _handle_program_info_click(self, prog_id: str):
-        if self.on_program_info_clicked: self.on_program_info_clicked(prog_id)
+        anchor = "e" if lang == "he" else "w"
+        self.mode_title.pack_configure(anchor=anchor)
+        self.rb_replace.pack_configure(anchor=anchor)
+        self.rb_append.pack_configure(anchor=anchor)
+        self.rb_update.pack_configure(anchor=anchor)
+        self.files_title.pack_configure(anchor=anchor)
+        self.programs_title.pack_configure(anchor=anchor)
+        for cb in self.checkboxes: cb.pack_configure(anchor=anchor)
