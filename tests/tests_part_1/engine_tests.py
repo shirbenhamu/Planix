@@ -2,9 +2,9 @@ import pytest
 from datetime import date
 
 from src.engine.exam_scheduler import ExamScheduler
-from src.models.course import Course, ProgramCourseInfo
-from src.models.exam_period import ExamPeriod, ExcludedDate
-from src.models.schedule import Schedule, ScheduledExam
+from MVP.models.course import Course, ProgramCourseInfo
+from MVP.models.exam_period import ExamPeriod, ExcludedDate
+from MVP.models.schedule import Schedule, ScheduledExam
 
 
 # =========================================================================

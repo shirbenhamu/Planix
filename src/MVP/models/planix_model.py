@@ -6,7 +6,7 @@ from datetime import date
 from typing import Dict, List, Optional, Set
 
 from src.data_manager import DataManager
-from src.models.course import Course
+from src.MVP.models.course import Course
 
 PROGRAM_MAPPING = {
     "83101": "Computer Engineering",

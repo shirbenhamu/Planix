@@ -3,6 +3,7 @@ import sys
 import os
 import ctypes
 from PIL import Image 
+from typing import Callable
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 sys.path.append(BASE_DIR)
@@ -20,8 +21,8 @@ def load_custom_fonts():
 
 load_custom_fonts()
 
-from src.ui.views.input_view import InputConfigurationView
-from src.ui.views.calendar_view import CalendarGridView 
+from src.MVP.views.input_view import InputConfigurationView
+from src.MVP.views.calendar_view import CalendarGridView 
 
 class AppWindow(ctk.CTk):
     def __init__(self):
@@ -98,72 +99,21 @@ class AppWindow(ctk.CTk):
         self.views_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.views_container.pack(fill="both", expand=True, padx=0, pady=0)
 
+        # 1. Instantiate the passive UI views
         self.input_view = InputConfigurationView(self.views_container)
         self.calendar_view = CalendarGridView(self.views_container)
         
+        # 2. Bind the hover action to open the sidebar dynamically
         self.calendar_view.hamburger_btn.bind("<Enter>", self._open_sidebar)
         self.input_view.hamburger_btn.bind("<Enter>", self._open_sidebar)
 
-        self.calendar_view.init_grid([]) 
-        self.input_view.display_programs_list({})
-        
-        def mock_load_programs(file_path):
-            dummy_programs = {
-                "83101": "הנדסת מחשבים" if self.lang_var.get() == "he" else "Computer Engineering",
-                "83102": "הנדסת חשמל" if self.lang_var.get() == "he" else "Electrical Engineering",
-                "83200": "הנדסת תוכנה" if self.lang_var.get() == "he" else "Software Engineering"
-            }
-            self.input_view.display_programs_list(dummy_programs)
-            
-        self.input_view.on_load_programs = mock_load_programs
+        # 3. Dynamic layout navigation trigger for the central controller to hook into
+        self.on_navigation_requested: Callable[[str], None] = None
 
-        def mock_program_selected(prog_id):
-            if prog_id == "83101":
-                courses = [
-                    {"name": "מבני נתונים", "id": "83104", "year": "א", "semester": "ב", "is_mandatory": True},
-                    {"name": "מערכות הפעלה", "id": "83107", "year": "ב", "semester": "א", "is_mandatory": True}
-                ]
-            else:
-                courses = [{"name": "הסתברות", "id": "83106", "year": "ב", "semester": "ב", "is_mandatory": False}]
-            self.input_view.display_program_courses(courses)
-            
-        self.input_view.on_program_selected = mock_program_selected
-
-        def mock_load_data(file_path):
-            month_indices = [1, 2, 5, 6, 7, 8] 
-            self.calendar_view.init_grid(month_indices) 
-            
-            dummy_data = {}
-            for row in range(len(month_indices)):
-                for col in range(31):
-                    dummy_data[f"{row+1}-{col}"] = {"day_text": str(col + 1)}
-
-            dummy_data["1-14"]["exams"] = [{"short_name": "אלג", "course_id": "83105", "type": "ח", "program": "חשמל"}]
-            dummy_data["1-18"]["exams"] = [{"short_name": "הסת", "course_id": "83106", "type": "ב", "program": "תוכנ"}]
-            self.calendar_view.render_calendar_data(dummy_data)
-            self._switch_view("calendar")
-            
-        self.input_view.on_load_dates = mock_load_data
-        self.input_view.on_load_courses = mock_load_data
-
-        def mock_exclude_handler(cell_key):
-            if cell_key in self.dummy_calendar_data:
-                current_status = self.dummy_calendar_data[cell_key].get("is_excluded", False)
-                self.dummy_calendar_data[cell_key]["is_excluded"] = not current_status
-            else:
-                self.dummy_calendar_data[cell_key] = {"is_excluded": True}
-            self.calendar_view.update_single_cell(cell_key, self.dummy_calendar_data[cell_key])
-            
-        self.calendar_view.on_exclude_clicked = mock_exclude_handler
-        self.calendar_view.on_export_clicked = lambda p: print(f"File saved: {p}")
-        
-        self.current_mock_page = 1
-        self.total_mock_pages = 100
-        self.calendar_view.update_pagination(self.current_mock_page, self.total_mock_pages)
-
-        self._switch_view("calendar") 
-
-    def _switch_view(self, view_name):
+    def switch_view(self, view_name: str) -> None:
+        """
+        Purely toggles visibility coordinates between frames without manipulating core business state.
+        """
         if view_name == "input":
             self.calendar_view.pack_forget()
             self.input_view.pack(fill="both", expand=True)
@@ -174,6 +124,11 @@ class AppWindow(ctk.CTk):
             self.calendar_view.pack(fill="both", expand=True)
             self.btn_calendar.configure(fg_color="#3b8ed0", text_color="white")
             self.btn_load_data.configure(fg_color="transparent", text_color=("gray10", "gray90"))
+
+    def _switch_view(self, view_name: str) -> None:
+        """Internal interceptor to forward user click parameters up to the controller layer."""
+        if self.on_navigation_requested:
+            self.on_navigation_requested(view_name)
 
     def _open_sidebar(self, event=None):
         if not self.sidebar_visible:
@@ -225,7 +180,3 @@ class AppWindow(ctk.CTk):
             self.attributes("-alpha", current_alpha)
             self.after(10, lambda: self._fade_in(current_alpha, target_alpha))
         else: self.attributes("-alpha", 1.0)
-
-if __name__ == "__main__":
-    app = AppWindow()
-    app.mainloop()

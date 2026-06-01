@@ -7,10 +7,12 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from src.data_manager import DataManager
-from src.models.course import Course
-from src.models.schedule import Schedule, ScheduledExam
+from src.MVP.models.course import Course
+from src.MVP.models.schedule import Schedule, ScheduledExam
 
 #   Memory-efficient index manager for schedules exported to a text file by the engine.
+
+
 class ScheduleCollectionManager:
     """
     The manager scans the file once to store byte offsets for each schedule block
@@ -32,11 +34,10 @@ class ScheduleCollectionManager:
         data_manager: DataManager,
         lock: Optional[threading.Lock] = None,
     ):
-        self._output_file_path = self._validate_output_file_path(output_file_path)
+        self._output_file_path = self._validate_output_file_path(
+            output_file_path)
         self._data_manager = self._validate_data_manager(data_manager)
-        self._course_lookup: Dict[str, Course] = {
-            course.course_id: course for course in self._data_manager.get_courses()
-        }
+        self._course_lookup: Dict[str, Course] = {}
         self._lock = lock or threading.Lock()
         self._offsets: List[int] = []
         self._scan_position: int = 0
@@ -116,7 +117,7 @@ class ScheduleCollectionManager:
         self._current_index = index
         return True
 
-    # The get_current_schedule method retrieves the currently active schedule by reading the corresponding block 
+    # The get_current_schedule method retrieves the currently active schedule by reading the corresponding block
     # from the output file and parsing it into a Schedule object.
     def get_current_schedule(self) -> Schedule:
         self._build_index()
@@ -126,7 +127,8 @@ class ScheduleCollectionManager:
         if self._current_index < 0 or self._current_index >= self.total_schedules:
             raise IndexError("Current schedule index is out of range.")
 
-        block_text = self._read_schedule_block(self._offsets[self._current_index])
+        block_text = self._read_schedule_block(
+            self._offsets[self._current_index])
         return self._parse_schedule_block(block_text)
 
     #  This method reads a schedule block from the output file based on its byte offset. It ensures that the block is fully written before returning its content.
@@ -178,7 +180,8 @@ class ScheduleCollectionManager:
                 continue
             # The date is expected to be in the format "dd-mm-yyyy".
             # The course ID is extracted and used to look up the corresponding Course object from the data manager.
-            exam_date = datetime.strptime(match.group("date"), "%d-%m-%Y").date()
+            exam_date = datetime.strptime(
+                match.group("date"), "%d-%m-%Y").date()
             course_id = match.group("course_id").strip()
             course = self._resolve_course(course_id)
 
@@ -187,11 +190,17 @@ class ScheduleCollectionManager:
             )
 
         if not scheduled_exams:
-            raise ValueError("The current schedule block does not contain any exams.")
+            raise ValueError(
+                "The current schedule block does not contain any exams.")
 
         return Schedule(exams=scheduled_exams)
 
     def _resolve_course(self, course_id: str) -> Course:
+        if course_id not in self._course_lookup:
+            self._course_lookup = {
+             course.course_id: course
+             for course in self._data_manager.get_courses()
+        }
         try:
             return self._course_lookup[course_id]
         except KeyError as exc:

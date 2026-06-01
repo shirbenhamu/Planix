@@ -1,3 +1,3 @@
 customtkinter
-pip install python-bidi
+python-bidi
 pillow

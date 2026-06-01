@@ -1,51 +1,43 @@
 import os
 import time
-from src.parsers.text_file_parser import TextFileParser
-from src.data_manager import DataManager
-from src.engine.exam_scheduler import ExamScheduler
-from src.output.file_output_writer import FileOutputWriter
 from src.parsers.parser_factory import ParserFactory
-from src.ui.app_window import AppWindow
-
+from src.data_manager import DataManager
+from src.MVP.app_window import AppWindow
+from src.MVP.presenters.app_controller import AppController
 
 def main():
-    print("Planix Exam Scheduler - Initializing...")
+    print("Planix Exam Scheduler - Initializing Central Controller Framework...")
     start_time = time.time()
 
-    # Initialize core components
-    parser = ParserFactory.create_parser("txt")
-    manager = DataManager(parser)
-    scheduler = ExamScheduler()
-    writer = FileOutputWriter()
-
-    # Define input and output paths
+    # 1. Define input paths only for the remaining active core files
     courses_path = "data/courses.txt"
     exam_periods_path = "data/exam_periods.txt"
-    selected_programs_path = "data/selected_programs.txt"
-    output_path = "output_results/final_schedules.txt"
 
-    # Verify input files exist
-    for path in [courses_path, exam_periods_path, selected_programs_path]:
+    # 2. Verify core input files exist before boot (ignoring the obsolete programs file)
+    for path in [courses_path, exam_periods_path]:
         if not os.path.exists(path):
-            print(f"Critical Error: Missing file {path}")
+            print(f"Critical Error: Missing required system file {path}")
             return
 
+    # Initialize core system data parser infrastructure
+    parser = ParserFactory.create_parser("txt")
+    manager = DataManager(parser)
+    
     try:
-        # Load and parse input data
-        print("Loading data...")
-        manager.load_data(courses_path, exam_periods_path, selected_programs_path)
-
-        # Launch the UI and leave engine execution for the future presenter layer.
-        print("Launching UI...")
+        print("Launching User Interface Core Window...")
         app = AppWindow()
+        
+        # Instantiate the application master controller to wire up views and models
+        controller = AppController(app_window=app, data_manager=manager)
+        
+        # Begin application main loop session
         app.mainloop()
 
-        # Performance summary
         duration = time.time() - start_time
-        print(f"\nUI session ended after {duration:.2f} seconds.")
+        print(f"\nCentral UI session lifecycle ended cleanly after {duration:.2f} seconds.")
 
     except Exception as e:
-        print(f"\nExecution failed: {e}")
+        print(f"\nExecution runtime crash intercepted: {e}")
 
 if __name__ == "__main__":
     main()
