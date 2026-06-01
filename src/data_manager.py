@@ -1,7 +1,7 @@
 # Data Manager class to handle loading and managing course and exam period data.
 # It uses a parser to read data from files and provides methods to access the loaded data.
 
-from typing import List
+from typing import Dict, List
 from src.parsers.base_parser import BaseParser
 from src.models.course import Course
 from src.models.exam_period import ExamPeriod
@@ -23,14 +23,29 @@ class DataManager:
         if parser is None:
             raise ValueError("Parser must be provided to DataManager.")
         self.parser = parser
-        self.courses: List[Course] = []
+        self.courses: Dict[str, Course] = {}
         self.exam_periods: List[ExamPeriod] = []
         self.selected_programs: List[str] = []
         self.__initialized = True
         
     # Method to load data from files using the parser
-    def load_data(self, courses_path: str, exam_periods_path: str, selected_programs_path: str):
-        self.courses = self.parser.parse_courses(courses_path)
+    def load_data(
+        self,
+        courses_path: str,
+        exam_periods_path: str,
+        selected_programs_path: str,
+        mode: str = "replace"
+    ):
+        parsed_courses = self.parser.parse_courses(courses_path)
+
+        if mode == "replace":
+            self.courses.clear()
+        elif mode != "append":
+            raise ValueError("mode must be either 'replace' or 'append'.")
+
+        for course in parsed_courses:
+            self.courses[course.course_id] = course
+
         self.exam_periods = self.parser.parse_exam_periods(exam_periods_path)
         self.selected_programs = self.parser.parse_selected_programs(selected_programs_path)
 
@@ -40,7 +55,7 @@ class DataManager:
     # Method to validate that selected program IDs exist in the course data
     def validate_selected_programs(self):
         existing_program_ids = set()
-        for course in self.courses:
+        for course in self.courses.values():
             for prog_info in course.program_info:
                 existing_program_ids.add(prog_info.program_id)
 
@@ -49,7 +64,7 @@ class DataManager:
                 raise ValueError(f"Error: Selected program ID '{prog_id}' does not exist in the course data.")
 
     def get_courses(self) -> List[Course]:
-        return self.courses
+        return list(self.courses.values())
     
     def get_exam_periods(self) -> List[ExamPeriod]:
         return self.exam_periods

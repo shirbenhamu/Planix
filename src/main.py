@@ -5,6 +5,7 @@ from src.data_manager import DataManager
 from src.engine.exam_scheduler import ExamScheduler
 from src.output.file_output_writer import FileOutputWriter
 from src.parsers.parser_factory import ParserFactory
+from src.ui.app_window import AppWindow
 
 
 def main():
@@ -34,22 +35,14 @@ def main():
         print("Loading data...")
         manager.load_data(courses_path, exam_periods_path, selected_programs_path)
 
-        # Generate schedules using the generator-based engine
-        print("Generating schedules (using lazy evaluation)...")
-        generated_schedules = scheduler.generate_schedules(
-            manager.get_courses(),
-            manager.get_exam_periods(),
-            manager.get_selected_programs()
-        )
-
-        # Stream results directly to the output file
-        print("Writing results...")
-        writer.write_schedules(generated_schedules, output_path)
+        # Launch the UI and leave engine execution for the future presenter layer.
+        print("Launching UI...")
+        app = AppWindow()
+        app.mainloop()
 
         # Performance summary
         duration = time.time() - start_time
-        print(f"\nExecution successful in {duration:.2f} seconds.")
-        print(f"Result file: {output_path}")
+        print(f"\nUI session ended after {duration:.2f} seconds.")
 
     except Exception as e:
         print(f"\nExecution failed: {e}")
