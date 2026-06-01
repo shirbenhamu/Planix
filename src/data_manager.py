@@ -3,8 +3,8 @@
 
 from typing import Dict, List
 from src.parsers.base_parser import BaseParser
-from src.models.course import Course
-from src.models.exam_period import ExamPeriod
+from MVP.models.course import Course
+from MVP.models.exam_period import ExamPeriod
 
 class DataManager:
     _instance = None

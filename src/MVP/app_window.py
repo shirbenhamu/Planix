@@ -20,8 +20,8 @@ def load_custom_fonts():
 
 load_custom_fonts()
 
-from src.ui.views.input_view import InputConfigurationView
-from src.ui.views.calendar_view import CalendarGridView 
+from MVP.views.input_view import InputConfigurationView
+from MVP.views.calendar_view import CalendarGridView 
 
 class AppWindow(ctk.CTk):
     def __init__(self):

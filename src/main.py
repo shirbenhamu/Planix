@@ -5,7 +5,7 @@ from src.data_manager import DataManager
 from src.engine.exam_scheduler import ExamScheduler
 from src.output.file_output_writer import FileOutputWriter
 from src.parsers.parser_factory import ParserFactory
-from src.ui.app_window import AppWindow
+from MVP.app_window import AppWindow
 
 
 def main():

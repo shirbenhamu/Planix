@@ -9,8 +9,8 @@
 from typing import List
 from datetime import datetime
 from src.parsers.base_parser import BaseParser
-from src.models.course import Course, ProgramCourseInfo
-from src.models.exam_period import ExamPeriod, ExcludedDate
+from MVP.models.course import Course, ProgramCourseInfo
+from MVP.models.exam_period import ExamPeriod, ExcludedDate
 
 class TextFileParser(BaseParser):
 
