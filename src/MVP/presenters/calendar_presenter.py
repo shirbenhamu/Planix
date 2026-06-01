@@ -125,10 +125,26 @@ class CalendarPresenter:
     # ======= 3. Multi-Schedule Document Traversal (PLAN-260) =======
 
     def _handle_next_schedule(self) -> None:
+        """
+        Advances to the next schedule option. If the collection is currently empty, 
+        attempts a fresh counter scan in case the background file worker just finished writing.
+        """
+        if self.collection_manager.get_total_count() == 0:
+            self.refresh_presenter_state()
+            return
+
         if self.collection_manager.next_schedule():
             self.refresh_presenter_state()
 
     def _handle_prev_schedule(self) -> None:
+        """
+        Navigates to the previous schedule option. If the collection is currently empty, 
+        attempts a fresh counter scan in case the background file worker just finished writing.
+        """
+        if self.collection_manager.get_total_count() == 0:
+            self.refresh_presenter_state()
+            return
+
         if self.collection_manager.prev_schedule():
             self.refresh_presenter_state()
 

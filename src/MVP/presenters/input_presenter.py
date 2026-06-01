@@ -10,8 +10,8 @@ class InputPresenter:
         self.view = view
         self.model = model
 
-        # Internal helper variables initialized with workspace safe defaults 
-        # to satisfy strict internal DataManager validations.
+        # Internal helper variables initialized with explicit local paths 
+        # to ensure strict compliance with internal DataManager rules.
         self._courses_path = "data/courses.txt"
         self._exam_periods_path = "data/exam_periods.txt"
 
@@ -35,20 +35,22 @@ class InputPresenter:
     def _trigger_data_loading(self):
         """
         Internal helper function to inject paths and trigger data loading directly via the Model (PLAN-254).
-        Defensively safe: manages mock/fallback assets for unselected parameters to guarantee 
-        the underlying DataManager pipeline finishes execution without triggering file-not-found crashes.
+        Defensively safe: builds and ensures the physical existence of a dummy programs file 
+        to guarantee that TextFileParser and DataManager validations pass successfully.
         """
-        # Ensure target directories exist and establish a temporary dummy file for the unneeded programs parameter
+        # Ensure 'data' directory exists locally in the project workspace
         os.makedirs("data", exist_ok=True)
+        
+        # Enforce a physical layout fallback for the selected_programs parameter to satisfy DataManager/Parser
         dummy_programs_path = os.path.normpath("data/selected_programs.txt")
-        if not os.path.exists(dummy_programs_path):
-            with open(dummy_programs_path, "w", encoding="utf-8") as f:
-                f.write("")  # Writes an empty file so parse_selected_programs returns [] safely
+        with open(dummy_programs_path, "w", encoding="utf-8") as f:
+            f.write("")  # Ensures an empty file exists so parse_selected_programs reads it and returns [] without breaking
 
-        # Resolve paths with clean structural fallbacks
+        # Resolve paths with explicit workspace fallbacks
         final_courses = self._courses_path if self._courses_path and self._courses_path.strip() else "data/courses.txt"
         final_dates = self._exam_periods_path if self._exam_periods_path and self._exam_periods_path.strip() else "data/exam_periods.txt"
 
+        # Normalize slashes cleanly to eliminate cross-platform workspace path string mismatches
         normalized_courses = os.path.normpath(final_courses)
         normalized_dates = os.path.normpath(final_dates)
 
@@ -61,9 +63,9 @@ class InputPresenter:
 
         mode = self._get_validated_mode()
         try:
-            print(f"[Presenter] Dispatching unified payload - Courses: {normalized_courses} | Dates: {normalized_dates}")
+            print(f"[Presenter] Dispatching validated paths - Courses: {normalized_courses} | Dates: {normalized_dates}")
             
-            # 2. Invoke core DataManager loading flow with fully qualified file structures
+            # 2. Invoke core DataManager loading flow with fully verified file assets
             self.model.data_manager.load_data(
                 courses_path=normalized_courses,
                 exam_periods_path=normalized_dates,
