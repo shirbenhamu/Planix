@@ -26,7 +26,9 @@ class PlanixEngineAdapter:
 
         model.is_generating = True
 
-        # We run the generation in a separate thread to avoid blocking the UI and allow
+        # We run the generation in a separate thread to avoid blocking the UI and allow.
+        # The thread is marked as a daemon so it will automatically exit when the main program exits,
+        # preventing orphaned threads if the user closes the UI during generation.
         worker = threading.Thread(
             target=self._generate_and_write,
             args=(model, output_path),
