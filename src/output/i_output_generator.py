@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Tuple, Iterator
-from MVP.models.schedule import Schedule
+from src.MVP.models.schedule import Schedule
 
 """
 Abstract method to write generated schedules to a destination.
