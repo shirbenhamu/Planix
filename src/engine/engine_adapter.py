@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import threading
+from copy import deepcopy
 from pathlib import Path
 from typing import List
 
 from src.data_manager import DataManager
 from src.engine.exam_scheduler import ExamScheduler
 from src.MVP.models.course import Course
+from src.MVP.models.exam_period import ExcludedDate
 from src.MVP.models.planix_model import PlanixModel
 from src.output.file_output_writer import FileOutputWriter
 
@@ -46,7 +48,15 @@ class PlanixEngineAdapter:
                 model.data_manager.get_courses(),
                 selected_programs,
             )
-            exam_periods = model.data_manager.get_exam_periods()
+            excluded_dates = model.get_user_excluded_dates()
+            exam_periods = deepcopy(model.data_manager.get_exam_periods())
+
+            if excluded_dates:
+                for exam_period in exam_periods:
+                    exam_period.excluded_dates.extend(
+                        ExcludedDate(start_date=excluded_date, end_date=excluded_date)
+                        for excluded_date in excluded_dates
+                    )
 
             scheduler = ExamScheduler()
             generated_schedules = scheduler.generate_schedules(
