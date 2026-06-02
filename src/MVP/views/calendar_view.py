@@ -209,7 +209,7 @@ class CalendarGridView(ctk.CTkFrame):
             self._bind_cell_click(card, cell_key)
             
             # Compress into 2 lines. View layer formats the incoming payload from the active presenter
-            short_name = exam.get('short_name', '')[:8]
+            short_name = exam.get('short_name', '')[:3]
             c_type = exam.get('type', '')
             c_id = exam.get('course_id', '')
             prog = exam.get('program', '')
