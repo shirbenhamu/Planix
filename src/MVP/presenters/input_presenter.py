@@ -134,30 +134,16 @@ class InputPresenter:
 
     def _update_view_summary(self):
         """
-        Fetch the hierarchical layout of all selected academic tracks, flatten the structural
-        dictionary parameters, and stream them into the view panel details.
+        Fetch the hierarchical layout of the most recently active selected academic track
+        and stream it directly into the view panel details.
         """
         selected_program_ids = self.model.get_selected_programs()
-        flattened_courses: List[dict] = []
+        if not selected_program_ids:
+            self.view.display_program_courses({})
+            return
 
-        for prog_id in selected_program_ids:
-            # Extract the course mapping hierarchy (year -> semester -> course dictionary)
-            hierarchy = self.model.get_program_course_hierarchy(prog_id)
-            courses_by_time = hierarchy.get("courses_by_year_and_semester", {})
-
-            for year, semesters in courses_by_time.items():
-                for semester, courses_list in semesters.items():
-                    for course in courses_list:
-                        
-                        # Maps raw academic models cleanly into fields recognized by the view
-                        flattened_courses.append({
-                            "id": course.get("course_id", ""),
-                            "name": course.get("course_name", ""),
-                            # Evaluates against core course schema parameters ('Obligatory' vs 'Elective')
-                            "is_mandatory": course.get("requirement") == "Obligatory", 
-                            "semester": semester,
-                            "year": str(year)
-                        })
+        active_prog_id = selected_program_ids[-1]
+        hierarchy = self.model.get_program_course_hierarchy(active_prog_id)
 
         # Command the passive view container to render the compiled configuration details
-        self.view.display_program_courses(flattened_courses)
+        self.view.display_program_courses(hierarchy)

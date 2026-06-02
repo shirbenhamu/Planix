@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 
@@ -21,6 +21,7 @@ class CalendarPresenter:
         self.view.on_prev_clicked = self._handle_prev_schedule
         self.view.on_page_jump = self._handle_page_jump
         self.view.on_exclude_clicked = self._handle_date_exclusion
+        self.view.on_range_update_clicked = self._handle_range_update
         self.view.on_export_clicked = self._handle_export
         self.view.on_filter_clicked = self._handle_filter_click
 
@@ -179,6 +180,14 @@ class CalendarPresenter:
             self._render_active_schedule(active_schedule)
         except Exception as e:
             print(f"Error updating layout following exclusion change: {e}")
+
+    def _handle_range_update(self, start_str: str, end_str: str) -> None:
+        try:
+            start_date = datetime.strptime(start_str.strip(), "%d-%m-%Y").date()
+            end_date = datetime.strptime(end_str.strip(), "%d-%m-%Y").date()
+            self.model.update_custom_exam_period(start_date, end_date)
+        except Exception as e:
+            print(f"Error updating exam period range: {e}")
 
     # ======= 5. Data Layer Exporting & Stub Filtering Actions (PLAN-262 / PLAN-263) =======
 

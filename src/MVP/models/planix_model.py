@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set
 
 from src.data_manager import DataManager
 from src.MVP.models.course import Course
+from src.MVP.models.exam_period import ExamPeriod
 
 PROGRAM_MAPPING = {
     "83101": "Computer Engineering",
@@ -136,6 +137,33 @@ class PlanixModel:
 
     def get_selected_programs_path(self) -> Optional[str]:
         return self.selected_programs_path
+
+    def update_custom_exam_period(self, start_date: date, end_date: date) -> None:
+        self._validate_date_value(start_date)
+        self._validate_date_value(end_date)
+
+        if start_date > end_date:
+            raise ValueError("start_date cannot be after end_date.")
+
+        existing_exam_periods = self.data_manager.get_exam_periods()
+        if existing_exam_periods:
+            template_exam_period = existing_exam_periods[0]
+            semester = template_exam_period.semester
+            moed = template_exam_period.moed
+            excluded_dates = list(template_exam_period.excluded_dates)
+        else:
+            semester = ""
+            moed = ""
+            excluded_dates = []
+
+        new_exam_period = ExamPeriod(
+            semester=semester,
+            moed=moed,
+            start_date=start_date,
+            end_date=end_date,
+            excluded_dates=excluded_dates,
+        )
+        self.data_manager.exam_periods = [new_exam_period]
 
     def _normalize_program_id(self, program_id: str) -> str:
         if not isinstance(program_id, str):
