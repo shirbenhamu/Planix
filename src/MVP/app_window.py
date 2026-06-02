@@ -5,10 +5,18 @@ import ctypes
 from PIL import Image 
 from typing import Callable
 
+# Define project base directory
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 sys.path.append(BASE_DIR)
 
+# ==========================================
+# Dynamic font loading for Windows systems
+# ==========================================
 def load_custom_fonts():
+    """
+    Registers custom font files in the assets/fonts directory 
+    with the Windows GDI system for use during the application session.
+    """
     if os.name == 'nt': 
         fonts_dir = os.path.join(BASE_DIR, 'assets', 'fonts')
         if not os.path.exists(fonts_dir):
@@ -17,6 +25,7 @@ def load_custom_fonts():
         for font_file in os.listdir(fonts_dir):
             if font_file.endswith(".ttf") or font_file.endswith(".otf"):
                 font_path = os.path.join(fonts_dir, font_file)
+                # Add font resource to GDI system
                 ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10 | 0x20, 0)
 
 load_custom_fonts()
@@ -34,16 +43,19 @@ class AppWindow(ctk.CTk):
         ctk.set_appearance_mode("Dark") 
         ctk.set_default_color_theme("blue")
         
+        # Define UI fonts
         self.f_logo = ctk.CTkFont(family="Bruno Ace SC", size=22, weight="bold")
         self.f_nav = ctk.CTkFont(family="Rubik", size=16, weight="bold")
         self.f_switch = ctk.CTkFont(family="Rubik", size=14, weight="bold")
 
+        # Container for main layout
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True)
         
         self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.content_frame.pack(fill="both", expand=True)
 
+        # Sidebar configuration
         self.sidebar_visible = False
         self.sidebar_width = 240
         self.sidebar_frame = ctk.CTkFrame(self.main_container, width=self.sidebar_width, corner_radius=0, border_width=1)
@@ -51,26 +63,29 @@ class AppWindow(ctk.CTk):
         self.sidebar_title = ctk.CTkLabel(self.sidebar_frame, text="Planix", font=self.f_logo, text_color="#3b8ed0")
         self.sidebar_title.pack(pady=(25, 20), padx=20)
 
+        # Main navigation menu
         self.nav_menu_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         self.nav_menu_frame.pack(fill="x", pady=10)
         
         self.btn_load_data = ctk.CTkButton(
             self.nav_menu_frame, text="טעינת נתונים", font=self.f_nav, anchor="w", 
             fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-            command=lambda: self._switch_view("input")
+            command=lambda: self.switch_view("input")
         )
         self.btn_load_data.pack(fill="x", padx=10, pady=5)
         
         self.btn_calendar = ctk.CTkButton(
             self.nav_menu_frame, text="לוח מבחנים שנתי", font=self.f_nav, anchor="w", 
             fg_color="#3b8ed0", text_color="white", hover_color="#2a6d9e",
-            command=lambda: self._switch_view("calendar")
+            command=lambda: self.switch_view("calendar")
         )
         self.btn_calendar.pack(fill="x", padx=10, pady=5)
 
+        # Sidebar footer controls
         self.bottom_sidebar_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
         self.bottom_sidebar_frame.pack(side="bottom", fill="x", pady=20)
 
+        # Load logo image if available in assets directory
         try:
             logo_path = os.path.join(BASE_DIR, "assets", "logo.png")
             if os.path.exists(logo_path):
@@ -78,8 +93,9 @@ class AppWindow(ctk.CTk):
                 self.logo_label = ctk.CTkLabel(self.bottom_sidebar_frame, image=my_logo, text="")
                 self.logo_label.pack(pady=(0, 20))
         except Exception as e:
-            print(f"No logo found or error loading logo: {e}")
+            print(f"Error loading logo: {e}")
 
+        # Theme and Language toggles
         self.theme_var = ctk.StringVar(value="Dark")
         self.theme_switch = ctk.CTkSwitch(
             self.bottom_sidebar_frame, text="מצב יום", command=self._toggle_theme,
@@ -96,6 +112,7 @@ class AppWindow(ctk.CTk):
 
         self.bind("<Motion>", self._check_hover_close) 
 
+        # Main content area
         self.views_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.views_container.pack(fill="both", expand=True, padx=0, pady=0)
 
@@ -109,6 +126,9 @@ class AppWindow(ctk.CTk):
 
         # 3. Dynamic layout navigation trigger for the central controller to hook into
         self.on_navigation_requested: Callable[[str], None] = None
+        
+        # Bind the Run button from Input view to trigger controller transitions
+        self.input_view.on_run_clicked = lambda: self._switch_view("calendar")
 
     def switch_view(self, view_name: str) -> None:
         """
@@ -131,12 +151,14 @@ class AppWindow(ctk.CTk):
             self.on_navigation_requested(view_name)
 
     def _open_sidebar(self, event=None):
+        """Displays the sidebar."""
         if not self.sidebar_visible:
             self.sidebar_frame.place(relx=0.0, rely=0.0, relheight=1.0, anchor="nw")
             self.sidebar_frame.lift()
             self.sidebar_visible = True
 
     def _check_hover_close(self, event):
+        """Closes the sidebar when mouse leaves its area."""
         if not self.sidebar_visible: return
         mouse_x_in_window = event.x_root - self.winfo_rootx()
         if mouse_x_in_window > (self.sidebar_width + 10):
@@ -144,6 +166,7 @@ class AppWindow(ctk.CTk):
             self.sidebar_visible = False
 
     def _toggle_language(self):
+        """Switches the UI language and updates text labels."""
         new_lang = self.lang_var.get()
         self.lang_switch.configure(text="עברית" if new_lang == "en" else "English")
         self.theme_switch.configure(text="מצב יום" if self.theme_var.get() == "Dark" else "מצב לילה" if new_lang == "he" else "Light Mode" if self.theme_var.get() == "Dark" else "Dark Mode")
@@ -154,6 +177,7 @@ class AppWindow(ctk.CTk):
         self.calendar_view.update_language(new_lang)
 
     def _toggle_theme(self):
+        """Handles appearance mode switching with fade effect."""
         self._fade_out(1.0, 0.90, self._apply_theme_switch)
 
     def _apply_theme_switch(self):
@@ -180,3 +204,7 @@ class AppWindow(ctk.CTk):
             self.attributes("-alpha", current_alpha)
             self.after(10, lambda: self._fade_in(current_alpha, target_alpha))
         else: self.attributes("-alpha", 1.0)
+
+if __name__ == "__main__":
+    app = AppWindow()
+    app.mainloop()
