@@ -147,32 +147,45 @@ class InputConfigurationView(ctk.CTkFrame):
     def _handle_program_click(self, prog_id):
         if self.on_program_selected: self.on_program_selected(prog_id)
 
-    def display_program_courses(self, courses: List[dict]):
-        """Generates cards for every course in the selected program."""
+    def display_program_courses(self, hierarchy: Dict):
         for widget in self.details_scroll.winfo_children(): widget.destroy()
-        
-        # Display empty state if no courses are provided
-        if not courses:
-            self.empty_details_lbl = ctk.CTkLabel(self.details_scroll, text=format_text("no_selection", self.current_lang), font=self.f_reg, text_color="gray50")
+
+        courses_by_year_and_semester = hierarchy.get("courses_by_year_and_semester", {}) if hierarchy else {}
+        if not courses_by_year_and_semester:
+            self.empty_details_lbl = ctk.CTkLabel(
+                self.details_scroll,
+                text=format_text("no_selection", self.current_lang),
+                font=self.f_reg,
+                text_color="gray50",
+            )
             self.empty_details_lbl.pack(pady=40)
             return
 
         anchor = "e" if self.current_lang == "he" else "w"
-        for course in courses:
-            card = ctk.CTkFrame(self.details_scroll, corner_radius=5, border_width=1, border_color=("gray70", "gray40"))
-            card.pack(fill="x", pady=5, padx=5)
-            
-            c_name = course.get('name', '')
-            c_id = course.get('id', '')
-            c_type = format_text("type_hova" if course.get('is_mandatory') else "type_bhira", self.current_lang)
-            c_sem = course.get('semester', '')
-            c_year = course.get('year', '')
-            
-            title = f"\u200F{c_name} ({c_id})\u200F" if self.current_lang == "he" else f"{c_name} ({c_id})"
-            info = f"\u200Fשנה {c_year} | סמסטר {c_sem} | {c_type}\u200F" if self.current_lang == "he" else f"Year {c_year} | Sem {c_sem} | {c_type}"
-            
-            ctk.CTkLabel(card, text=title, font=self.f_sub).pack(anchor=anchor, padx=10, pady=(5, 0))
-            ctk.CTkLabel(card, text=info, font=self.f_small, text_color="gray60").pack(anchor=anchor, padx=10, pady=(0, 5))
+
+        for year in sorted(courses_by_year_and_semester.keys()):
+            semesters = courses_by_year_and_semester.get(year, {})
+            for semester in sorted(semesters.keys()):
+                group_header = ctk.CTkLabel(
+                    self.details_scroll,
+                    text=f"📌 שנה {year} | סמסטר {semester}",
+                    font=self.f_header,
+                    text_color="#3b8ed0",
+                )
+                group_header.pack(anchor=anchor, padx=10, pady=(12, 4))
+
+                for course in semesters.get(semester, []):
+                    card = ctk.CTkFrame(self.details_scroll, corner_radius=5, border_width=1, border_color=("gray70", "gray40"))
+                    card.pack(fill="x", pady=5, padx=5)
+                    c_name = course.get('course_name', '')
+                    c_id = course.get('course_id', '')
+                    c_type = format_text("type_hova" if course.get('requirement') == 'Obligatory' else "type_bhira", self.current_lang)
+
+                    title = f"\u200F{c_name} ({c_id})\u200F" if self.current_lang == "he" else f"{c_name} ({c_id})"
+                    info = f"\u200Fשנה {year} | סמסטר {semester} | {c_type}\u200F" if self.current_lang == "he" else f"Year {year} | Sem {semester} | {c_type}"
+
+                    ctk.CTkLabel(card, text=title, font=self.f_sub).pack(anchor=anchor, padx=10, pady=(5, 0))
+                    ctk.CTkLabel(card, text=info, font=self.f_small, text_color="gray60").pack(anchor=anchor, padx=10, pady=(0, 5))
 
     def update_language(self, lang: str):
         """Updates all labels and UI text alignment without structural layout shifts."""
