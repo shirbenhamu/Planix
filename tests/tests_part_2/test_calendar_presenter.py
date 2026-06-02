@@ -171,3 +171,61 @@ class TestCalendarPresenter:
 
             # Assert file system open commands were invoked correctly.
             mock_open.assert_called_with("fake_output.txt", "w", encoding="utf-8")
+            
+    # ======= 6. Presenter-To-View Pagination Update Verification =======
+
+    def test_refresh_presenter_state_updates_pagination_before_rendering(
+        self,
+        mock_view,
+        mock_model,
+        mock_collection_manager,
+        presenter
+    ):
+        """Verify that refreshing an active schedule updates the View pagination state before rendering."""
+        # Arrange
+        mock_collection_manager.get_total_count.return_value = 4
+        mock_collection_manager.get_current_index.return_value = 2
+
+        mock_course = MagicMock()
+        mock_course.course_id = "83108"
+        mock_course.course_name = "Software Engineering"
+        mock_course.is_mandatory = True
+
+        mock_exam = ScheduledExam(course=mock_course, exam_date=date(2026, 3, 10))
+        mock_collection_manager.get_current_schedule.return_value = Schedule(exams=[mock_exam])
+
+        # Act
+        presenter.refresh_presenter_state()
+
+        # Assert
+        mock_view.update_pagination.assert_called_with(
+            current_page=3,
+            total_pages=4
+        )
+        mock_view.render_calendar_data.assert_called_once()
+
+
+    # ======= 7. Presenter-To-View Render Failure Fallback Verification =======
+
+    def test_refresh_presenter_state_falls_back_to_empty_state_when_schedule_loading_fails(
+        self,
+        mock_view,
+        mock_collection_manager,
+        presenter
+    ):
+        """Verify that the View shows an empty state when the active schedule cannot be loaded."""
+        # Arrange
+        mock_collection_manager.get_total_count.return_value = 1
+        mock_collection_manager.get_current_index.return_value = 0
+        mock_collection_manager.get_current_schedule.side_effect = RuntimeError(
+            "Failed to load schedule"
+        )
+
+        # Act
+        presenter.refresh_presenter_state()
+
+        # Assert
+        mock_view.show_empty_state.assert_called()
+        mock_view.render_calendar_data.assert_not_called()
+        
+    

@@ -221,3 +221,54 @@ class TestInputPresenter:
         mock_model.add_selected_program.assert_not_called()
 
         mock_view.display_program_courses.assert_called_once_with([])
+        
+    # ======= 8. Presenter-To-View Program List Update Verification =======
+
+    def test_handle_load_courses_refreshes_available_programs_view(
+        self,
+        mock_view,
+        mock_model,
+        presenter,
+        tmp_path,
+        monkeypatch
+    ):
+        """Verify that loading courses refreshes the available-programs list in the View."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+
+        mock_model.get_available_programs.return_value = {
+            "83108": "Software Engineering",
+            "83101": "Computer Engineering"
+        }
+
+        # Act
+        presenter._handle_load_courses("fake_courses.txt")
+
+        # Assert
+        mock_view.display_programs_list.assert_called_once_with({
+            "83108": "Software Engineering",
+            "83101": "Computer Engineering"
+        })
+
+
+    # ======= 9. Presenter-To-View Empty Summary Update Verification =======
+
+    def test_handle_load_courses_refreshes_empty_selected_program_summary(
+        self,
+        mock_view,
+        mock_model,
+        presenter,
+        tmp_path,
+        monkeypatch
+    ):
+        """Verify that loading courses clears the selected-program summary when no programs are selected."""
+        # Arrange
+        monkeypatch.chdir(tmp_path)
+        mock_model.get_selected_programs.return_value = []
+
+        # Act
+        presenter._handle_load_courses("fake_courses.txt")
+
+        # Assert
+        mock_view.display_program_courses.assert_called_once_with([])
+    
