@@ -105,7 +105,11 @@ class InputPresenter:
                 self.model.add_selected_program(prog_id)
             except ValueError as e:
                 print(f"UI selection rejected due to business constraint: {e}")
-                # Revert view checkbox selection state
+                
+                if hasattr(self.view, "show_warning_dialog"):
+                    self.view.show_warning_dialog(str(e))
+                
+                # Revert view checkbox selection state 
                 self._refresh_programs_list()
                 return
 
@@ -115,9 +119,18 @@ class InputPresenter:
     # ======= 4. View Component Rendering (Summary Box Handling) =======
 
     def _refresh_programs_list(self):
-        """Retrieve dynamic program sets from the Model and render them to the View"""
+        """Retrieve dynamic program sets from the Model and render them to the View with their correct selection state"""
         available_programs = self.model.get_available_programs()
         self.view.display_programs_list(available_programs)
+        
+        selected_programs = self.model.get_selected_programs()
+        
+        for cb in self.view.checkboxes:
+            cb_text = cb.cget("text")
+            if any(prog_id in cb_text for prog_id in selected_programs):
+                cb.select()   
+            else:
+                cb.deselect() 
 
     def _update_view_summary(self):
         """
