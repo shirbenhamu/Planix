@@ -6,7 +6,7 @@ from datetime import date
 # importing the necessary modules and classes from the project to perform the performance test
 #  on the exam scheduling system, including the scheduler, output writer, and data models
 #  for courses and exam periods.
-from src.engine.exam_scheduler import ExamScheduler
+from engine.exam_scheduler import ExamScheduler
 from src.output.file_output_writer import FileOutputWriter
 from MVP.models.course import Course, ProgramCourseInfo
 from MVP.models.exam_period import ExamPeriod

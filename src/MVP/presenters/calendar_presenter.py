@@ -1,6 +1,6 @@
 from datetime import date
 from typing import Dict, List, Optional
-from src.MVP.models.schedule import Schedule, ScheduledExam
+from MVP.models.schedule import Schedule, ScheduledExam
 
 class CalendarPresenter:
     def __init__(self, view, model, collection_manager):

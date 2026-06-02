@@ -3,9 +3,9 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Dict, Tuple, Iterator
-from src.MVP.models.course import Course
-from src.MVP.models.schedule import Schedule
-from src.MVP.models.exam_period import ExamPeriod
+from MVP.models.course import Course
+from MVP.models.schedule import Schedule
+from MVP.models.exam_period import ExamPeriod
  
 class ISchedulingEngine(ABC):
     @abstractmethod

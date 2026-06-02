@@ -4,8 +4,8 @@
 
 from abc import ABC, abstractmethod
 from typing import List
-from src.MVP.models.course import Course
-from src.MVP.models.exam_period import ExamPeriod
+from MVP.models.course import Course
+from MVP.models.exam_period import ExamPeriod
 
 # BaseParser is an abstract class that defines the interface for parsing input data
 class BaseParser(ABC):

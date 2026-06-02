@@ -1,11 +1,11 @@
 import time
-from src.MVP.models.planix_model import PlanixModel
-from src.MVP.models.schedule_collection_manager import ScheduleCollectionManager
-from src.MVP.presenters.input_presenter import InputPresenter
-from src.MVP.presenters.calendar_presenter import CalendarPresenter
+from MVP.models.planix_model import PlanixModel
+from MVP.models.schedule_collection_manager import ScheduleCollectionManager
+from MVP.presenters.input_presenter import InputPresenter
+from MVP.presenters.calendar_presenter import CalendarPresenter
 
 # Precise absolute import matching your physical directory structure (src/engine/engine_adapter.py)
-from src.engine.engine_adapter import PlanixEngineAdapter
+from engine.engine_adapter import PlanixEngineAdapter
 
 class AppController:
     def __init__(self, app_window, data_manager):

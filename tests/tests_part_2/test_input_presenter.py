@@ -1,6 +1,8 @@
+import os
 import pytest
-from unittest.mock import MagicMock, patch
-from src.MVP.presenters.input_presenter import InputPresenter
+from unittest.mock import MagicMock
+from MVP.presenters.input_presenter import InputPresenter
+
 
 class TestInputPresenter:
     @pytest.fixture
@@ -16,7 +18,9 @@ class TestInputPresenter:
         model = MagicMock()
         model.get_selected_programs.return_value = []
         model.get_available_programs.return_value = {}
-        model.get_program_course_hierarchy.return_value = {"courses_by_year_and_semester": {}}
+        model.get_program_course_hierarchy.return_value = {
+            "courses_by_year_and_semester": {}
+        }
         return model
 
     @pytest.fixture
@@ -34,18 +38,39 @@ class TestInputPresenter:
 
     # ======= 2. Dynamic Program Extraction Verification =======
 
-    def test_handle_load_courses_triggers_model_and_builds_programs(self, mock_model, presenter):
+    def test_handle_load_courses_triggers_model_and_builds_programs(
+        self,
+        mock_model,
+        presenter,
+        tmp_path,
+        monkeypatch
+    ):
         """Ensure that loading a courses text file builds academic program mapping configurations directly."""
+        # Arrange
+        # Keep generated dummy data files inside pytest's temporary directory.
+        monkeypatch.chdir(tmp_path)
+
+        expected_courses_path = os.path.normpath("fake_courses.txt")
+        expected_exam_periods_path = os.path.normpath("data/exam_periods.txt")
+        expected_selected_programs_path = os.path.normpath("data/selected_programs.txt")
+
         # Act
         presenter._handle_load_courses("fake_courses.txt")
 
         # Assert
+        mock_model.set_data_paths.assert_called_once_with(
+            courses_path=expected_courses_path,
+            exam_periods_path=expected_exam_periods_path,
+            selected_programs_path=expected_selected_programs_path
+        )
+
         mock_model.data_manager.load_data.assert_called_once_with(
-            courses_path="fake_courses.txt",
-            exam_periods_path="",
-            selected_programs_path=None,
+            courses_path=expected_courses_path,
+            exam_periods_path=expected_exam_periods_path,
+            selected_programs_path=expected_selected_programs_path,
             mode="replace"
         )
+
         mock_model.build_available_programs.assert_called_once()
 
     # ======= 3. Program Selection State Verification =======
@@ -53,9 +78,9 @@ class TestInputPresenter:
     def test_handle_program_selection_toggles_model_state(self, mock_model, presenter):
         """Verify that selecting an academic program updates the central model's selected list parameters."""
         mock_model.get_selected_programs.return_value = []
-        
-        # Act - Select a brand new program
+
+        # Act - Select a brand new program.
         presenter._handle_program_selection("83108")
-        
+
         # Assert
         mock_model.add_selected_program.assert_called_with("83108")

@@ -1,7 +1,7 @@
 import pytest
 from datetime import date
 
-from src.engine.exam_scheduler import ExamScheduler
+from engine.exam_scheduler import ExamScheduler
 from MVP.models.course import Course, ProgramCourseInfo
 from MVP.models.exam_period import ExamPeriod, ExcludedDate
 from MVP.models.schedule import Schedule, ScheduledExam

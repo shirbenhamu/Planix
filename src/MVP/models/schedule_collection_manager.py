@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from src.data_manager import DataManager
-from src.MVP.models.course import Course
-from src.MVP.models.schedule import Schedule, ScheduledExam
+from MVP.models.course import Course
+from MVP.models.schedule import Schedule, ScheduledExam
 
 #   Memory-efficient index manager for schedules exported to a text file by the engine.
 
