@@ -1,7 +1,7 @@
 import os
 import time
-from src.parsers.parser_factory import ParserFactory
-from src.data_manager import DataManager
+from parsers.parser_factory import ParserFactory
+from data_manager import DataManager
 from MVP.app_window import AppWindow
 from MVP.presenters.app_controller import AppController
 

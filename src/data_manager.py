@@ -2,7 +2,7 @@
 # It uses a parser to read data from files and provides methods to access the loaded data.
 
 from typing import Dict, List
-from src.parsers.base_parser import BaseParser
+from parsers.base_parser import BaseParser
 from MVP.models.course import Course
 from MVP.models.exam_period import ExamPeriod
 

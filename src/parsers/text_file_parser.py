@@ -8,7 +8,7 @@
 
 from typing import List
 from datetime import datetime
-from src.parsers.base_parser import BaseParser
+from parsers.base_parser import BaseParser
 from MVP.models.course import Course, ProgramCourseInfo
 from MVP.models.exam_period import ExamPeriod, ExcludedDate
 

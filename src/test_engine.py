@@ -1,7 +1,7 @@
 import os
 import time
-from src.parsers.parser_factory import ParserFactory
-from src.data_manager import DataManager
+from parsers.parser_factory import ParserFactory
+from data_manager import DataManager
 from MVP.models.planix_model import PlanixModel
 from engine.engine_adapter import PlanixEngineAdapter
 from MVP.models.schedule_collection_manager import ScheduleCollectionManager

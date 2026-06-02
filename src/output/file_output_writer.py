@@ -2,7 +2,7 @@ import os
 import itertools
 import time
 from typing import Dict, Tuple, Iterator, List
-from src.output.i_output_generator import IOutputGenerator
+from output.i_output_generator import IOutputGenerator
 from MVP.models.schedule import Schedule
 
 DEFAULT_MAX_RUNTIME_SECONDS = 29

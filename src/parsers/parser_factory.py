@@ -1,5 +1,5 @@
-from src.parsers.base_parser import BaseParser
-from src.parsers.text_file_parser import TextFileParser
+from parsers.base_parser import BaseParser
+from parsers.text_file_parser import TextFileParser
 
 class ParserFactory:
     # Static method to create a parser instance based on the specified file type

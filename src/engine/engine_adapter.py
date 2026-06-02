@@ -5,11 +5,11 @@ import threading
 from pathlib import Path
 from typing import List
 
-from src.data_manager import DataManager
+from data_manager import DataManager
 from engine.exam_scheduler import ExamScheduler
 from MVP.models.course import Course
 from MVP.models.planix_model import PlanixModel
-from src.output.file_output_writer import FileOutputWriter
+from output.file_output_writer import FileOutputWriter
 
 # Adapter that bridges the MVP model layer to the legacy V1.0 scheduler.
 class PlanixEngineAdapter:

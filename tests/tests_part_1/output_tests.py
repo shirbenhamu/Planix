@@ -2,7 +2,7 @@ import pytest
 from datetime import date
 
 #importing the relevant classes for testing
-from src.output.file_output_writer import FileOutputWriter
+from output.file_output_writer import FileOutputWriter
 from MVP.models.schedule import Schedule, ScheduledExam
 from MVP.models.course import Course, ProgramCourseInfo
 

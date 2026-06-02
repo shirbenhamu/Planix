@@ -2,7 +2,7 @@ import pytest
 from datetime import date
 
 #importing the parser and the relevant models to be used in the tests
-from src.parsers.text_file_parser import TextFileParser
+from parsers.text_file_parser import TextFileParser
 from MVP.models.course import Course
 from MVP.models.exam_period import ExamPeriod
 

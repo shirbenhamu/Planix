@@ -1,7 +1,7 @@
 import pytest
 import os
-from src.data_manager import DataManager
-from src.parsers.text_file_parser import TextFileParser
+from data_manager import DataManager
+from parsers.text_file_parser import TextFileParser
 
 @pytest.fixture(autouse=True)
 def reset_data_manager_singleton():

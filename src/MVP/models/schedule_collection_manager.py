@@ -6,7 +6,7 @@ import threading
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from src.data_manager import DataManager
+from data_manager import DataManager
 from MVP.models.course import Course
 from MVP.models.schedule import Schedule, ScheduledExam
 

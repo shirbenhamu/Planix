@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Dict, List, Optional, Set
 
-from src.data_manager import DataManager
+from data_manager import DataManager
 from MVP.models.course import Course
 
 PROGRAM_MAPPING = {
