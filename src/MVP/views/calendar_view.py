@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import filedialog
 from typing import Callable, Dict, List
 
+# Dictionary containing localized strings for internationalization (I18n)
 TRANSLATIONS = {
     "title": {"he": "שנת הלימודים תשפ\"ו", "en": "Academic Year 2026"},
     "exclude_btn": {"he": "תאריך החרג", "en": "Exclude Date"},
@@ -9,7 +10,9 @@ TRANSLATIONS = {
     "start_date": {"he": "התחלה", "en": "Start"},
     "end_date": {"he": "סיום", "en": "End"},
     "update_range": {"he": "עדכן", "en": "Update"},
-    "filter_btn": {"he": "מערכות סינון", "en": "Filter & Sort"},
+    "filter_btn": {"he": "סינון לפי", "en": "Filter By"},
+    "schedule_lbl": {"he": "מערכת", "en": "Schedule"},
+    "out_of_lbl": {"he": "מתוך", "en": "out of"},
     "empty_state": {"he": "יש לטעון קבצי נתונים (קורסים ותאריכים) כדי להציג את הלוח.", "en": "Please load data files (courses and dates) to view the schedule."},
     "days": {
         "he": ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"],
@@ -22,6 +25,7 @@ TRANSLATIONS = {
 }
 
 def format_text(key: str, lang: str) -> str:
+    """Helper to return direction-aware formatted strings."""
     text = TRANSLATIONS[key][lang]
     return f"\u200F{text}\u200F" if lang == "he" else text
 
@@ -30,13 +34,17 @@ class CalendarGridView(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.current_lang = "he"
         
+        # Apply Rubik font globally to maintain consistent typography
         base_family = "Rubik"
         self.f_title = ctk.CTkFont(family=base_family, size=16, weight="bold")
         self.f_btn = ctk.CTkFont(family=base_family, size=12, weight="bold")
         self.f_header = ctk.CTkFont(family=base_family, size=11, weight="bold")
-        self.f_card = ctk.CTkFont(family=base_family, size=9, weight="bold")
+        # Scaled down card font size to ensure all metadata fits tightly within the blocks
+        self.f_card = ctk.CTkFont(family=base_family, size=8, weight="bold")
         self.f_empty = ctk.CTkFont(family=base_family, size=18, weight="bold")
 
+        # Callbacks for component interactions
+        self.on_hamburger_clicked: Callable[[], None] = None 
         self.on_next_clicked: Callable[[], None] = None
         self.on_prev_clicked: Callable[[], None] = None
         self.on_page_jump: Callable[[int], None] = None 
@@ -58,27 +66,39 @@ class CalendarGridView(ctk.CTkFrame):
         self.show_empty_state() 
 
     def _setup_ui(self):
+        # Initialize the top toolbar
         self.toolbar_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.toolbar_frame.pack(fill="x", pady=(5, 5), padx=5)
         
+        # Hamburger menu button positioned at the start of the toolbar
         self.hamburger_btn = ctk.CTkLabel(self.toolbar_frame, text="☰", font=("Arial", 22), cursor="hand2")
         self.hamburger_btn.pack(side="left", padx=(5, 10))
+        self.hamburger_btn.bind("<Enter>", lambda e: self._handle_hamburger())
         
         self.schedule_title = ctk.CTkLabel(self.toolbar_frame, text="", font=self.f_title, text_color="#3b8ed0")
         self.schedule_title.pack(side="left", padx=10)
         
+        # Navigation controls for pagination formatting (Schedule X out of Y)
         self.nav_frame = ctk.CTkFrame(self.toolbar_frame, fg_color="transparent")
         self.nav_frame.pack(side="left", padx=15)
+        
         self.prev_btn = ctk.CTkButton(self.nav_frame, text="<", font=self.f_btn, width=30, height=26, command=self._handle_prev)
         self.prev_btn.pack(side="left", padx=2)
+        
+        self.schedule_lbl = ctk.CTkLabel(self.nav_frame, text="", font=self.f_btn)
+        self.schedule_lbl.pack(side="left", padx=2)
+
         self.current_page_entry = ctk.CTkEntry(self.nav_frame, width=35, height=26, justify="center", font=self.f_btn)
         self.current_page_entry.pack(side="left", padx=2)
         self.current_page_entry.bind("<Return>", self._handle_page_jump) 
-        self.total_pages_label = ctk.CTkLabel(self.nav_frame, text="/ 1", font=self.f_btn)
+        
+        self.total_pages_label = ctk.CTkLabel(self.nav_frame, text="", font=self.f_btn)
         self.total_pages_label.pack(side="left", padx=2)
+        
         self.next_btn = ctk.CTkButton(self.nav_frame, text=">", font=self.f_btn, width=30, height=26, command=self._handle_next)
         self.next_btn.pack(side="left", padx=2)
 
+        # Date range inputs
         self.range_frame = ctk.CTkFrame(self.toolbar_frame, fg_color="transparent")
         self.range_frame.pack(side="left", padx=15)
         self.start_entry = ctk.CTkEntry(self.range_frame, width=70, height=26, font=self.f_btn)
@@ -88,6 +108,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.update_range_btn = ctk.CTkButton(self.range_frame, text="", font=self.f_btn, width=50, height=26, command=self._handle_update_range)
         self.update_range_btn.pack(side="left", padx=2)
 
+        # Action buttons aligned to the right
         self.export_btn = ctk.CTkButton(self.toolbar_frame, text="📥", fg_color="#28a745", hover_color="#218838", font=("Arial", 16), height=26, width=35, command=self._handle_export)
         self.export_btn.pack(side="right", padx=5)
         self.exclude_btn = ctk.CTkButton(self.toolbar_frame, text="", font=self.f_btn, fg_color="#b22222", hover_color="#8b0000", height=26, width=80, command=self._handle_exclude)
@@ -95,9 +116,11 @@ class CalendarGridView(ctk.CTkFrame):
         self.filter_btn = ctk.CTkButton(self.toolbar_frame, text="", font=self.f_btn, fg_color="#4B0082", hover_color="#300052", height=26, width=90, command=self._handle_filter)
         self.filter_btn.pack(side="right", padx=5)
 
+        # Container for the grid
         self.grid_frame = ctk.CTkFrame(self)
 
     def _setup_empty_state(self):
+        """Displays icon and text when no data is loaded."""
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.empty_icon = ctk.CTkLabel(self.empty_state_frame, text="📁", font=("Arial", 60))
         self.empty_icon.pack(pady=(50, 10))
@@ -113,6 +136,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.grid_frame.pack(fill="both", expand=True, padx=10, pady=(2, 10))
 
     def init_grid(self, month_indices: List[int]):
+        """Generates the grid dynamically based on the number of months provided."""
         if not month_indices:
             self.show_empty_state()
             return
@@ -124,19 +148,23 @@ class CalendarGridView(ctk.CTkFrame):
         self.month_labels.clear()
         self.grid_cells.clear()
 
+        # Configure columns (31 days + 1 for month label)
         for i in range(31):
-            self.grid_frame.grid_columnconfigure(i, weight=1)
+            # Enforce identical width distribution by utilizing uniform groupings
+            self.grid_frame.grid_columnconfigure(i, weight=1, uniform="day_column")
         self.grid_frame.grid_columnconfigure(31, weight=0, minsize=40)
         
+        # Header row for day names
         self.grid_frame.grid_rowconfigure(0, minsize=25)
         days = TRANSLATIONS["days"][self.current_lang]
         for i in range(31):
             day_text = days[i % 7]
-            text = f"\u200F{day_text}\u200F" if self.current_lang == "he" else day_text
-            lbl = ctk.CTkLabel(self.grid_frame, text=text, font=self.f_header, fg_color=("gray80", "gray30"), corner_radius=0)
+            # Bypass format_text specifically for standalone days to avoid rendering bugs with RTL marks
+            lbl = ctk.CTkLabel(self.grid_frame, text=day_text, font=self.f_header, fg_color=("gray80", "gray30"), corner_radius=0)
             lbl.grid(row=0, column=i, sticky="nsew", padx=1, pady=1)
             self.day_headers.append(lbl)
 
+        # Generate rows for each month
         for row_idx, month_idx in enumerate(month_indices, start=1):
             self.grid_frame.grid_rowconfigure(row_idx, weight=1) 
             for col in range(31):
@@ -156,6 +184,7 @@ class CalendarGridView(ctk.CTkFrame):
         widget.bind("<Button-1>", lambda e: self._handle_cell_click(cell_key))
 
     def update_single_cell(self, cell_key: str, cell_data: dict):
+        """Refreshes a specific cell content without re-rendering the entire grid."""
         cell_frame = self.grid_cells.get(cell_key)
         if not cell_frame: return
         for widget in cell_frame.winfo_children(): widget.destroy()
@@ -174,12 +203,20 @@ class CalendarGridView(ctk.CTkFrame):
         for exam in cell_data.get("exams", []):
             card_color = "#3b8ed0" if exam.get("type") == "ח" else "#2fa572" 
             card = ctk.CTkFrame(cell_frame, fg_color=card_color, corner_radius=2)
-            card.pack(fill="both", expand=True, padx=1, pady=1)
+            
+            # Constrain card stretch behavior by setting expand=False so it wraps tightly around text content
+            card.pack(fill="x", expand=False, padx=1, pady=1)
             self._bind_cell_click(card, cell_key)
             
-            txt = f"{exam.get('short_name', '')}\n{exam.get('course_id', '')}\n{exam.get('type', '')}|{exam.get('program', '')}"
+            # Compress into 2 lines. View layer formats the incoming payload from the active presenter
+            short_name = exam.get('short_name', '')[:8]
+            c_type = exam.get('type', '')
+            c_id = exam.get('course_id', '')
+            prog = exam.get('program', '')
+            
+            txt = f"{short_name} | {c_type}\n{c_id} | {prog}"
             lbl = ctk.CTkLabel(card, text=txt, font=self.f_card, text_color="white", justify="center")
-            lbl.pack(padx=0, pady=0)
+            lbl.pack(padx=0, pady=1)
             self._bind_cell_click(lbl, cell_key)
             
         if self.selected_cell_key == cell_key:
@@ -195,13 +232,17 @@ class CalendarGridView(ctk.CTkFrame):
             self.update_single_cell(cell_key, data)
 
     def update_pagination(self, current_page: int, total_pages: int):
+        """Updates the pagination indicators to match 'Schedule X out of Y' formatting."""
         self.current_page_entry.delete(0, "end")
         self.current_page_entry.insert(0, str(current_page))
-        self.total_pages_label.configure(text=f"/ {total_pages}")
+        out_of = format_text("out_of_lbl", self.current_lang)
+        self.total_pages_label.configure(text=f" {out_of} {total_pages}")
 
     def update_language(self, lang: str):
+        """Updates all labels and UI text alignment without structural layout shifts."""
         self.current_lang = lang
 
+        # UI updates based on translation dictionary
         self.schedule_title.configure(text=format_text("title", lang))
         self.exclude_btn.configure(text=format_text("exclude_btn", lang))
         self.export_btn.configure(text=format_text("export_btn", lang))
@@ -210,24 +251,31 @@ class CalendarGridView(ctk.CTkFrame):
         self.start_entry.configure(placeholder_text=format_text("start_date", lang))
         self.end_entry.configure(placeholder_text=format_text("end_date", lang))
         self.empty_text.configure(text=format_text("empty_state", lang))
+        self.schedule_lbl.configure(text=format_text("schedule_lbl", lang))
 
+        # Update headers directly without applying format_text to preserve exact punctuation flow
         days = TRANSLATIONS["days"][lang]
         for i, header in enumerate(self.day_headers):
             day_text = days[i % 7]
-            header.configure(text=f"\u200F{day_text}\u200F" if lang == "he" else day_text)
+            header.configure(text=day_text)
             
+        # Update months
         months = TRANSLATIONS["months"][lang]
         for i, m_lbl in enumerate(self.month_labels):
             if i < len(self.active_month_indices):
                 m_text = months[self.active_month_indices[i]]
                 m_lbl.configure(text=f"\u200F{m_text}\u200F" if lang == "he" else m_text)
             
+        # Adjust text alignment within cells
         for cell_frame in self.grid_cells.values():
             if cell_frame.winfo_children():
                 date_lbl = cell_frame.winfo_children()[0]
                 if isinstance(date_lbl, ctk.CTkLabel):
                     date_lbl.pack_configure(anchor="ne" if lang == "he" else "nw")
 
+    # Event handlers
+    def _handle_hamburger(self):
+        if self.on_hamburger_clicked: self.on_hamburger_clicked()
     def _handle_next(self):
         if self.on_next_clicked: self.on_next_clicked()
     def _handle_prev(self):
