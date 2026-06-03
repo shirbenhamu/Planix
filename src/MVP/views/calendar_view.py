@@ -214,6 +214,7 @@ class CalendarGridView(ctk.CTkFrame):
             c_id = exam.get('course_id', '')
             prog = exam.get('program', '')
             
+            
             txt = f"{short_name} | {c_type}\n{c_id} | {prog}"
             lbl = ctk.CTkLabel(card, text=txt, font=self.f_card, text_color="white", justify="center")
             lbl.pack(padx=0, pady=1)

@@ -114,12 +114,17 @@ class CalendarPresenter:
             is_mandatory = getattr(exam.course, "is_mandatory", True)
             exam_type_marker = "ח" if is_mandatory else "ב"
 
+            real_c = next((c for c in self.model.data_manager.get_courses() if c.course_id == exam.course.course_id), exam.course)
+            
+            is_mandatory = getattr(real_c, "is_mandatory", True)
+            exam_type_marker = "ח" if is_mandatory else "ב"
+
             # Parse structural payload matching exact card specifications of inside View layout
             grid_data[cell_key]["exams"].append({
                 "short_name": getattr(exam.course, "course_name", "")[:10],  # Clamp length for clean card display
                 "course_id": getattr(exam.course, "course_id", ""),
                 "type": exam_type_marker,
-                "program": "Prog"  # Extensible placeholder text parameter matching View definitions
+                "program": "Prog",  # Extensible placeholder text parameter matching View definitions
             })
 
         self.view.render_calendar_data(grid_data)
