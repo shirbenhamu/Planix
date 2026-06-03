@@ -119,13 +119,13 @@ class InputConfigurationView(ctk.CTkFrame):
         self.btn_run.pack(fill="x", padx=15, pady=(10, 15))
 
     def _handle_load_courses(self):
-        """Opens native file explorer to select course data files."""
-        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        """Opens native file explorer with Text files set as primary filter format."""
+        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses: self.on_load_courses(file_path)
 
     def _handle_load_dates(self):
-        """Opens native file explorer to select exam date files."""
-        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        """Opens native file explorer with Text files set as primary filter format."""
+        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_dates: self.on_load_dates(file_path)
 
     def _handle_run_click(self):
