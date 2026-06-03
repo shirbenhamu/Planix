@@ -262,3 +262,39 @@ class CalendarGridView(ctk.CTkFrame):
             self.on_range_update_clicked(self.start_entry.get(), self.end_entry.get())
     def _handle_filter(self):
         if self.on_filter_clicked: self.on_filter_clicked()
+
+    #  This method attempts to extract selected academic programs from various possible checkbox containers
+    # in the UI, providing flexibility for different implementations. It returns a list of selected program
+    # names based on the text of the checkboxes that are currently checked.
+    def get_selected_programs(self) -> List[str]:
+        selected_programs: List[str] = []
+
+        program_containers = [
+            getattr(self, "program_checkboxes", None),
+            getattr(self, "programs_checkboxes", None),
+            getattr(self, "checkboxes", None),
+        ]
+
+        for container in program_containers:
+            if not container:
+                continue
+
+            for item in container:
+                get_value = getattr(item, "get", None)
+                if not callable(get_value):
+                    continue
+
+                try:
+                    if get_value():
+                        cget = getattr(item, "cget", None)
+                        if callable(cget):
+                            label = cget("text")
+                            if label:
+                                selected_programs.append(label)
+                except Exception:
+                    continue
+
+            if selected_programs:
+                break
+
+        return selected_programs

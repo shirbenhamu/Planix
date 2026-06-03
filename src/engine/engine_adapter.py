@@ -1,20 +1,45 @@
 from __future__ import annotations
 
 import os
-import threading
-from copy import deepcopy
+from multiprocessing import Process
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from src.data_manager import DataManager
 from src.engine.exam_scheduler import ExamScheduler
 from src.MVP.models.course import Course
-from src.MVP.models.exam_period import ExcludedDate
 from src.MVP.models.planix_model import PlanixModel
 from src.output.file_output_writer import FileOutputWriter
 
+
+
 # Adapter that bridges the MVP model layer to the legacy V1.0 scheduler.
 class PlanixEngineAdapter:
+
+    def __init__(self) -> None:
+        self._worker_process: Optional[Process] = None
+
+    # This method serves as the isolated execution context for the background process worker!
+
+    # Implemented as a static method to ensure it is easily pickleable by python's 
+    # multiprocessing module, keeping the invocation stateless and detached from 
+    # live UI or adapter instances. This is ideal for heavy CPU-bound generation runs.
+    @staticmethod
+    def _generate_and_write_worker(
+        filtered_courses: List[Course],
+        exam_periods,
+        selected_programs: List[str],
+        output_path: str,
+    ) -> None:
+        scheduler = ExamScheduler()
+        generated_schedules = scheduler.generate_schedules(
+            filtered_courses,
+            exam_periods,
+            selected_programs,
+        )
+
+        writer = FileOutputWriter()
+        writer.write_schedules(generated_schedules, output_path)
 
     def generate_from_model(self, model: PlanixModel, output_path: str) -> str:
         """Generate schedules from the model state and stream them directly to disk.
@@ -28,47 +53,33 @@ class PlanixEngineAdapter:
 
         model.is_generating = True
 
+        selected_programs = model.get_selected_programs()
+        filtered_courses = self._filter_courses_by_selected_programs(
+            model.data_manager.get_courses(),
+            selected_programs,
+        )
+        exam_periods = list(model.data_manager.get_exam_periods())
+
         # We run the generation in a separate thread to avoid blocking the UI and allow.
-        # The thread is marked as a daemon so it will automatically exit when the main program exits,
-        # preventing orphaned threads if the user closes the UI during generation.
-        worker = threading.Thread(
-            target=self._generate_and_write,
-            args=(model, output_path),
+        # The process is marked as a daemon so it will automatically exit when the main program exits,
+        # preventing orphaned workers if the user closes the UI during generation.
+        self._worker_process = Process(
+            target=PlanixEngineAdapter._generate_and_write_worker,
+            args=(filtered_courses, exam_periods, selected_programs, output_path),
             daemon=True,
         )
-        # 
-        worker.start()
+        self._worker_process.start()
         return output_path
 
-    #  This method encapsulates the actual generation logic and is run in a background thread.
-    def _generate_and_write(self, model: PlanixModel, output_path: str) -> None:
-        try:
-            selected_programs = model.get_selected_programs()
-            filtered_courses = self._filter_courses_by_selected_programs(
-                model.data_manager.get_courses(),
-                selected_programs,
-            )
-            excluded_dates = model.get_user_excluded_dates()
-            exam_periods = deepcopy(model.data_manager.get_exam_periods())
+    # This method allows the UI to check if a  engine generation process is currently active 
+    def is_generation_active(self) -> bool:
+        return self._worker_process is not None and self._worker_process.is_alive()
 
-            if excluded_dates:
-                for exam_period in exam_periods:
-                    exam_period.excluded_dates.extend(
-                        ExcludedDate(start_date=excluded_date, end_date=excluded_date)
-                        for excluded_date in excluded_dates
-                    )
-
-            scheduler = ExamScheduler()
-            generated_schedules = scheduler.generate_schedules(
-                filtered_courses,
-                exam_periods,
-                selected_programs,
-            )
-
-            writer = FileOutputWriter()
-            writer.write_schedules(generated_schedules, output_path)
-        finally:
-            model.is_generating = False
+    # This method allows the UI to clear the worker reference once it has detected that the process has finished,
+    # ensuring that subsequent generation runs can be initiated without stale state interference.
+    def clear_finished_worker(self) -> None:
+        if self._worker_process is not None and not self._worker_process.is_alive():
+            self._worker_process = None
 
     #  This method allows exporting a single schedule to a new file, which can be used for "saving" a schedule from the UI.
     def export_active_schedule(

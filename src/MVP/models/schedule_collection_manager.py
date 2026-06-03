@@ -43,10 +43,17 @@ class ScheduleCollectionManager:
         self._scan_position: int = 0
         self._current_index: int = 0
         self.total_schedules: int = 0
+        self.snapshot_mode = False
         self._build_index()
 
     #  The _build_index method scans the output file for schedule blocks and stores their byte offsets for quick access.
     def _build_index(self) -> None:
+        # Snapshot mode ON = engine is still generating, so stop scanning the output file after a fixed
+        # point (output file size after 0.5 seconds) to allow the UI to access some schedules
+        # as we are generating the rest in the background without waiting for the entire generation to complete.
+        if self.snapshot_mode:
+            return
+
         with self._lock:
             if not os.path.exists(self._output_file_path):
                 self.total_schedules = len(self._offsets)
@@ -74,6 +81,50 @@ class ScheduleCollectionManager:
                             self._offsets.append(offset)
                 # Update the scan position to the end of the file for the next incremental scan.
                 self._scan_position = file_handle.tell()
+
+            self.total_schedules = len(self._offsets)
+            if self.total_schedules == 0:
+                self._current_index = 0
+            elif self._current_index >= self.total_schedules:
+                self._current_index = self.total_schedules - 1
+
+    # The build_snapshot_index method is used when the engine is actively generating schedules 
+    # and writing to the output file. It performs a full scan of the current output file to build the index of
+    # schedule offsets, allowing the UI to access schedules as they are generated without needing
+    # to wait for the entire generation process to complete.
+    def build_snapshot_index(self) -> None:
+        self.snapshot_mode = True
+
+        with self._lock:
+            if not os.path.exists(self._output_file_path):
+                self.total_schedules = 0
+                return
+
+            snapshot_file_size = os.path.getsize(self._output_file_path)
+
+            # If the file was truncated or replaced, restart from the beginning.
+            if self._scan_position > snapshot_file_size:
+                self._offsets.clear()
+                self._scan_position = 0
+                self._current_index = 0
+
+            with open(self._output_file_path, "rb") as file_handle:
+                file_handle.seek(self._scan_position)
+
+                while file_handle.tell() < snapshot_file_size:
+                    offset = file_handle.tell()
+                    line = file_handle.readline()
+                    if not line:
+                        break
+
+                    if file_handle.tell() > snapshot_file_size:
+                        break
+
+                    if line.startswith(self._HEADER_MARKER):
+                        if not self._offsets or self._offsets[-1] != offset:
+                            self._offsets.append(offset)
+
+                self._scan_position = snapshot_file_size
 
             self.total_schedules = len(self._offsets)
             if self.total_schedules == 0:
