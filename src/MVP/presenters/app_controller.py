@@ -1,4 +1,4 @@
-import time
+import threading
 from src.MVP.models.planix_model import PlanixModel
 from src.MVP.models.schedule_collection_manager import ScheduleCollectionManager
 from src.MVP.presenters.input_presenter import InputPresenter
@@ -33,6 +33,7 @@ class AppController:
             model=self.model, 
             collection_manager=self.collection_manager
         )
+        self.calendar_presenter.controller = self
 
         # Intercept and bind view-switching notifications sent from the UI (PLAN-266)
         self.app_window.on_navigation_requested = self._handle_navigation
@@ -45,18 +46,43 @@ class AppController:
         Coordinates screen transitions while keeping underlying data configurations persistent.
         """
         if target_view == "calendar":
-            print("[AppController] Triggering exam generation engine via adapter...")
-            
-            # 1. Invoke the generation algorithm in a background thread via the adapter
-            # This populates the final_schedules.txt file with calculated timetables
-            self.engine_adapter.generate_from_model(model=self.model, output_path=self.output_path)
-            
-            # 2. Briefly allow the background thread to initialize and create the file context
-            # This prevents a race condition where the presenter reads an empty file instantly
-            time.sleep(0.5)
-            
-            # 3. Command the calendar presenter to load and render the newly generated results
-            self.calendar_presenter.refresh_presenter_state()
+            self.regenerate_schedules_snapshot()
+            return
 
-        # Command the window layout manager to switch the visible views in the UI
         self.app_window.switch_view(target_view)
+
+    def regenerate_schedules_snapshot(self) -> None:
+        print("[AppController] Constraint changed. Re-running engine...")
+
+        # Guard against overlapping generation runs that can overload the UI thread.
+        if self.engine_adapter.is_generation_active():
+            print("[AppController] Generation already in progress. Reusing current snapshot flow.")
+            self.app_window.switch_view("calendar")
+            self.app_window.after(100, self._load_snapshot_schedules)
+            return
+
+        if hasattr(self.model, "is_generating") and self.model.is_generating:
+            self.model.is_generating = False
+
+        self.collection_manager.snapshot_mode = False
+        self.engine_adapter.generate_from_model(model=self.model, output_path=self.output_path)
+        self.app_window.switch_view("calendar")
+        self.app_window.after(500, self._load_snapshot_schedules)
+
+    def _load_snapshot_schedules(self) -> None:
+        def run():
+            self.collection_manager.build_snapshot_index()
+            self.app_window.after(0, self.calendar_presenter.refresh_presenter_state)
+
+            # Keep polling while generation is active; release snapshot mode once idle.
+            if self.engine_adapter.is_generation_active():
+                self.app_window.after(500, self._load_snapshot_schedules)
+            else:
+                self.collection_manager.snapshot_mode = False
+                if hasattr(self.model, "is_generating") and self.model.is_generating:
+                    self.model.is_generating = False
+                self.engine_adapter.clear_finished_worker()
+                print("[AppController] Engine idle. Snapshot mode disabled for full file access.")
+                
+        # Run the snapshot loading in a separate thread to avoid blocking the UI during file I/O operations.
+        threading.Thread(target=run, daemon=True).start()

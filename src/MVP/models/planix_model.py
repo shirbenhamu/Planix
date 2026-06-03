@@ -42,6 +42,10 @@ class PlanixModel:
     _generation_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _user_excluded_dates: Set[date] = field(default_factory=set, init=False, repr=False)
 
+
+    # The is_generating property provides a thread-safe way to track whether the engine is currently 
+    # running a generation process, allowing the UI to react accordingly (e.g., by showing loading 
+    # indicators or preventing multiple concurrent runs).
     @property
     def is_generating(self) -> bool:
         with self._generation_lock:

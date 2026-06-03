@@ -3,13 +3,14 @@ from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 
 class CalendarPresenter:
-    def __init__(self, view, model, collection_manager):
+    def __init__(self, view, model, collection_manager, controller=None):
         """
         Initialize the CalendarPresenter and bind UI components to the schedule collection.
         """
         self.view = view
         self.model = model
         self.collection_manager = collection_manager
+        self.controller = controller
 
         # Track the active months currently initialized in the View grid
         self.active_months: List[int] = []
@@ -183,9 +184,25 @@ class CalendarPresenter:
 
     def _handle_range_update(self, start_str: str, end_str: str) -> None:
         try:
-            start_date = datetime.strptime(start_str.strip(), "%d-%m-%Y").date()
-            end_date = datetime.strptime(end_str.strip(), "%d-%m-%Y").date()
-            self.model.update_custom_exam_period(start_date, end_date)
+            # 1. Update period if fields are not blank
+            if start_str.strip() and end_str.strip():
+                start_date = datetime.strptime(start_str.strip(), "%d-%m-%Y").date()
+                end_date = datetime.strptime(end_str.strip(), "%d-%m-%Y").date()
+                self.model.update_custom_exam_period(start_date, end_date)
+
+            # 2. Sync program IDs to prevent empty schedule bug
+            if hasattr(self.view, "get_selected_programs"):
+                raw_programs = self.view.get_selected_programs()
+                cleaned_ids = [p.split("(")[-1].split(")")[0].strip() for p in raw_programs if "(" in p and ")" in p]
+                if cleaned_ids:
+                    if hasattr(self.model, "update_selected_programs"):
+                        self.model.update_selected_programs(cleaned_ids)
+                    else:
+                        self.model.selected_programs = cleaned_ids
+
+            # 3. Trigger engine
+            if hasattr(self, "controller") and self.controller is not None:
+                self.controller.regenerate_schedules_snapshot()
         except Exception as e:
             print(f"Error updating exam period range: {e}")
 
@@ -208,8 +225,43 @@ class CalendarPresenter:
 
     def _handle_filter_click(self) -> None:
         """
-        Placeholder interface stub method defined for future extensibility,
-        including Schedule filtering and sorting logic (PLAN-263).
+        Gathers checked programs from the view context, cleans and extracts the numerical IDs,
+        updates the core planix model layer, and requests an asynchronous engine rebuild.
         """
-        print("Filter & Sort action triggered. Interface method stub executed.")
-        pass
+        try:
+            selected_programs = []
+            if hasattr(self.view, "get_selected_programs"):
+                raw_programs = self.view.get_selected_programs()
+                cleaned_program_ids = []
+
+                # Extract only the numerical program ID inside the parentheses (e.g., "83108")
+                for prog in raw_programs:
+                    if "(" in prog and ")" in prog:
+                        try:
+                            prog_id = prog.split("(")[-1].split(")")[0].strip()
+                            cleaned_program_ids.append(prog_id)
+                        except Exception:
+                            cleaned_program_ids.append(prog.strip())
+                    else:
+                        cleaned_program_ids.append(prog.strip())
+
+                selected_programs = cleaned_program_ids
+
+                # Only update the model if we actually gathered checked elements from the active screen
+                if cleaned_program_ids:
+                    if hasattr(self.model, "update_selected_programs"):
+                        self.model.update_selected_programs(cleaned_program_ids)
+                    elif hasattr(self.model, "set_selected_programs"):
+                        self.model.set_selected_programs(cleaned_program_ids)
+                    else:
+                        self.model.selected_programs = cleaned_program_ids
+                    print(f"[CalendarPresenter] Synced cleaned program IDs back to model format: {cleaned_program_ids}")
+                else:
+                    print("[CalendarPresenter] Local view filter scan empty. Preserving existing model programs.")
+
+            if hasattr(self, "controller") and self.controller is not None:
+                self.controller.regenerate_schedules_snapshot()
+
+            print(f"[CalendarPresenter] Filter execution triggered pipeline update. Reloading engine...")
+        except Exception as e:
+            print(f"Error handling filter execution pipeline: {e}")
