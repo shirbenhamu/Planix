@@ -119,13 +119,13 @@ class InputConfigurationView(ctk.CTkFrame):
         self.btn_run.pack(fill="x", padx=15, pady=(10, 15))
 
     def _handle_load_courses(self):
-        """Opens native file explorer to select course data files."""
-        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        """Opens native file explorer with Text files set as primary filter format."""
+        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses: self.on_load_courses(file_path)
 
     def _handle_load_dates(self):
-        """Opens native file explorer to select exam date files."""
-        file_path = filedialog.askopenfilename(filetypes=[("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
+        """Opens native file explorer with Text files set as primary filter format."""
+        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_dates: self.on_load_dates(file_path)
 
     def _handle_run_click(self):
@@ -180,10 +180,14 @@ class InputConfigurationView(ctk.CTkFrame):
                     c_name = course.get('course_name', '')
                     c_id = course.get('course_id', '')
                     c_type = format_text("type_hova" if course.get('requirement') == 'Obligatory' else "type_bhira", self.current_lang)
+                    
+                    eval_m = course.get("evaluation_method", "")
+                    if not eval_m:
+                        eval_m = "EXAM"
 
                     title = f"\u200F{c_name} ({c_id})\u200F" if self.current_lang == "he" else f"{c_name} ({c_id})"
-                    info = f"\u200Fשנה {year} | סמסטר {semester} | {c_type}\u200F" if self.current_lang == "he" else f"Year {year} | Sem {semester} | {c_type}"
 
+                    info = f"\u200F{c_type} | {eval_m}\u200F" if self.current_lang == "he" else f"{c_type} | {eval_m}"
                     ctk.CTkLabel(card, text=title, font=self.f_sub).pack(anchor=anchor, padx=10, pady=(5, 0))
                     ctk.CTkLabel(card, text=info, font=self.f_small, text_color="gray60").pack(anchor=anchor, padx=10, pady=(0, 5))
 
