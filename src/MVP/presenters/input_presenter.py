@@ -12,8 +12,8 @@ class InputPresenter:
 
         # Internal helper variables initialized with explicit local paths 
         # to ensure strict compliance with internal DataManager rules.
-        self._courses_path = "data/courses.txt"
-        self._exam_periods_path = "data/exam_periods.txt"
+        self._courses_path = None
+        self._exam_periods_path = None
 
         # 1. UI Event Binding - Bound only to course extraction and date constraints
         self.view.on_load_courses = self._handle_load_courses
@@ -47,9 +47,9 @@ class InputPresenter:
             f.write("")  # Ensures an empty file exists so parse_selected_programs reads it and returns [] without breaking
 
         # Resolve paths with explicit workspace fallbacks
-        final_courses = self._courses_path if self._courses_path and self._courses_path.strip() else "data/courses.txt"
-        final_dates = self._exam_periods_path if self._exam_periods_path and self._exam_periods_path.strip() else "data/exam_periods.txt"
-
+        
+        final_courses = self._courses_path if self._courses_path else ""
+        final_dates = self._exam_periods_path if self._exam_periods_path else ""
         # Normalize slashes cleanly to eliminate cross-platform workspace path string mismatches
         normalized_courses = os.path.normpath(final_courses)
         normalized_dates = os.path.normpath(final_dates)
