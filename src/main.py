@@ -12,6 +12,14 @@ def main():
     # 1. Define input paths only for the remaining active core files
     courses_path = "data/courses.txt"
     exam_periods_path = "data/exam_periods.txt"
+    
+    legacy_output_path = "output_results/final_schedules.txt"
+    if os.path.exists(legacy_output_path):
+        try:
+            os.remove(legacy_output_path)
+            print(f"[Startup Cleanup] Removed previous session artifacts: {legacy_output_path}")
+        except Exception as e:
+            print(f"[Startup Cleanup] Warning: Could not clear previous session file: {e}")
 
     # 2. Verify core input files exist before boot (ignoring the obsolete programs file)
     for path in [courses_path, exam_periods_path]:
