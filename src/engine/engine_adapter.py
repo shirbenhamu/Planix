@@ -12,7 +12,6 @@ from src.MVP.models.planix_model import PlanixModel
 from src.output.file_output_writer import FileOutputWriter
 
 
-
 # Adapter that bridges the MVP model layer to the legacy V1.0 scheduler.
 class PlanixEngineAdapter:
 
@@ -21,8 +20,8 @@ class PlanixEngineAdapter:
 
     # This method serves as the isolated execution context for the background process worker!
 
-    # Implemented as a static method to ensure it is easily pickleable by python's 
-    # multiprocessing module, keeping the invocation stateless and detached from 
+    # Implemented as a static method to ensure it is easily pickleable by python's
+    # multiprocessing module, keeping the invocation stateless and detached from
     # live UI or adapter instances. This is ideal for heavy CPU-bound generation runs.
     @staticmethod
     def _generate_and_write_worker(
@@ -30,6 +29,9 @@ class PlanixEngineAdapter:
         exam_periods,
         selected_programs: List[str],
         output_path: str,
+
+        # תוספת: מספר מערכות לדלג עליהן
+        skip_count: int,
     ) -> None:
         scheduler = ExamScheduler()
         generated_schedules = scheduler.generate_schedules(
@@ -39,9 +41,19 @@ class PlanixEngineAdapter:
         )
 
         writer = FileOutputWriter()
-        writer.write_schedules(generated_schedules, output_path)
 
-    def generate_from_model(self, model: PlanixModel, output_path: str) -> str:
+        # אם skip_count גדול מ-0, זה אומר שאנחנו ב"טען עוד" ורוצים לשרשר לקובץ הקיים
+        is_append = skip_count > 0
+
+        writer.write_schedules(generated_schedules,
+                               output_path, skip_count=skip_count, append=is_append)
+
+    def generate_from_model(
+        self,
+        model: PlanixModel,
+        output_path: str,
+        skip_count: int = 0,
+    ) -> str:
         """Generate schedules from the model state and stream them directly to disk.
 
         The legacy scheduler remains untouched. This adapter converts the model state
@@ -60,18 +72,23 @@ class PlanixEngineAdapter:
         )
         exam_periods = list(model.data_manager.get_exam_periods())
 
+        # ולידציה: אם מנסים לעשות "טען עוד", קובץ הבסיס חייב להיות קיים בדיסק
+        if skip_count > 0 and not os.path.exists(output_path):
+            raise FileNotFoundError(
+                f"Cannot 'Load More', base schedule file does not exist at: {output_path}")
+            
         # We run the generation in a separate thread to avoid blocking the UI and allow.
         # The process is marked as a daemon so it will automatically exit when the main program exits,
         # preventing orphaned workers if the user closes the UI during generation.
         self._worker_process = Process(
             target=PlanixEngineAdapter._generate_and_write_worker,
-            args=(filtered_courses, exam_periods, selected_programs, output_path),
+            args=(filtered_courses, exam_periods, selected_programs, output_path, skip_count),
             daemon=True,
         )
         self._worker_process.start()
         return output_path
 
-    # This method allows the UI to check if a  engine generation process is currently active 
+    # This method allows the UI to check if a  engine generation process is currently active
     def is_generation_active(self) -> bool:
         return self._worker_process is not None and self._worker_process.is_alive()
 
@@ -107,7 +124,8 @@ class PlanixEngineAdapter:
         courses: List[Course],
         selected_programs: List[str],
     ) -> List[Course]:
-        selected_program_ids = {program_id.strip() for program_id in selected_programs if program_id.strip()}
+        selected_program_ids = {
+            program_id.strip() for program_id in selected_programs if program_id.strip()}
         filtered_courses: List[Course] = []
 
         for course in courses:
@@ -138,7 +156,8 @@ class PlanixEngineAdapter:
 
         data_manager = getattr(model, "data_manager", None)
         if not isinstance(data_manager, DataManager):
-            raise ValueError("model.data_manager must be a DataManager instance.")
+            raise ValueError(
+                "model.data_manager must be a DataManager instance.")
 
     def _validate_output_path(self, output_path: str) -> None:
         if not isinstance(output_path, str):

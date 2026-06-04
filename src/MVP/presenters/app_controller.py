@@ -86,3 +86,66 @@ class AppController:
                 
         # Run the snapshot loading in a separate thread to avoid blocking the UI during file I/O operations.
         threading.Thread(target=run, daemon=True).start()
+        
+    def load_more_schedules(self, skip_count: int) -> None:
+        """
+        Triggers a new dynamic 29-second generation run, appending new options 
+        to the existing file while skipping the already generated ones.
+        """
+        # הגנה: מניעת הרצה כפולה אם השרת/תהליך רקע עדיין פעיל
+        if self.engine_adapter.is_generation_active():
+            print("[AppController] Generation process is already active. Request denied.")
+            return
+
+        print(f"[AppController] Activating 'Load More' pipeline. Skip target: {skip_count}")
+
+        # מעבירים את המערכת למצב Snapshot כדי שהמשתמש יוכל להמשיך לדפדף בזמן שהקובץ נכתב
+        if hasattr(self.model, "is_generating"):
+            self.model.is_generating = True
+        self.collection_manager.snapshot_mode = True
+
+        # קריאה לאדפטר המעודכן שלנו שמקבל את ה-skip_count ומפעיל את ה-Append בדיסק
+        self.engine_adapter.generate_from_model(
+            model=self.model, 
+            output_path=self.output_path, 
+            skip_count=skip_count
+        )
+
+        # הפעלת מנגנון הבדיקה המחזורית (Polling) לטעינת התוצאות החדשות
+        self.app_window.after(500, lambda: self._monitor_load_more_progress(previous_count=skip_count))
+
+    def _monitor_load_more_progress(self, previous_count: int) -> None:
+        """Background thread polling monitor dedicated for tracking 'Load More' actions."""
+        def run():
+            # בניית האינדקס מחדש מתוך הקובץ המשורשר
+            self.collection_manager.build_snapshot_index()
+            # עדכון ה-UI בצורה בטוחה ב-Main Thread
+            self.app_window.after(0, self.calendar_presenter.refresh_presenter_state)
+
+            # אם התהליך עדיין רץ ברקע, נמשיך לבדוק אותו כל חצי שנייה
+            if self.engine_adapter.is_generation_active():
+                self.app_window.after(500, lambda: self._monitor_load_more_progress(previous_count))
+            else:
+                # התהליך הסתיים! מנקים דגלים ומשחררים את ה-Worker
+                self.collection_manager.snapshot_mode = False
+                if hasattr(self.model, "is_generating") and self.model.is_generating:
+                    self.model.is_generating = False
+                
+                self.engine_adapter.clear_finished_worker()
+                print("[AppController] Load More background worker has finished execution.")
+
+                # בדיקה האם המנוע מצא תוצאות חדשות או הגיע לסוף עץ ה-Backtracking
+                try:
+                    with open(self.output_path, "r", encoding="utf-8") as f:
+                        final_count = f.read().count("--- FULL SYSTEM OPTION")
+                    
+                    if final_count == previous_count:
+                        print("[AppController] Exhausted all options. No new schedules found.")
+                        # שליחת פקודה אופציונלית ל-View להציג הודעה שהגענו לסוף
+                        if hasattr(self.calendar_presenter.view, "show_no_more_results"):
+                            self.app_window.after(0, self.calendar_presenter.view.show_no_more_results)
+                except Exception as e:
+                    print(f"[AppController] Error evaluating post-run final counts: {e}")
+
+        # הרצה ב-Thread נפרד כדי ש-Tkinter לא יקפא בזמן קריאת הדיסק
+        threading.Thread(target=run, daemon=True).start()
