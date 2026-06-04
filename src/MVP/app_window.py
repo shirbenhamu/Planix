@@ -7,6 +7,7 @@ import ctypes
 from typing import Callable
 
 from src.MVP.views import theme
+from src.MVP.views.components.ui_components import ToastNotification, ICON_HAMBURGER
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(BASE_DIR)
@@ -52,6 +53,7 @@ class AppWindow(ctk.CTk):
         self.geometry("1400x800")
         self.minsize(1100, 700)
 
+        self.current_lang = "he"
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
         self.configure(fg_color=theme.BG_MAIN)
@@ -61,6 +63,7 @@ class AppWindow(ctk.CTk):
         self.is_maximized = False
         self.normal_geometry = "1400x800"
         self.on_navigation_requested: Callable[[str], None] = None
+        self._sidebar_animating = False
 
         self._build_layout()
         self._build_views()
@@ -71,11 +74,15 @@ class AppWindow(ctk.CTk):
         self.switch_view("input")
         self.after(100, self._lift_floating_controls)
 
-        # מחזיר את החלון לשורת המשימות למרות overrideredirect
         if os.name == "nt":
             self.after(50, self._enable_taskbar)
 
-    # ----------------------------------------------------------------- בנייה
+    def show_toast(self, message: str, level="success", duration=2000):
+        """פונקציה גלובלית המאפשרת לכל מסך להציג הודעת Toast צפה"""
+        toast = ToastNotification(self, message=message, level=level)
+        toast.place(relx=0.5, rely=0.88, anchor="s")
+        toast.lift()
+        self.after(duration, toast.destroy)
 
     def _build_layout(self):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
@@ -84,10 +91,15 @@ class AppWindow(ctk.CTk):
         self.views_container = ctk.CTkFrame(
             self.main_container, fg_color="transparent", corner_radius=0
         )
-        self.views_container.pack(fill="both", expand=True)
+        self.views_container.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
 
-        # Sidebar נפתח מעל התוכן, מ-(0,0). הרוחב נקבע בבנאי של Sidebar (240).
+        self.views_container.grid_rowconfigure(0, weight=1)
+        self.views_container.grid_columnconfigure(0, weight=1)
+
+        # האתחול ההתחלתי של הסיידבר ממוקם מחוץ לטווח הראייה (x=-240) לצורך האנימציה
         self.sidebar = Sidebar(self.main_container, base_dir=BASE_DIR)
+        self.sidebar.place(x=-self.SIDEBAR_WIDTH, y=0, relheight=1.0, anchor="nw")
+        
         self.sidebar.on_nav_click = self._handle_sidebar_click
         self.sidebar.on_theme_toggle = self._toggle_theme
         self.sidebar.on_lang_toggle = self._toggle_language
@@ -96,21 +108,25 @@ class AppWindow(ctk.CTk):
         self.input_view = InputConfigurationView(self.views_container)
         self.calendar_view = CalendarGridView(self.views_container)
         self.monthly_view = MonthlyGridView(self.views_container)
+
+        for v in (self.input_view, self.calendar_view, self.monthly_view):
+            v.grid(row=0, column=0, sticky="nsew")
+
+        self.input_view.tkraise()
         self._hide_inner_hamburger_buttons()
 
     def _build_top_controls(self):
-        # המבורגר גלובלי בפינה השמאלית העליונה, מ-(0,0)
+        # המבורגר גלובלי מעודכן עם גופן האייקונים הוקטורי החדש
         self.global_hamburger_btn = ctk.CTkButton(
-            self, text="☰", width=44, height=44, corner_radius=0,
+            self, text=ICON_HAMBURGER, width=44, height=44, corner_radius=0,
             fg_color="transparent", hover_color=("gray85", "gray20"),
-            text_color=("black", "white"),
-            font=ctk.CTkFont(size=30, weight="bold"),
+            text_color=theme.TEXT_ACCENT,
+            font=ctk.CTkFont(family="bootstrap-icons", size=24, weight="bold"),
             command=self._toggle_sidebar,
         )
         self.global_hamburger_btn.place(x=0, y=0)
         self.global_hamburger_btn.bind("<Enter>", self._open_sidebar)
 
-        # כפתורי חלון צפים בפינה הימנית — בלי פס עליון מלא
         btn = 34
         gap = 4
         common = dict(
@@ -138,7 +154,6 @@ class AppWindow(ctk.CTk):
         self.max_btn.place(relx=1.0, x=-(btn * 2 + gap * 2), y=4, anchor="ne")
         self.min_btn.place(relx=1.0, x=-(btn * 3 + gap * 3), y=4, anchor="ne")
 
-        # אזור גרירה שקוף במרכז העליון
         self.drag_area = ctk.CTkFrame(
             self, width=420, height=36, fg_color="transparent", corner_radius=0
         )
@@ -165,8 +180,6 @@ class AppWindow(ctk.CTk):
             lambda key: self.calendar_view._handle_cell_click(key)
         )
 
-        # מאפשר לכפתור "עריכת תאריכים" במסך החודשי והשנתי להשתמש באותו
-        # מקור נתונים של מסך הקלט, כך שייפתח אותו חלון עם אותם נתונים
         self.calendar_view.get_exam_periods_callback = (
             lambda: self.input_view.get_exam_periods_callback()
             if self.input_view.get_exam_periods_callback else None
@@ -176,13 +189,10 @@ class AppWindow(ctk.CTk):
             if self.input_view.get_exam_periods_callback else None
         )
 
-    # ------------------------------------------------- נראות בשורת המשימות
-
     def _hwnd(self):
         return ctypes.windll.user32.GetParent(self.winfo_id())
 
     def _enable_taskbar(self):
-        """מחזיר את החלון לשורת המשימות למרות overrideredirect."""
         if os.name != "nt":
             return
         try:
@@ -190,14 +200,11 @@ class AppWindow(ctk.CTk):
             style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
             ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-            # רענון קצר כדי שהשינוי ייכנס לתוקף
             self.wm_withdraw()
             self.after(10, self.wm_deiconify)
             self.after(40, self._lift_floating_controls)
         except Exception:
             pass
-
-    # ------------------------------------------------------- כפתורים עליונים
 
     def _lift_floating_controls(self):
         for w in (
@@ -207,7 +214,6 @@ class AppWindow(ctk.CTk):
             w.lift()
 
     def _hide_inner_hamburger_buttons(self):
-        """מסתיר המבורגרים פנימיים מתוך ה-Views כדי שיהיה רק אחד גלובלי."""
         candidates = []
         if hasattr(self.input_view, "hamburger_btn"):
             candidates.append(self.input_view.hamburger_btn)
@@ -222,8 +228,6 @@ class AppWindow(ctk.CTk):
                     forget()
                 except Exception:
                     pass
-
-    # ------------------------------------------------------- גרירת החלון
 
     def _start_move(self, event):
         if self.is_maximized:
@@ -255,7 +259,6 @@ class AppWindow(ctk.CTk):
         self.after(20, self._lift_floating_controls)
 
     def _minimize_window(self):
-        # עם WS_EX_APPWINDOW המזעור עובד נקי דרך Windows עצמו
         if os.name == "nt":
             try:
                 ctypes.windll.user32.ShowWindow(self._hwnd(), SW_MINIMIZE)
@@ -264,36 +267,32 @@ class AppWindow(ctk.CTk):
                 pass
         self.iconify()
 
-    # ------------------------------------------------------- ניווט / Views
-
     def _handle_sidebar_click(self, action: str):
         if action == "run":
             self._show_monthly_on_run = True
+            self.switch_view("monthly")
+            self.update_idletasks()
             self._switch_view("calendar")
         elif action == "input":
             self._switch_view("input")
         elif action == "monthly":
             self.switch_view("monthly")
         elif action == "annual":
-            self.switch_view("annual")
+            self._switch_view("annual")
         self._close_sidebar()
 
     def switch_view(self, view_name: str) -> None:
-        self.input_view.pack_forget()
-        self.calendar_view.pack_forget()
-        self.monthly_view.pack_forget()
-
         if view_name == "calendar":
             view_name = "monthly" if getattr(self, "_show_monthly_on_run", True) else "annual"
 
         if view_name == "input":
-            self.input_view.pack(fill="both", expand=True)
+            self.input_view.tkraise()
         elif view_name == "monthly":
             self._show_monthly_on_run = True
-            self.monthly_view.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
+            self.monthly_view.tkraise()
         elif view_name == "annual":
             self._show_monthly_on_run = False
-            self.calendar_view.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
+            self.calendar_view.tkraise()
 
         self.sidebar.update_active_btn(view_name)
         self.after(20, self._lift_floating_controls)
@@ -302,36 +301,57 @@ class AppWindow(ctk.CTk):
         if self.on_navigation_requested:
             self.on_navigation_requested(view_name)
 
-    # ------------------------------------------------------- Sidebar
-
     def _toggle_sidebar(self):
+        if self._sidebar_animating:
+            return
         self._close_sidebar() if self.sidebar_visible else self._open_sidebar()
 
     def _open_sidebar(self, event=None):
-        if self.sidebar_visible:
+        if self.sidebar_visible or self._sidebar_animating:
             return
-        self.sidebar.place(x=0, y=0, relheight=1.0, anchor="nw")
-        self.sidebar.lift()
-        self.global_hamburger_btn.place_forget()   # מעלים את ההמבורגר כשהתפריט פתוח
-        self.sidebar_visible = True
+        self._sidebar_animating = True
+        self.global_hamburger_btn.place_forget()
+        self._animate_sidebar_open(-self.SIDEBAR_WIDTH)
+
+    def _animate_sidebar_open(self, current_x):
+        """אנימציית החלקה לפתיחת הסיידבר"""
+        if current_x < 0:
+            next_x = min(0, current_x + 35)
+            self.sidebar.place(x=next_x, y=0, relheight=1.0, anchor="nw")
+            self.sidebar.lift()
+            self.after(14, lambda: self._animate_sidebar_open(next_x))
+        else:
+            self.sidebar_visible = True
+            self._sidebar_animating = False
 
     def _close_sidebar(self):
-        if self.sidebar_visible:
+        if not self.sidebar_visible or self._sidebar_animating:
+            return
+        self._sidebar_animating = True
+        self._animate_sidebar_close(0)
+
+    def _animate_sidebar_close(self, current_x):
+        """אנימציית החלקה לסגירת הסיידבר"""
+        if current_x > -self.SIDEBAR_WIDTH:
+            next_x = max(-self.SIDEBAR_WIDTH, current_x - 35)
+            self.sidebar.place(x=next_x, y=0, relheight=1.0, anchor="nw")
+            self.after(14, lambda: self._animate_sidebar_close(next_x))
+        else:
             self.sidebar.place_forget()
-            self.global_hamburger_btn.place(x=0, y=0)   # מחזיר את ההמבורגר
+            self.global_hamburger_btn.place(x=0, y=0)
             self.sidebar_visible = False
-        self.after(20, self._lift_floating_controls)
+            self._sidebar_animating = False
+            self.after(20, self._lift_floating_controls)
 
     def _check_hover_close(self, event):
-        if not self.sidebar_visible:
+        if not self.sidebar_visible or self._sidebar_animating:
             return
         mouse_x = event.x_root - self.winfo_rootx()
         if mouse_x > self.sidebar_width + 20:
             self._close_sidebar()
 
-    # ------------------------------------------------------- שפה / ערכת נושא
-
     def _toggle_language(self, new_lang):
+        self.current_lang = new_lang
         self.sidebar.update_language(new_lang)
         self.input_view.update_language(new_lang)
         self.calendar_view.update_language(new_lang)
@@ -339,9 +359,6 @@ class AppWindow(ctk.CTk):
         self.after(20, self._lift_floating_controls)
 
     def _toggle_theme(self, new_theme):
-        # החלפת מצב יום/לילה מיידית, בלי fade שגורם לחלון להיראות שקוף.
-        # CustomTkinter מעדכן אוטומטית את צבעי כל הווידג'טים, ולכן אין צורך
-        # ברינדור מחדש של המסכים. מספיק לרענן את תווית מתג היום/לילה.
         ctk.set_appearance_mode(new_theme)
         self.sidebar.update_language(self.sidebar.lang_var.get())
         self.after(20, self._lift_floating_controls)

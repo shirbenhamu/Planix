@@ -10,19 +10,18 @@ from src.MVP.views import theme
 
 class MonthlyGridView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
-        # אותו רקע כמו מסך הקלט, כדי שהרצועה העליונה תתמזג ולא תיראה שורה מכוערת
         super().__init__(master, fg_color=theme.BG_MAIN, **kwargs)
         self.current_lang = "he"
         self._current_page, self._total_pages = 1, 1
         
-        self.f_header = ctk.CTkFont(family="Rubik", size=14, weight="bold")
-        self.f_card = ctk.CTkFont(family="Rubik", size=10, weight="bold")
-        self.f_empty = ctk.CTkFont(family="Rubik", size=18, weight="bold")
-        self.f_day = ctk.CTkFont(family="Rubik", size=12, weight="bold")
+        self.f_header = ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold")
+        self.f_card = ctk.CTkFont(family=theme.FONT_FAMILY, size=11, weight="bold")
+        self.f_empty = ctk.CTkFont(family=theme.FONT_FAMILY, size=18, weight="bold")
+        self.f_day = ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold")
 
         self.on_hamburger_clicked = None 
         self.on_cell_clicked = None 
-        self.get_exam_periods_callback = None  # מקור הנתונים לחלון עריכת התאריכים
+        self.get_exam_periods_callback = None 
         
         self.day_headers = [] 
         self.grid_cells = {}  
@@ -34,15 +33,15 @@ class MonthlyGridView(ctk.CTkFrame):
         self.original_to_target_map = {}
 
         self._grid_built = False
-        self._last_cell_content = {}  # מטמון תוכן לכל תא, לציור מחדש רק של מה שהשתנה (בלי טעינה מחדש של כל הלוח)
+        self._last_cell_content = {}
         
         self.toolbar = TopToolbar(self, is_monthly=True)
-        self.toolbar.pack(fill="x", pady=(5, 10), padx=10)
+        self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
         
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
         self.toolbar.on_month_prev = self._prev_month
         self.toolbar.on_month_next = self._next_month
-        self.toolbar.on_load_more = self._handle_load_more # חיבור הכפתור החדש
+        self.toolbar.on_load_more = self._handle_load_more 
         self.toolbar.on_edit_dates = self._open_dates_modal
 
         self.grid_frame = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
@@ -58,7 +57,7 @@ class MonthlyGridView(ctk.CTkFrame):
 
     def _setup_empty_state(self):
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
-        ctk.CTkLabel(self.empty_state_frame, text="📅", font=("Arial", 60)).pack(pady=(50, 10))
+        ctk.CTkLabel(self.empty_state_frame, text="📅", font=("Arial", 60), text_color=theme.TEXT_MUTED).pack(pady=(50, 10))
         self.empty_text = ctk.CTkLabel(self.empty_state_frame, text="", font=self.f_empty, text_color=theme.TEXT_MUTED)
         self.empty_text.pack()
         self.show_empty_state()
@@ -69,22 +68,22 @@ class MonthlyGridView(ctk.CTkFrame):
 
     def hide_empty_state(self):
         self.empty_state_frame.pack_forget()
-        self.grid_frame.pack(fill="both", expand=True, padx=15, pady=(5, 15))
+        self.grid_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
     def init_grid(self):
-        # בונה את שלד הלוח (כותרות + 6x7 תאים). רץ פעם אחת בלבד דרך _ensure_grid.
         self.hide_empty_state()
         for widget in self.grid_frame.winfo_children(): widget.destroy()
         self.day_headers.clear()
         self.grid_cells.clear()
-        self._last_cell_content = {}  # נבנה מחדש, מאפסים את המטמון
+        self._last_cell_content = {}
 
         for i in range(7): self.grid_frame.grid_columnconfigure(i, weight=1, uniform="day")
-        self.grid_frame.grid_rowconfigure(0, minsize=40)
+        self.grid_frame.grid_rowconfigure(0, minsize=30)
         
         days = TRANSLATIONS["days"][self.current_lang]
         for i in range(7):
-            lbl = ctk.CTkLabel(self.grid_frame, text=days[i], font=self.f_header, fg_color=("gray80", "gray30"), corner_radius=5)
+            # כותרות ימים שקופות ומרחפות, צבע טקסט עדין
+            lbl = ctk.CTkLabel(self.grid_frame, text=days[i], font=self.f_header, fg_color="transparent", text_color=theme.TEXT_MUTED)
             lbl.grid(row=0, column=i, sticky="nsew", padx=2, pady=2)
             self.day_headers.append(lbl)
 
@@ -92,18 +91,17 @@ class MonthlyGridView(ctk.CTkFrame):
             self.grid_frame.grid_rowconfigure(row, weight=1, uniform="week") 
             for col in range(7):
                 cell_key = f"{row}-{col}"
-                cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=("gray70", "gray40"), fg_color=("gray80", "gray15"), corner_radius=5)
-                cell.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+                # תאים עם זוויות חדות (Seamless Grid) וגבולות עדינים
+                cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=theme.BORDER_DEFAULT, fg_color=theme.BG_CARD, corner_radius=0)
+                cell.grid(row=row, column=col, sticky="nsew", padx=0, pady=0)
                 self.grid_cells[cell_key] = cell
 
     def _ensure_grid(self):
-        # בונה את הלוח רק בפעם הראשונה; אחר כך משתמשים מחדש באותם תאים
         if not self._grid_built:
             self.init_grid()
             self._grid_built = True
 
     def receive_data(self, grid_data: Dict[str, dict], active_months: List[int]):
-        # אם הנתונים זהים לרינדור הקודם, אין מה לצייר מחדש (מונע ריצוד ברענון החי)
         if grid_data == self.full_grid_data and active_months == self.active_months:
             return
         self.full_grid_data = grid_data
@@ -128,7 +126,6 @@ class MonthlyGridView(ctk.CTkFrame):
         start_col = (first_weekday + 1) % 7
         row_idx_in_data = self.active_months.index(target_month) + 1
 
-        # בונים את התוכן הרצוי לכל תא: None = תא ריק, dict = יום עם נתונים
         targets = {key: None for key in self.grid_cells}
         self.original_to_target_map.clear()
         current_row, current_col = 1, start_col
@@ -147,7 +144,6 @@ class MonthlyGridView(ctk.CTkFrame):
             if current_col > 6:
                 current_col, current_row = 0, current_row + 1
 
-        # מציירים מחדש רק תאים שתוכנם השתנה, כך שמעבר בין מערכות לא מרנדר את כל הלוח
         for target_key in self.grid_cells:
             content = targets[target_key]
             if content == self._last_cell_content.get(target_key):
@@ -155,12 +151,11 @@ class MonthlyGridView(ctk.CTkFrame):
             self._render_cell(target_key, content)
             self._last_cell_content[target_key] = content
 
-        # סימון התא הנבחר (configure בלבד, בלי בנייה מחדש, ולכן בלי ריצוד)
         for cell in self.grid_cells.values():
-            cell.configure(border_color=("gray70", "gray40"), border_width=1)
+            cell.configure(border_color=theme.BORDER_DEFAULT, border_width=1)
         if self.selected_original_key in self.original_to_target_map:
             t_key = self.original_to_target_map[self.selected_original_key]
-            self.grid_cells[t_key].configure(border_color="#3b8ed0", border_width=2)
+            self.grid_cells[t_key].configure(border_color=theme.BORDER_ACTIVE, border_width=2)
 
     def _handle_cell_click(self, original_key):
         if self.on_cell_clicked: self.on_cell_clicked(original_key)
@@ -172,41 +167,80 @@ class MonthlyGridView(ctk.CTkFrame):
         for widget in cell_frame.winfo_children(): widget.destroy()
 
         if content is None:
-            # תא ריק (לפני תחילת החודש או אחרי סופו)
-            cell_frame.configure(fg_color=("gray80", "gray15"))
+            # תא ריק - מתמזג עם רקע האפליקציה ונראה חלק לגמרי
+            cell_frame.configure(fg_color=theme.BG_MAIN)
             cell_frame.unbind("<Button-1>")
             return
 
         original_key = content["original_key"]
-        cell_frame.configure(fg_color=("#ffcccc", "#4d0000") if content["is_excluded"] else ("gray90", "gray20"))
+        
+        # צבעי תאים
+        if content["is_excluded"]:
+            cell_frame.configure(fg_color=("#ffe6e6", "#4a1c1c"))
+        else:
+            cell_frame.configure(fg_color=theme.BG_CARD)
+            
         cell_frame.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
         anchor = "ne" if self.current_lang == "he" else "nw"
-        day_lbl = ctk.CTkLabel(cell_frame, text=str(content["day"]), font=self.f_day, text_color=("gray50", "gray60"))
-        day_lbl.pack(anchor=anchor, padx=5, pady=2)
+        day_lbl = ctk.CTkLabel(cell_frame, text=str(content["day"]), font=self.f_day, text_color=theme.TEXT_MAIN)
+        day_lbl.pack(anchor=anchor, padx=8, pady=4)
         day_lbl.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
         exams = content["exams"]
         if exams:
-            exams_container = ctk.CTkScrollableFrame(cell_frame, fg_color="transparent", height=60)
-            exams_container.pack(fill="both", expand=True)
+            exams_container = ctk.CTkScrollableFrame(cell_frame, fg_color="transparent")
+            exams_container.pack(fill="both", expand=True, padx=2, pady=(0, 2))
 
             if hasattr(exams_container, "_parent_canvas"):
                 exams_container._parent_canvas.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
-            for exam in exams:
-                card = ctk.CTkFrame(exams_container, fg_color="#3b8ed0" if exam.get("type") == "ח" else "#2fa572", corner_radius=4)
-                card.pack(fill="x", expand=False, padx=2, pady=2)
+            # פלטת צבעים אלגנטית למצב שיש מספר מבחנים באותו יום
+            elegant_colors = [
+                ("#0d6efd", "#0077b6"), # כחול
+                ("#20c997", "#128260"), # ירוק-מנטה
+                ("#f39c12", "#d68910"), # כתום
+                ("#e83e8c", "#b8306f"), # ורוד
+                ("#8e44ad", "#6c3483")  # סגול
+            ]
+
+            for i, exam in enumerate(exams):
+                # בחירת צבע באופן דינמי לפי אינדקס המבחן
+                pill_color = elegant_colors[i % len(elegant_colors)]
+                
+                # עיצוב "גלולה" (Pill) עם פינות מעוגלות מאוד
+                card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
+                card.pack(fill="x", expand=False, padx=2, pady=3)
 
                 full_name = exam.get('short_name', '')
-                display_name = full_name[:20] + ".." if len(full_name) > 20 else full_name
-                c_type = format_text("type_hova", self.current_lang) if exam.get("type") == "ח" else format_text("type_bhira", self.current_lang)
+                c_type = TRANSLATIONS["type_hova"][self.current_lang] if exam.get("type") == "ח" else TRANSLATIONS["type_bhira"][self.current_lang]
+                cid_label = TRANSLATIONS["course_id"][self.current_lang]
 
-                txt = f"{display_name}\n{exam.get('course_id', '')} | {c_type} | {format_text('program', self.current_lang)} {exam.get('program', '')}"
-                lbl = ctk.CTkLabel(card, text=txt, font=self.f_card, text_color="white", justify="center")
-                lbl.pack(padx=2, pady=2)
+                def _he(s):
+                    return f"\u200F{s}\u200F" if self.current_lang == "he" else s
 
-                for widget in [card, lbl]:
+                card_lines = []
+                
+                # טקסט ממורכז או מיושר לפי שפה - בחרתי להשאיר ממורכז בגלולות כדי לשמור על מראה "אירוע" נקי
+                name_lbl = ctk.CTkLabel(card, text=full_name, font=self.f_card, text_color="white", justify="center")
+                name_lbl.pack(padx=6, pady=(4, 0), fill="x")
+                card_lines.append(name_lbl)
+
+                id_lbl = ctk.CTkLabel(card, text=_he(f"{cid_label} {exam.get('course_id', '')}"), font=self.f_card, text_color="white", justify="center")
+                id_lbl.pack(padx=6, fill="x")
+                card_lines.append(id_lbl)
+
+                type_lbl = ctk.CTkLabel(card, text=_he(c_type), font=self.f_card, text_color="white", justify="center")
+                type_lbl.pack(padx=6, pady=(0, 4), fill="x")
+                card_lines.append(type_lbl)
+
+                def _wrap_all(e, lbls=card_lines):
+                    w = max(40, e.width - 12)
+                    for l in lbls:
+                        l.configure(wraplength=w)
+                card.bind("<Configure>", _wrap_all)
+
+                for widget in [card] + card_lines:
                     widget.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
                     widget.bind("<Button-3>", lambda e, k=original_key: self._handle_cell_click(k))
 
@@ -226,17 +260,17 @@ class MonthlyGridView(ctk.CTkFrame):
 
     def highlight_cell(self, original_key: str):
         self.selected_original_key = original_key
-        for cell in self.grid_cells.values(): cell.configure(border_color=("gray70", "gray40"), border_width=1)
+        for cell in self.grid_cells.values(): cell.configure(border_color=theme.BORDER_DEFAULT, border_width=1)
         if original_key in self.original_to_target_map:
-            self.grid_cells[self.original_to_target_map[original_key]].configure(border_color="#3b8ed0", border_width=2)
+            self.grid_cells[self.original_to_target_map[original_key]].configure(border_color=theme.BORDER_ACTIVE, border_width=2)
 
     def toggle_cell_exclusion_visual(self, original_key: str, is_excluded: bool):
         if original_key in self.original_to_target_map:
             target_key = self.original_to_target_map[original_key]
             cell = self.grid_cells.get(target_key)
             if cell:
-                cell.configure(fg_color=("#ffcccc", "#4d0000") if is_excluded else ("gray90", "gray20"))
-                self._last_cell_content.pop(target_key, None)  # שינוי ידני, שהרינדור הבא יצייר מחדש
+                cell.configure(fg_color=("#ffe6e6", "#4a1c1c") if is_excluded else theme.BG_CARD)
+                self._last_cell_content.pop(target_key, None) 
 
     def update_language(self, lang: str):
         self.current_lang = lang
@@ -248,5 +282,8 @@ class MonthlyGridView(ctk.CTkFrame):
             for i, header in enumerate(self.day_headers):
                 header.configure(text=TRANSLATIONS["days"][lang][i])
         if self.active_months:
-            self._last_cell_content = {}  # שפה השתנתה, מציירים מחדש בשפה החדשה
+            self._last_cell_content = {} 
             self.render_current_month()
+
+        if hasattr(self, "popup_box") and self.popup_box.winfo_exists() and hasattr(self, "_last_exam_data"):
+            show_exam_popup(self, self._last_exam_data, lang)

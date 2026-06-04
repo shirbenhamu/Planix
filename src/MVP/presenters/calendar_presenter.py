@@ -69,12 +69,39 @@ class CalendarPresenter:
             self.active_months = unique_months
             self.view.init_grid(self.active_months)
 
+    def _build_course_to_programs_map(self) -> Dict[str, List[str]]:
+        """
+        Read-only helper: maps each course_id to the names of the selected programs it belongs to.
+        Uses existing Model methods only (no scheduling logic touched). Fails soft to an empty map.
+        """
+        course_to_programs: Dict[str, List[str]] = {}
+        try:
+            for prog_id in self.model.get_selected_programs():
+                hierarchy = self.model.get_program_course_hierarchy(prog_id)
+                program_name = hierarchy.get("program_name") or prog_id
+                for semesters in hierarchy.get("courses_by_year_and_semester", {}).values():
+                    for course_list in semesters.values():
+                        for course in course_list:
+                            cid = course.get("course_id")
+                            if cid is None:
+                                continue
+                            cid = str(cid).strip()
+                            course_to_programs.setdefault(cid, [])
+                            if program_name not in course_to_programs[cid]:
+                                course_to_programs[cid].append(program_name)
+        except Exception as e:
+            print(f"[CalendarPresenter] Could not build course->program map: {e}")
+        return course_to_programs
+
     def _render_active_schedule(self, schedule: Schedule) -> None:
         """
         Transforms Model-generated raw schedule entries into grid-renderable cell properties.
         """
         grid_data: Dict[str, dict] = {}
         self.cell_to_date_mapping.clear()
+
+        # Map of course_id -> the real program names it is linked to (among selected programs)
+        course_to_programs = self._build_course_to_programs_map()
 
         # Pre-populate fallback base state structures for all initialized view grids
         for row_idx, month_idx in enumerate(self.active_months, start=1):
@@ -119,12 +146,17 @@ class CalendarPresenter:
             is_mandatory = getattr(real_c, "is_mandatory", True)
             exam_type_marker = "ח" if is_mandatory else "ב"
 
+            # Resolve the real program name(s) this course is linked to
+            course_id = str(getattr(exam.course, "course_id", "")).strip()
+            linked_programs = course_to_programs.get(course_id, [])
+            program_text = ", ".join(linked_programs)
+
             # Parse structural payload matching exact card specifications of inside View layout
             grid_data[cell_key]["exams"].append({
-                "short_name": getattr(exam.course, "course_name", "")[:10],  # Clamp length for clean card display
+                "short_name": getattr(exam.course, "course_name", ""),  # שם מלא; ה-View גולש שורות במקום לחתוך
                 "course_id": getattr(exam.course, "course_id", ""),
                 "type": exam_type_marker,
-                "program": "Prog",  # Extensible placeholder text parameter matching View definitions
+                "program": program_text,  # Real linked program name(s); empty if none resolved
             })
 
         self.view.render_calendar_data(grid_data)

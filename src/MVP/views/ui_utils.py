@@ -4,7 +4,7 @@ TRANSLATIONS = {
     "title": {"he": "לוח מבחנים שנתי", "en": "Annual Exam Schedule"},
     "monthly_title": {"he": "תצוגה חודשית", "en": "Monthly View"},
     "exclude_btn": {"he": "החרג תאריך", "en": "Exclude Date"},
-    "export_btn": {"he": "📥", "en": "📥"},
+    "export_btn": {"he": "ייצוא", "en": "Export"},
     "start_date": {"he": "התחלה", "en": "Start"},
     "end_date": {"he": "סיום", "en": "End"},
     "update_range": {"he": "עדכן", "en": "Update"},
@@ -28,14 +28,19 @@ TRANSLATIONS = {
     "courses": {"he": "קורסים", "en": "Courses"},
     "dates": {"he": "תאריכים", "en": "Dates"},
     "programs_title": {"he": "בחירת תוכניות לימוד (עד 5)", "en": "Select Programs (Max 5)"},
-    "select_all": {"he": "בחר הכל", "en": "Select All"},
     "details_title": {"he": "פרטים", "en": "Details"},
     "no_selection": {"he": "בחר תוכנית מהרשימה כדי לראות את הקורסים שלה כאן.", "en": "Select a program from the list to view its courses here."},
     "btn_run": {"he": "הפעל", "en": "START"},
     "max_programs_err": {"he": "לא ניתן לבחור יותר מ-5 תוכניות לימוד במקביל.", "en": "Cannot select more than 5 programs at once."},
-    "icon_upload": {"he": "📤", "en": "📤"},
-    "icon_trash": {"he": "🗑️", "en": "🗑️"},
+    "icon_upload": {"he": "העלה", "en": "Upload"},
+    "icon_trash": {"he": "מחק", "en": "Delete"},
     "year": {"he": "שנה", "en": "Year"},
+
+    # --- Dates File Load Chooser ---
+    "dates_load_title": {"he": "טעינת קובץ תאריכים", "en": "Load Dates File"},
+    "add_file": {"he": "הוסף קובץ", "en": "Add File"},
+    "overwrite_file": {"he": "דרוס קובץ קיים", "en": "Overwrite Existing"},
+    "cancel": {"he": "ביטול", "en": "Cancel"},
     
     # --- Date Edit Modal ---
     "edit_dates": {"he": "עריכת תאריכים", "en": "Edit Dates"},

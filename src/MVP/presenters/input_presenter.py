@@ -19,6 +19,8 @@ class InputPresenter:
         self.view.on_load_courses = self._handle_load_courses
         self.view.on_load_dates = self._handle_load_dates
         self.view.on_program_selected = self._handle_program_selection
+        # Name-click: show a program's details without changing its selection (PLAN-258)
+        self.view.on_program_details = self._handle_program_details
 
     # ======= 2. File Loading & Configuration Management (PLAN-254 / PLAN-255) =======
 
@@ -115,6 +117,15 @@ class InputPresenter:
 
         # Synchronize structural course hierarchies back onto the UI summary box
         self._update_view_summary()
+
+    def _handle_program_details(self, prog_id: str):
+        """
+        Render a single program's course hierarchy in the details panel WITHOUT
+        toggling its selection state. Triggered by clicking the program name (not the checkbox).
+        Read-only: does not mutate the selected-programs state in any way.
+        """
+        hierarchy = self.model.get_program_course_hierarchy(prog_id)
+        self.view.display_program_courses(hierarchy)
 
     # ======= 4. View Component Rendering (Summary Box Handling) =======
 
