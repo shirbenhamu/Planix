@@ -4,7 +4,7 @@ TRANSLATIONS = {
     "title": {"he": "לוח מבחנים שנתי", "en": "Annual Exam Schedule"},
     "monthly_title": {"he": "תצוגה חודשית", "en": "Monthly View"},
     "exclude_btn": {"he": "החרג תאריך", "en": "Exclude Date"},
-    "export_btn": {"he": "📥", "en": "📥"},
+    "export_btn": {"he": "ייצוא", "en": "Export"},
     "start_date": {"he": "התחלה", "en": "Start"},
     "end_date": {"he": "סיום", "en": "End"},
     "update_range": {"he": "עדכן", "en": "Update"},
@@ -32,8 +32,8 @@ TRANSLATIONS = {
     "no_selection": {"he": "בחר תוכנית מהרשימה כדי לראות את הקורסים שלה כאן.", "en": "Select a program from the list to view its courses here."},
     "btn_run": {"he": "הפעל", "en": "START"},
     "max_programs_err": {"he": "לא ניתן לבחור יותר מ-5 תוכניות לימוד במקביל.", "en": "Cannot select more than 5 programs at once."},
-    "icon_upload": {"he": "📤", "en": "📤"},
-    "icon_trash": {"he": "🗑️", "en": "🗑️"},
+    "icon_upload": {"he": "העלה", "en": "Upload"},
+    "icon_trash": {"he": "מחק", "en": "Delete"},
     "year": {"he": "שנה", "en": "Year"},
 
     # --- Dates File Load Chooser ---
