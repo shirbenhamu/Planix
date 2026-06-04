@@ -3,7 +3,7 @@
 TRANSLATIONS = {
     "title": {"he": "לוח מבחנים שנתי", "en": "Annual Exam Schedule"},
     "monthly_title": {"he": "תצוגה חודשית", "en": "Monthly View"},
-    "exclude_btn": {"he": "תאריך החרג", "en": "Exclude Date"},
+    "exclude_btn": {"he": "החרג תאריך", "en": "Exclude Date"},
     "export_btn": {"he": "📥", "en": "📥"},
     "start_date": {"he": "התחלה", "en": "Start"},
     "end_date": {"he": "סיום", "en": "End"},
@@ -22,10 +22,40 @@ TRANSLATIONS = {
     "course_id": {"he": "קוד קורס:", "en": "Course ID:"},
     "type": {"he": "סוג:", "en": "Type:"},
     "program": {"he": "תוכנית:", "en": "Prog:"},
-    "close": {"he": "סגור", "en": "Close"}
+    "close": {"he": "סגור", "en": "Close"},
+    
+    # --- Input View & Dates Modal Translations ---
+    "courses": {"he": "קורסים", "en": "Courses"},
+    "dates": {"he": "תאריכים", "en": "Dates"},
+    "programs_title": {"he": "בחירת תוכניות לימוד (עד 5)", "en": "Select Programs (Max 5)"},
+    "select_all": {"he": "בחר הכל", "en": "Select All"},
+    "details_title": {"he": "פרטים", "en": "Details"},
+    "no_selection": {"he": "בחר תוכנית מהרשימה כדי לראות את הקורסים שלה כאן.", "en": "Select a program from the list to view its courses here."},
+    "btn_run": {"he": "הפעל", "en": "START"},
+    "max_programs_err": {"he": "לא ניתן לבחור יותר מ-5 תוכניות לימוד במקביל.", "en": "Cannot select more than 5 programs at once."},
+    "icon_upload": {"he": "📤", "en": "📤"},
+    "icon_trash": {"he": "🗑️", "en": "🗑️"},
+    "year": {"he": "שנה", "en": "Year"},
+    
+    # --- Date Edit Modal ---
+    "edit_dates": {"he": "עריכת תאריכים", "en": "Edit Dates"},
+    "add_excluded_date": {"he": "הוספת תאריך מוחרג:", "en": "Add Excluded Date:"},
+    "save": {"he": "שמור", "en": "Save"},
+    "date_format": {"he": "dd/mm/yyyy", "en": "dd/mm/yyyy"},
+    "no_dates_loaded": {"he": "אנא העלה קובץ תאריכים תחילה.", "en": "Please load a dates file first."},
+    "semester": {"he": "סמסטר", "en": "Semester"},
+    "moed": {"he": "מועד", "en": "Moed"},
+    
+    # --- Dynamic Value Translations ---
+    "semester_FALL": {"he": "סתיו", "en": "Fall"}, 
+    "semester_SPRI": {"he": "אביב", "en": "Spring"}, 
+    "semester_SUMM": {"he": "קיץ", "en": "Summer"},
+    "eval_EXAM": {"he": "מבחן", "en": "Exam"},
+    "eval_PROJECT": {"he": "פרויקט", "en": "Project"},
+    "eval_ASSIGNMENT": {"he": "מטלה", "en": "Assignment"},
+    "eval_OTHER": {"he": "אחר", "en": "Other"}
 }
 
 def format_text(key: str, lang: str) -> str:
-    """Helper to return direction-aware formatted strings."""
     text = TRANSLATIONS.get(key, {}).get(lang, key)
     return f"\u200F{text}\u200F" if lang == "he" else text
