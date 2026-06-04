@@ -50,7 +50,9 @@ class TopToolbar(ctk.CTkFrame):
         self.page_entry.pack(side="left", padx=2)
         self.page_entry.bind("<Return>", lambda e: self.on_page_jump(int(self.page_entry.get())) if self.on_page_jump else None)
 
-        self.out_of_lbl = ctk.CTkLabel(self.nav_frame, text="", font=f_btn)
+        # רוחב קבוע (מספיק ל-"/ 100000") כדי ששינוי המספר ב-set_pagination לא
+        # ישנה את רוחב התווית ולא יאלץ פריסה מחדש של כל הסרגל (מקור החפיפה בטעינה)
+        self.out_of_lbl = ctk.CTkLabel(self.nav_frame, text="", font=f_btn, width=80, anchor="w")
         self.out_of_lbl.pack(side="left", padx=2)
         ctk.CTkButton(self.nav_frame, text=">", font=f_btn, width=30, height=26, command=lambda: self.on_next() if self.on_next else None).pack(side="left", padx=2)
 

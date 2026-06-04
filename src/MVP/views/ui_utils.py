@@ -28,7 +28,6 @@ TRANSLATIONS = {
     "courses": {"he": "קורסים", "en": "Courses"},
     "dates": {"he": "תאריכים", "en": "Dates"},
     "programs_title": {"he": "בחירת תוכניות לימוד (עד 5)", "en": "Select Programs (Max 5)"},
-    "select_all": {"he": "בחר הכל", "en": "Select All"},
     "details_title": {"he": "פרטים", "en": "Details"},
     "no_selection": {"he": "בחר תוכנית מהרשימה כדי לראות את הקורסים שלה כאן.", "en": "Select a program from the list to view its courses here."},
     "btn_run": {"he": "הפעל", "en": "START"},
@@ -36,6 +35,12 @@ TRANSLATIONS = {
     "icon_upload": {"he": "📤", "en": "📤"},
     "icon_trash": {"he": "🗑️", "en": "🗑️"},
     "year": {"he": "שנה", "en": "Year"},
+
+    # --- Dates File Load Chooser ---
+    "dates_load_title": {"he": "טעינת קובץ תאריכים", "en": "Load Dates File"},
+    "add_file": {"he": "הוסף קובץ", "en": "Add File"},
+    "overwrite_file": {"he": "דרוס קובץ קיים", "en": "Overwrite Existing"},
+    "cancel": {"he": "ביטול", "en": "Cancel"},
     
     # --- Date Edit Modal ---
     "edit_dates": {"he": "עריכת תאריכים", "en": "Edit Dates"},

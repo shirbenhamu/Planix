@@ -81,10 +81,17 @@ class AppWindow(ctk.CTk):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         self.main_container.pack(fill="both", expand=True)
 
+        # הרצועה העליונה לכפתורי החלון מוחלת כאן (פעם אחת), כך שכל המסכים
+        # מתחילים מתחתיה ואין צורך ב-pady שונה לכל מסך. בזכות זה כשמסך מסוים
+        # נמצא בחזית, לא "מציץ" מסך אחר ברצועה שמעליו.
         self.views_container = ctk.CTkFrame(
             self.main_container, fg_color="transparent", corner_radius=0
         )
-        self.views_container.pack(fill="both", expand=True)
+        self.views_container.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
+
+        # כל המסכים נערמים באותו תא; המעבר נעשה ב-tkraise (כמו טאבים בדפדפן)
+        self.views_container.grid_rowconfigure(0, weight=1)
+        self.views_container.grid_columnconfigure(0, weight=1)
 
         # Sidebar נפתח מעל התוכן, מ-(0,0). הרוחב נקבע בבנאי של Sidebar (240).
         self.sidebar = Sidebar(self.main_container, base_dir=BASE_DIR)
@@ -96,6 +103,13 @@ class AppWindow(ctk.CTk):
         self.input_view = InputConfigurationView(self.views_container)
         self.calendar_view = CalendarGridView(self.views_container)
         self.monthly_view = MonthlyGridView(self.views_container)
+
+        # כל המסכים נפרסים ונצבעים כבר עכשיו (גם אלה שמאחור), באותו תא.
+        # לכן המעבר ביניהם הוא מיידי — רק הבאה לחזית, בלי פריסה/צביעה מחדש.
+        for v in (self.input_view, self.calendar_view, self.monthly_view):
+            v.grid(row=0, column=0, sticky="nsew")
+
+        self.input_view.tkraise()
         self._hide_inner_hamburger_buttons()
 
     def _build_top_controls(self):
@@ -269,6 +283,11 @@ class AppWindow(ctk.CTk):
     def _handle_sidebar_click(self, action: str):
         if action == "run":
             self._show_monthly_on_run = True
+            # מעלים וצובעים את המסך החודשי מיד (כולל הסרגל) לפני שהבקרה עוברת
+            # ל-controller שמפעיל את המנוע. update_idletasks מאלץ ציור מיידי, כך
+            # שהסרגל כבר יציב על המסך והמנוע מתחיל רק אחריו — בלי "טעינה" מרצדת.
+            self.switch_view("monthly")
+            self.update_idletasks()
             self._switch_view("calendar")
         elif action == "input":
             self._switch_view("input")
@@ -279,21 +298,20 @@ class AppWindow(ctk.CTk):
         self._close_sidebar()
 
     def switch_view(self, view_name: str) -> None:
-        self.input_view.pack_forget()
-        self.calendar_view.pack_forget()
-        self.monthly_view.pack_forget()
-
+        # מעבר מיידי בהבאה לחזית בלבד (tkraise), בלי pack_forget/pack שגורם
+        # לפריסה וצביעה מחדש. כל המסכים כבר טעונים ברקע, אז אין ריצוד ואין
+        # תחושת "טעינה" — בדיוק כמו מעבר בין טאבים.
         if view_name == "calendar":
             view_name = "monthly" if getattr(self, "_show_monthly_on_run", True) else "annual"
 
         if view_name == "input":
-            self.input_view.pack(fill="both", expand=True)
+            self.input_view.tkraise()
         elif view_name == "monthly":
             self._show_monthly_on_run = True
-            self.monthly_view.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
+            self.monthly_view.tkraise()
         elif view_name == "annual":
             self._show_monthly_on_run = False
-            self.calendar_view.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
+            self.calendar_view.tkraise()
 
         self.sidebar.update_active_btn(view_name)
         self.after(20, self._lift_floating_controls)

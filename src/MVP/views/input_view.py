@@ -3,9 +3,70 @@ from tkinter import filedialog
 from typing import Callable, Dict
 from src.MVP.views.ui_utils import format_text
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
+from src.MVP.views.components.load_choice_modal import show_load_choice_popup
 
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import create_card, create_icon_button, create_primary_action_button, create_secondary_button, add_card_hover
+
+
+class _ProgramRow(ctk.CTkFrame):
+    """שורת תוכנית: תיבת הסימון (הבלוק) נפרדת משם התוכנית, כל אחת לחיצה נפרדת.
+    חושפת ממשק תואם-CTkCheckBox (cget('text')/select/deselect/get) כדי שה-presenter
+    הקיים ימשיך לעבוד ללא שינוי."""
+
+    def __init__(self, master, prog_id, display_text, lang, on_box_click, on_name_click, font, **kwargs):
+        super().__init__(master, fg_color=theme.TRANSPARENT, **kwargs)
+        self._prog_id = prog_id
+        self._text = display_text
+        self._on_box_click = on_box_click
+        self._on_name_click = on_name_click
+
+        self.box = ctk.CTkCheckBox(
+            self, text="", width=24,
+            fg_color=theme.TEXT_ACCENT, hover_color=theme.TEXT_ACCENT,
+            command=self._box_clicked,
+        )
+        self.name_lbl = ctk.CTkLabel(
+            self, text=display_text, font=font,
+            text_color=theme.TEXT_MAIN, cursor="hand2",
+        )
+        self.name_lbl.bind("<Button-1>", self._name_clicked)
+
+        self.set_lang(lang)
+
+    def set_lang(self, lang):
+        self.box.pack_forget()
+        self.name_lbl.pack_forget()
+        if lang == "he":
+            self.name_lbl.pack(side="right", padx=(0, 8))
+            self.box.pack(side="right")
+        else:
+            self.box.pack(side="left")
+            self.name_lbl.pack(side="left", padx=(8, 0))
+
+    def _box_clicked(self):
+        if self._on_box_click:
+            self._on_box_click(self._prog_id)
+
+    def _name_clicked(self, _event=None):
+        if self._on_name_click:
+            self._on_name_click(self._prog_id)
+
+    # ---- ממשק תואם-CTkCheckBox עבור ה-presenter ----
+    def cget(self, key):
+        if key == "text":
+            return self._text
+        return super().cget(key)
+
+    def select(self):
+        self.box.select()
+
+    def deselect(self):
+        self.box.deselect()
+
+    def get(self):
+        return self.box.get()
+
 
 class InputConfigurationView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -21,6 +82,7 @@ class InputConfigurationView(ctk.CTkFrame):
         self.f_small = ctk.CTkFont(family=theme.FONT_FAMILY, size=12)
 
         self.on_program_selected: Callable[[str], None] = None
+        self.on_program_details: Callable[[str], None] = None
         self.on_load_courses: Callable[[str], None] = None
         self.on_load_dates: Callable[[str], None] = None
         self.on_clear_courses: Callable[[], None] = None
@@ -86,8 +148,12 @@ class InputConfigurationView(ctk.CTkFrame):
         self.lbl_dates = ctk.CTkLabel(self.dates_cell, text="", font=self.f_title, text_color=theme.TEXT_MAIN)
         self.lbl_dates.pack(pady=(0, theme.SPACING_SMALL))
         
-        self.btn_dates = create_icon_button(self.dates_cell, text="", command=self._handle_load_dates)
+        self.btn_dates = create_icon_button(self.dates_cell, text="", command=self._open_dates_load_chooser)
         self.btn_dates.pack()
+
+        # מיקום קבוע לקורסים/תאריכים — לא מתחלף עם השפה כדי למנוע בלבול בין הכפתורים
+        self.courses_cell.grid(row=0, column=0, sticky="nsew")
+        self.dates_cell.grid(row=0, column=1, sticky="nsew")
 
         self.programs_frame = create_card(self.controls_panel)
         self.programs_frame.pack(fill="both", expand=True, pady=theme.SPACING_SMALL)
@@ -96,16 +162,6 @@ class InputConfigurationView(ctk.CTkFrame):
         self.prog_header.pack(fill="x", padx=theme.SPACING_REGULAR, pady=theme.SPACING_REGULAR)
         
         self.programs_title = ctk.CTkLabel(self.prog_header, text="", font=self.f_sub, text_color=theme.TEXT_MAIN)
-
-        # כפתור "בחר הכל" — סגנון משני (מתאר תכלת) שמסתגל יום/לילה, ממש ליד הכותרת
-        self.btn_select_all = ctk.CTkButton(
-            self.prog_header, text="",
-            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold"),
-            fg_color=theme.TRANSPARENT, border_width=2, border_color=theme.BORDER_ACTIVE,
-            hover_color=theme.BG_CARD_HOVER, text_color=theme.TEXT_ACCENT,
-            height=32, width=110, corner_radius=theme.RADIUS_BUTTON,
-            command=self._handle_select_all,
-        )
 
         self.btn_clear_courses = create_icon_button(self.prog_header, text="", command=self._handle_clear_courses)
         self.btn_clear_courses.configure(text_color=theme.DANGER, width=45, height=45)
@@ -147,25 +203,22 @@ class InputConfigurationView(ctk.CTkFrame):
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses: self.on_load_courses(file_path)
 
-    def _handle_load_dates(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
-        if file_path and self.on_load_dates: self.on_load_dates(file_path)
+    def _open_dates_load_chooser(self):
+        # overlay בתוך האפליקציה (לא חלון OS) — בחירה: הוסף קובץ / דרוס קובץ קיים
+        show_load_choice_popup(self, self.current_lang, on_choice_callback=self._perform_dates_load)
+
+    def _perform_dates_load(self, mode: str):
+        # קובע את מצב הטעינה שה-presenter קורא דרך load_mode_var:
+        # append = הוסף קובץ, replace = דרוס קובץ קיים
+        self.load_mode_var.set(mode)
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")]
+        )
+        if file_path and self.on_load_dates:
+            self.on_load_dates(file_path)
         
     def _handle_clear_courses(self):
         if self.on_clear_courses: self.on_clear_courses()
-
-    def _handle_select_all(self):
-        # בוחר אוטומטית את כל התוכניות, עד מגבלת המקסימום שאוכף המודל.
-        # עובד דרך אותו זרימת בחירה ידנית קיימת, אז שום לוגיקה לא משתנה.
-        MAX_PROGRAMS = 5  # תואם ל-max_selected_programs במודל
-        selected_count = sum(1 for cb in self.checkboxes if cb.get())
-        for cb, prog_id in list(zip(self.checkboxes, self._program_ids)):
-            if selected_count >= MAX_PROGRAMS:
-                break
-            if not cb.get():
-                cb.select()
-                self._handle_program_click(prog_id)
-                selected_count += 1
 
     def _handle_run_click(self):
         if self.on_run_clicked: self.on_run_clicked()
@@ -174,24 +227,48 @@ class InputConfigurationView(ctk.CTkFrame):
         for cb in self.checkboxes: cb.destroy()
         self.checkboxes.clear()
         self._program_ids = list(programs.keys())
-        
+
         anchor = "e" if self.current_lang == "he" else "w"
         for prog_id, prog_name in programs.items():
             display_text = f"\u200F{prog_name} ({prog_id})\u200F" if self.current_lang == "he" else f"{prog_name} ({prog_id})"
-            
-            cb = ctk.CTkCheckBox(self.programs_list_frame, text=display_text, font=self.f_reg, 
-                                 fg_color=theme.TEXT_ACCENT, hover_color=theme.TEXT_ACCENT, text_color=theme.TEXT_MAIN,
-                                 command=lambda pid=prog_id: self._handle_program_click(pid))
-            cb.pack(anchor=anchor, pady=6, padx=10)
-            self.checkboxes.append(cb)
 
-    def _handle_program_click(self, prog_id):
-        if self.on_program_selected: self.on_program_selected(prog_id)
+            row = _ProgramRow(
+                self.programs_list_frame,
+                prog_id=prog_id,
+                display_text=display_text,
+                lang=self.current_lang,
+                on_box_click=self._handle_box_click,
+                on_name_click=self._handle_name_click,
+                font=self.f_reg,
+            )
+            row.pack(fill="x", anchor=anchor, pady=6, padx=10)
+            self.checkboxes.append(row)
+
+    def _handle_box_click(self, prog_id):
+        # לחיצה על הבלוק: בחירה/ביטול (וי) + הצגת הפרטים של אותה תוכנית
+        if self.on_program_selected:
+            self.on_program_selected(prog_id)
+
+    def _handle_name_click(self, prog_id):
+        # לחיצה על שם התוכנית: הצגת הפרטים בלבד, בלי לשנות את הסימון
+        if self.on_program_details:
+            self.on_program_details(prog_id)
 
     def display_program_courses(self, hierarchy: Dict):
         self._last_hierarchy = hierarchy
         
         for widget in self.details_scroll.winfo_children(): widget.destroy()
+
+        # כותרת דינמית: שם התוכנית והקוד שלה (אם יש), אחרת "פרטים"
+        program_name = hierarchy.get("program_name") if isinstance(hierarchy, dict) else None
+        program_id = hierarchy.get("program_id") if isinstance(hierarchy, dict) else None
+        if program_name:
+            if self.current_lang == "he":
+                self.details_title.configure(text=f"\u200F{program_name} ({program_id})\u200F")
+            else:
+                self.details_title.configure(text=f"{program_name} ({program_id})")
+        else:
+            self.details_title.configure(text=format_text("details_title", self.current_lang))
 
         courses_by_year_and_semester = hierarchy.get("courses_by_year_and_semester", {}) if hierarchy else {}
         if not courses_by_year_and_semester:
@@ -272,24 +349,24 @@ class InputConfigurationView(ctk.CTkFrame):
         self.btn_dates.configure(text=format_text("icon_upload", lang))
         self.btn_clear_courses.configure(text=format_text("icon_trash", lang))
         self.btn_edit_dates.configure(text=format_text('edit_dates', lang))
-        self.btn_select_all.configure(text=format_text("select_all", lang))
         
         anchor = "e" if lang == "he" else "w"
         
-        for cb in self.checkboxes:
-            cb.pack_configure(anchor=anchor)
+        for row in self.checkboxes:
+            row.pack_configure(anchor=anchor)
+            if hasattr(row, "set_lang"):
+                row.set_lang(lang)
             
         if lang == "he":
-            self.courses_cell.grid(row=0, column=1, sticky="nsew")
-            self.dates_cell.grid(row=0, column=0, sticky="nsew")
             self.programs_title.pack_configure(side="right")
-            self.btn_select_all.pack_configure(side="right", padx=10)
             self.btn_clear_courses.pack_configure(side="left")
         else:
-            self.courses_cell.grid(row=0, column=0, sticky="nsew")
-            self.dates_cell.grid(row=0, column=1, sticky="nsew")
             self.programs_title.pack_configure(side="left")
-            self.btn_select_all.pack_configure(side="left", padx=10)
             self.btn_clear_courses.pack_configure(side="right")
 
         self.display_program_courses(self._last_hierarchy)
+
+        # אם חלון בחירת טעינת התאריכים פתוח כרגע — בנה אותו מחדש בשפה החדשה
+        root = self.winfo_toplevel()
+        if hasattr(root, "load_choice_box") and root.load_choice_box.winfo_exists():
+            show_load_choice_popup(self, lang, on_choice_callback=self._perform_dates_load)
