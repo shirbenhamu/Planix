@@ -1,209 +1,369 @@
+# src/MVP/app_window.py
+
 import customtkinter as ctk
 import sys
 import os
 import ctypes
-from PIL import Image 
 from typing import Callable
 
-# Define project base directory
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+from src.MVP.views import theme
+from src.MVP.views.components.ui_components import ToastNotification, ICON_HAMBURGER
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(BASE_DIR)
 
-# ==========================================
-# Dynamic font loading for Windows systems
-# ==========================================
+# קבועי Win32 עבור נראות בשורת המשימות + מזעור
+GWL_EXSTYLE = -20
+WS_EX_APPWINDOW = 0x00040000
+WS_EX_TOOLWINDOW = 0x00000080
+SW_MINIMIZE = 6
+
+
 def load_custom_fonts():
-    """
-    Registers custom font files in the assets/fonts directory 
-    with the Windows GDI system for use during the application session.
-    """
-    if os.name == 'nt': 
-        fonts_dir = os.path.join(BASE_DIR, 'assets', 'fonts')
-        if not os.path.exists(fonts_dir):
-            print(f"Fonts directory not found at {fonts_dir}")
-            return
-        for font_file in os.listdir(fonts_dir):
-            if font_file.endswith(".ttf") or font_file.endswith(".otf"):
-                font_path = os.path.join(fonts_dir, font_file)
-                # Add font resource to GDI system
-                ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10 | 0x20, 0)
+    if os.name != "nt":
+        return
+
+    fonts_dir = os.path.join(BASE_DIR, "assets", "fonts")
+    if not os.path.exists(fonts_dir):
+        return
+
+    for font_file in os.listdir(fonts_dir):
+        if font_file.endswith((".ttf", ".otf")):
+            font_path = os.path.join(fonts_dir, font_file)
+            ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10 | 0x20, 0)
+
 
 load_custom_fonts()
 
 from src.MVP.views.input_view import InputConfigurationView
-from src.MVP.views.calendar_view import CalendarGridView 
+from src.MVP.views.calendar_view import CalendarGridView
+from src.MVP.views.monthly_view import MonthlyGridView
+from src.MVP.views.components.sidebar import Sidebar
+
 
 class AppWindow(ctk.CTk):
+    SIDEBAR_WIDTH = 240
+    TOP_STRIP = 48  # רצועה עליונה לכפתורי החלון, כדי שה-toolbar לא יתנגש בהם
+
     def __init__(self):
         super().__init__()
-        
+
         self.title("Planix")
-        self.geometry("1400x800") 
-        
-        ctk.set_appearance_mode("Dark") 
+        self.overrideredirect(True)          # מסיר את שורת הכותרת של Windows
+        self.geometry("1400x800")
+        self.minsize(1100, 700)
+
+        self.current_lang = "he"
+        ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
-        
-        # Define UI fonts
-        self.f_logo = ctk.CTkFont(family="Bruno Ace SC", size=22, weight="bold")
-        self.f_nav = ctk.CTkFont(family="Rubik", size=16, weight="bold")
-        self.f_switch = ctk.CTkFont(family="Rubik", size=14, weight="bold")
+        self.configure(fg_color=theme.BG_MAIN)
 
-        # Container for main layout
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.pack(fill="both", expand=True)
-        
-        self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        self.content_frame.pack(fill="both", expand=True)
-
-        # Sidebar configuration
         self.sidebar_visible = False
-        self.sidebar_width = 240
-        self.sidebar_frame = ctk.CTkFrame(self.main_container, width=self.sidebar_width, corner_radius=0, border_width=1)
+        self.sidebar_width = self.SIDEBAR_WIDTH
+        self.is_maximized = False
+        self.normal_geometry = "1400x800"
+        self.on_navigation_requested: Callable[[str], None] = None
+        self._sidebar_animating = False
+
+        self._build_layout()
+        self._build_views()
+        self._build_top_controls()
+        self._wire_views()
+
+        self.bind("<Motion>", self._check_hover_close)
+        self.switch_view("input")
+        self.after(100, self._lift_floating_controls)
+
+        if os.name == "nt":
+            self.after(50, self._enable_taskbar)
+
+    def show_toast(self, message: str, level="success", duration=2000):
+        """פונקציה גלובלית המאפשרת לכל מסך להציג הודעת Toast צפה"""
+        toast = ToastNotification(self, message=message, level=level)
+        toast.place(relx=0.5, rely=0.88, anchor="s")
+        toast.lift()
+        self.after(duration, toast.destroy)
+
+    def _build_layout(self):
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        self.main_container.pack(fill="both", expand=True)
+
+        self.views_container = ctk.CTkFrame(
+            self.main_container, fg_color="transparent", corner_radius=0
+        )
+        self.views_container.pack(fill="both", expand=True, pady=(self.TOP_STRIP, 0))
+
+        self.views_container.grid_rowconfigure(0, weight=1)
+        self.views_container.grid_columnconfigure(0, weight=1)
+
+        # האתחול ההתחלתי של הסיידבר ממוקם מחוץ לטווח הראייה (x=-240) לצורך האנימציה
+        self.sidebar = Sidebar(self.main_container, base_dir=BASE_DIR)
+        self.sidebar.place(x=-self.SIDEBAR_WIDTH, y=0, relheight=1.0, anchor="nw")
         
-        self.sidebar_title = ctk.CTkLabel(self.sidebar_frame, text="Planix", font=self.f_logo, text_color="#3b8ed0")
-        self.sidebar_title.pack(pady=(25, 20), padx=20)
+        self.sidebar.on_nav_click = self._handle_sidebar_click
+        self.sidebar.on_theme_toggle = self._toggle_theme
+        self.sidebar.on_lang_toggle = self._toggle_language
 
-        # Main navigation menu
-        self.nav_menu_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        self.nav_menu_frame.pack(fill="x", pady=10)
-        
-        self.btn_load_data = ctk.CTkButton(
-            self.nav_menu_frame, text="טעינת נתונים", font=self.f_nav, anchor="w", 
-            fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-            command=lambda: self.switch_view("input")
-        )
-        self.btn_load_data.pack(fill="x", padx=10, pady=5)
-        
-        self.btn_calendar = ctk.CTkButton(
-            self.nav_menu_frame, text="לוח מבחנים שנתי", font=self.f_nav, anchor="w", 
-            fg_color="#3b8ed0", text_color="white", hover_color="#2a6d9e",
-            command=lambda: self.switch_view("calendar")
-        )
-        self.btn_calendar.pack(fill="x", padx=10, pady=5)
-
-        # Sidebar footer controls
-        self.bottom_sidebar_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        self.bottom_sidebar_frame.pack(side="bottom", fill="x", pady=20)
-
-        # Load logo image if available in assets directory
-        try:
-            logo_path = os.path.join(BASE_DIR, "assets", "logo.png")
-            if os.path.exists(logo_path):
-                my_logo = ctk.CTkImage(light_image=Image.open(logo_path), dark_image=Image.open(logo_path), size=(130, 130))
-                self.logo_label = ctk.CTkLabel(self.bottom_sidebar_frame, image=my_logo, text="")
-                self.logo_label.pack(pady=(0, 20))
-        except Exception as e:
-            print(f"Error loading logo: {e}")
-
-        # Theme and Language toggles
-        self.theme_var = ctk.StringVar(value="Dark")
-        self.theme_switch = ctk.CTkSwitch(
-            self.bottom_sidebar_frame, text="מצב יום", command=self._toggle_theme,
-            variable=self.theme_var, onvalue="Light", offvalue="Dark", font=self.f_switch
-        )
-        self.theme_switch.pack(pady=10, padx=20, anchor="w")
-
-        self.lang_var = ctk.StringVar(value="he")
-        self.lang_switch = ctk.CTkSwitch(
-            self.bottom_sidebar_frame, text="English", command=self._toggle_language,
-            variable=self.lang_var, onvalue="en", offvalue="he", font=self.f_switch
-        )
-        self.lang_switch.pack(pady=10, padx=20, anchor="w")
-
-        self.bind("<Motion>", self._check_hover_close) 
-
-        # Main content area
-        self.views_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.views_container.pack(fill="both", expand=True, padx=0, pady=0)
-
-        # 1. Instantiate the passive UI views
+    def _build_views(self):
         self.input_view = InputConfigurationView(self.views_container)
         self.calendar_view = CalendarGridView(self.views_container)
-        
-        # 2. Bind the hover action to open the sidebar dynamically
-        self.calendar_view.hamburger_btn.bind("<Enter>", self._open_sidebar)
-        self.input_view.hamburger_btn.bind("<Enter>", self._open_sidebar)
+        self.monthly_view = MonthlyGridView(self.views_container)
 
-        # 3. Dynamic layout navigation trigger for the central controller to hook into
-        self.on_navigation_requested: Callable[[str], None] = None
-        
-        # Bind the Run button from Input view to trigger controller transitions
-        self.input_view.on_run_clicked = lambda: self._switch_view("calendar")
+        for v in (self.input_view, self.calendar_view, self.monthly_view):
+            v.grid(row=0, column=0, sticky="nsew")
+
+        self.input_view.tkraise()
+        self._hide_inner_hamburger_buttons()
+
+    def _build_top_controls(self):
+        # המבורגר גלובלי מעודכן עם גופן האייקונים הוקטורי החדש
+        self.global_hamburger_btn = ctk.CTkButton(
+            self, text=ICON_HAMBURGER, width=44, height=44, corner_radius=0,
+            fg_color="transparent", hover_color=("gray85", "gray20"),
+            text_color=theme.TEXT_ACCENT,
+            font=ctk.CTkFont(family="bootstrap-icons", size=24, weight="bold"),
+            command=self._toggle_sidebar,
+        )
+        self.global_hamburger_btn.place(x=0, y=0)
+        self.global_hamburger_btn.bind("<Enter>", self._open_sidebar)
+
+        btn = 34
+        gap = 4
+        common = dict(
+            width=btn, height=btn, corner_radius=8,
+            fg_color="transparent", text_color=("black", "white"),
+        )
+
+        self.close_btn = ctk.CTkButton(
+            self, text="✕", hover_color="#e74c3c",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            command=self.destroy, **common,
+        )
+        self.max_btn = ctk.CTkButton(
+            self, text="▢", hover_color=("gray80", "gray25"),
+            font=ctk.CTkFont(size=18, weight="bold"),
+            command=self._toggle_maximize, **common,
+        )
+        self.min_btn = ctk.CTkButton(
+            self, text="—", hover_color=("gray80", "gray25"),
+            font=ctk.CTkFont(size=18, weight="bold"),
+            command=self._minimize_window, **common,
+        )
+
+        self.close_btn.place(relx=1.0, x=-(btn + gap), y=4, anchor="ne")
+        self.max_btn.place(relx=1.0, x=-(btn * 2 + gap * 2), y=4, anchor="ne")
+        self.min_btn.place(relx=1.0, x=-(btn * 3 + gap * 3), y=4, anchor="ne")
+
+        self.drag_area = ctk.CTkFrame(
+            self, width=420, height=36, fg_color="transparent", corner_radius=0
+        )
+        self.drag_area.place(relx=0.5, y=0, anchor="n")
+        self.drag_area.bind("<Button-1>", self._start_move)
+        self.drag_area.bind("<B1-Motion>", self._do_move)
+        self.drag_area.bind("<Double-Button-1>", lambda e: self._toggle_maximize())
+
+    def _wire_views(self):
+        self.input_view.on_run_clicked = lambda: self._handle_sidebar_click("run")
+        self.calendar_view.set_monthly_view(self.monthly_view)
+
+        mt = getattr(self.monthly_view, "toolbar", None)
+        ct = getattr(self.calendar_view, "toolbar", None)
+        if mt and ct:
+            mt.on_next = lambda: ct.on_next() if ct.on_next else None
+            mt.on_prev = lambda: ct.on_prev() if ct.on_prev else None
+            mt.on_page_jump = lambda p: ct.on_page_jump(p) if ct.on_page_jump else None
+            mt.on_exclude = lambda: ct.on_exclude() if ct.on_exclude else None
+            mt.on_export = lambda: ct.on_export() if ct.on_export else None
+            mt.on_filter = lambda: ct.on_filter() if ct.on_filter else None
+            mt.on_load_more = lambda: ct.on_load_more() if ct.on_load_more else None
+
+        self.monthly_view.on_cell_clicked = (
+            lambda key: self.calendar_view._handle_cell_click(key)
+        )
+
+        self.calendar_view.get_exam_periods_callback = (
+            lambda: self.input_view.get_exam_periods_callback()
+            if self.input_view.get_exam_periods_callback else None
+        )
+        self.monthly_view.get_exam_periods_callback = (
+            lambda: self.input_view.get_exam_periods_callback()
+            if self.input_view.get_exam_periods_callback else None
+        )
+
+    def _hwnd(self):
+        return ctypes.windll.user32.GetParent(self.winfo_id())
+
+    def _enable_taskbar(self):
+        if os.name != "nt":
+            return
+        try:
+            hwnd = self._hwnd()
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
+            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+            self.wm_withdraw()
+            self.after(10, self.wm_deiconify)
+            self.after(40, self._lift_floating_controls)
+        except Exception:
+            pass
+
+    def _lift_floating_controls(self):
+        for w in (
+            self.global_hamburger_btn, self.close_btn,
+            self.max_btn, self.min_btn, self.drag_area,
+        ):
+            w.lift()
+
+    def _hide_inner_hamburger_buttons(self):
+        candidates = []
+        if hasattr(self.input_view, "hamburger_btn"):
+            candidates.append(self.input_view.hamburger_btn)
+        for view in (self.calendar_view, self.monthly_view):
+            tb = getattr(view, "toolbar", None)
+            if tb and hasattr(tb, "hamburger_btn"):
+                candidates.append(tb.hamburger_btn)
+
+        for btn in candidates:
+            for forget in (btn.place_forget, btn.pack_forget, btn.grid_forget):
+                try:
+                    forget()
+                except Exception:
+                    pass
+
+    def _start_move(self, event):
+        if self.is_maximized:
+            return
+        self._drag_start_x = event.x_root
+        self._drag_start_y = event.y_root
+        self._window_start_x = self.winfo_x()
+        self._window_start_y = self.winfo_y()
+
+    def _do_move(self, event):
+        if self.is_maximized:
+            return
+        new_x = self._window_start_x + (event.x_root - self._drag_start_x)
+        new_y = self._window_start_y + (event.y_root - self._drag_start_y)
+        self.geometry(f"+{new_x}+{new_y}")
+
+    def _toggle_maximize(self):
+        if not self.is_maximized:
+            self.normal_geometry = self.geometry()
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            self.geometry(f"{sw}x{sh}+0+0")
+            self.is_maximized = True
+            self.max_btn.configure(text="❐")
+        else:
+            self.geometry(self.normal_geometry)
+            self.is_maximized = False
+            self.max_btn.configure(text="▢")
+        self.after(20, self._lift_floating_controls)
+
+    def _minimize_window(self):
+        if os.name == "nt":
+            try:
+                ctypes.windll.user32.ShowWindow(self._hwnd(), SW_MINIMIZE)
+                return
+            except Exception:
+                pass
+        self.iconify()
+
+    def _handle_sidebar_click(self, action: str):
+        if action == "run":
+            self._show_monthly_on_run = True
+            self.switch_view("monthly")
+            self.update_idletasks()
+            self._switch_view("calendar")
+        elif action == "input":
+            self._switch_view("input")
+        elif action == "monthly":
+            self.switch_view("monthly")
+        elif action == "annual":
+            self._switch_view("annual")
+        self._close_sidebar()
 
     def switch_view(self, view_name: str) -> None:
-        """
-        Purely toggles visibility coordinates between frames without manipulating core business state.
-        """
+        if view_name == "calendar":
+            view_name = "monthly" if getattr(self, "_show_monthly_on_run", True) else "annual"
+
         if view_name == "input":
-            self.calendar_view.pack_forget()
-            self.input_view.pack(fill="both", expand=True)
-            self.btn_load_data.configure(fg_color="#3b8ed0", text_color="white")
-            self.btn_calendar.configure(fg_color="transparent", text_color=("gray10", "gray90"))
-        else:
-            self.input_view.pack_forget()
-            self.calendar_view.pack(fill="both", expand=True)
-            self.btn_calendar.configure(fg_color="#3b8ed0", text_color="white")
-            self.btn_load_data.configure(fg_color="transparent", text_color=("gray10", "gray90"))
+            self.input_view.tkraise()
+        elif view_name == "monthly":
+            self._show_monthly_on_run = True
+            self.monthly_view.tkraise()
+        elif view_name == "annual":
+            self._show_monthly_on_run = False
+            self.calendar_view.tkraise()
+
+        self.sidebar.update_active_btn(view_name)
+        self.after(20, self._lift_floating_controls)
 
     def _switch_view(self, view_name: str) -> None:
-        """Internal interceptor to forward user click parameters up to the controller layer."""
         if self.on_navigation_requested:
             self.on_navigation_requested(view_name)
 
+    def _toggle_sidebar(self):
+        if self._sidebar_animating:
+            return
+        self._close_sidebar() if self.sidebar_visible else self._open_sidebar()
+
     def _open_sidebar(self, event=None):
-        """Displays the sidebar."""
-        if not self.sidebar_visible:
-            self.sidebar_frame.place(relx=0.0, rely=0.0, relheight=1.0, anchor="nw")
-            self.sidebar_frame.lift()
+        if self.sidebar_visible or self._sidebar_animating:
+            return
+        self._sidebar_animating = True
+        self.global_hamburger_btn.place_forget()
+        self._animate_sidebar_open(-self.SIDEBAR_WIDTH)
+
+    def _animate_sidebar_open(self, current_x):
+        """אנימציית החלקה לפתיחת הסיידבר"""
+        if current_x < 0:
+            next_x = min(0, current_x + 35)
+            self.sidebar.place(x=next_x, y=0, relheight=1.0, anchor="nw")
+            self.sidebar.lift()
+            self.after(14, lambda: self._animate_sidebar_open(next_x))
+        else:
             self.sidebar_visible = True
+            self._sidebar_animating = False
+
+    def _close_sidebar(self):
+        if not self.sidebar_visible or self._sidebar_animating:
+            return
+        self._sidebar_animating = True
+        self._animate_sidebar_close(0)
+
+    def _animate_sidebar_close(self, current_x):
+        """אנימציית החלקה לסגירת הסיידבר"""
+        if current_x > -self.SIDEBAR_WIDTH:
+            next_x = max(-self.SIDEBAR_WIDTH, current_x - 35)
+            self.sidebar.place(x=next_x, y=0, relheight=1.0, anchor="nw")
+            self.after(14, lambda: self._animate_sidebar_close(next_x))
+        else:
+            self.sidebar.place_forget()
+            self.global_hamburger_btn.place(x=0, y=0)
+            self.sidebar_visible = False
+            self._sidebar_animating = False
+            self.after(20, self._lift_floating_controls)
 
     def _check_hover_close(self, event):
-        """Closes the sidebar when mouse leaves its area."""
-        if not self.sidebar_visible: return
-        mouse_x_in_window = event.x_root - self.winfo_rootx()
-        if mouse_x_in_window > (self.sidebar_width + 10):
-            self.sidebar_frame.place_forget()
-            self.sidebar_visible = False
+        if not self.sidebar_visible or self._sidebar_animating:
+            return
+        mouse_x = event.x_root - self.winfo_rootx()
+        if mouse_x > self.sidebar_width + 20:
+            self._close_sidebar()
 
-    def _toggle_language(self):
-        """Switches the UI language and updates text labels."""
-        new_lang = self.lang_var.get()
-        self.lang_switch.configure(text="עברית" if new_lang == "en" else "English")
-        self.theme_switch.configure(text="מצב יום" if self.theme_var.get() == "Dark" else "מצב לילה" if new_lang == "he" else "Light Mode" if self.theme_var.get() == "Dark" else "Dark Mode")
-        self.btn_load_data.configure(text="\u200Fטעינת נתונים\u200F" if new_lang == "he" else "Load Data")
-        self.btn_calendar.configure(text="\u200Fלוח מבחנים שנתי\u200F" if new_lang == "he" else "Annual Schedule")
-        
+    def _toggle_language(self, new_lang):
+        self.current_lang = new_lang
+        self.sidebar.update_language(new_lang)
         self.input_view.update_language(new_lang)
         self.calendar_view.update_language(new_lang)
+        self.monthly_view.update_language(new_lang)
+        self.after(20, self._lift_floating_controls)
 
-    def _toggle_theme(self):
-        """Handles appearance mode switching with fade effect."""
-        self._fade_out(1.0, 0.90, self._apply_theme_switch)
-
-    def _apply_theme_switch(self):
-        new_theme = self.theme_var.get()
+    def _toggle_theme(self, new_theme):
         ctk.set_appearance_mode(new_theme)
-        is_hebrew = self.lang_var.get() == "he"
-        if new_theme == "Light":
-            self.theme_switch.configure(text="מצב לילה" if is_hebrew else "Dark Mode")
-        else:
-            self.theme_switch.configure(text="מצב יום" if is_hebrew else "Light Mode")
-        self.update_idletasks() 
-        self._fade_in(0.90, 1.0)
+        self.sidebar.update_language(self.sidebar.lang_var.get())
+        self.after(20, self._lift_floating_controls)
 
-    def _fade_out(self, current_alpha, target_alpha, callback):
-        if current_alpha > target_alpha:
-            current_alpha -= 0.05 
-            self.attributes("-alpha", current_alpha)
-            self.after(10, lambda: self._fade_out(current_alpha, target_alpha, callback)) 
-        else: callback()
-
-    def _fade_in(self, current_alpha, target_alpha):
-        if current_alpha < target_alpha:
-            current_alpha += 0.05
-            self.attributes("-alpha", current_alpha)
-            self.after(10, lambda: self._fade_in(current_alpha, target_alpha))
-        else: self.attributes("-alpha", 1.0)
 
 if __name__ == "__main__":
     app = AppWindow()
