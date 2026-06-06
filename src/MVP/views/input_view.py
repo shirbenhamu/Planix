@@ -72,6 +72,7 @@ class InputConfigurationView(ctk.CTkFrame):
         super().__init__(master, fg_color=theme.BG_MAIN, **kwargs)
         self.current_lang = "he"
         self._last_hierarchy = {}
+        self._detail_labels = []  # תוויות הכרטיסים בפאנל הפרטים, לעדכון גלישה לפי רוחב העמודה
         
         self.f_mega = ctk.CTkFont(family=theme.FONT_FAMILY, size=32, weight="bold")
         self.f_title = ctk.CTkFont(family=theme.FONT_FAMILY, size=24, weight="bold")
@@ -107,6 +108,9 @@ class InputConfigurationView(ctk.CTkFrame):
         self.main_split.grid_columnconfigure(0, weight=6) 
         self.main_split.grid_columnconfigure(1, weight=4) 
         self.main_split.grid_rowconfigure(0, weight=1)
+        # מקבעים את רוחב העמודות כשבר קבוע מרוחב המסך (60%/40%), ללא תלות בתוכן,
+        # כדי שהחלפת תוכנית לא תזיז את חלוקת העמודות (מקור הקפיצות).
+        self.main_split.bind("<Configure>", self._resize_columns)
 
         # ---------------- LEFT PANEL (Details) ----------------
         self.details_panel = ctk.CTkFrame(self.main_split, fg_color=theme.TRANSPARENT)
@@ -255,8 +259,38 @@ class InputConfigurationView(ctk.CTkFrame):
         if self.on_program_details:
             self.on_program_details(prog_id)
 
+    def _current_col0(self) -> int:
+        # רוחב עמודת הפרטים (השמאלית) = 60% מרוחב האזור; fallback לפני שהחלון נפרס
+        w = self.main_split.winfo_width()
+        if w <= 1:
+            w = 1000
+        return int(w * 0.6)
+
+    def _resize_columns(self, event=None):
+        # קובע את שתי העמודות לרוחב פיקסלים קבוע (יחסי למסך), בלי weight, כך שתוכן
+        # לא יכול להזיז את החלוקה. עודף תוכן נגלל בתוך ה-ScrollableFrame ולא דוחף.
+        w = self.main_split.winfo_width()
+        if w <= 1:
+            return
+        col0 = int(w * 0.6)
+        col1 = w - col0
+        self.main_split.grid_columnconfigure(0, weight=0, minsize=col0)
+        self.main_split.grid_columnconfigure(1, weight=0, minsize=col1)
+        # הכותרת והכרטיסים גולשים לפי רוחב העמודה, כך שלא "ידחפו" אותה להתרחב
+        self.details_title.configure(wraplength=max(120, col0 - 60))
+        card_wrap = max(120, col0 - 90)
+        for lbl in self._detail_labels:
+            try:
+                lbl.configure(wraplength=card_wrap)
+            except Exception:
+                pass
+
     def display_program_courses(self, hierarchy: Dict):
         self._last_hierarchy = hierarchy
+        self._detail_labels = []  # נבנה מחדש בכל הצגה
+        col0 = self._current_col0()
+        card_wrap = max(120, col0 - 90)
+        self.details_title.configure(wraplength=max(120, col0 - 60))
         for widget in self.details_scroll.winfo_children(): widget.destroy()
 
         program_name = hierarchy.get("program_name") if isinstance(hierarchy, dict) else None
@@ -322,8 +356,11 @@ class InputConfigurationView(ctk.CTkFrame):
                     title = f"\u200F{c_name} ({c_id})\u200F" if self.current_lang == "he" else f"{c_name} ({c_id})"
                     info = f"\u200F{c_type}  •  {eval_display}\u200F" if self.current_lang == "he" else f"{c_type}  •  {eval_display}"
                     
-                    ctk.CTkLabel(card, text=title, font=self.f_sub, text_color=theme.TEXT_MAIN).pack(anchor=anchor, padx=12, pady=(8, 0))
-                    ctk.CTkLabel(card, text=info, font=self.f_small, text_color=theme.TEXT_MUTED).pack(anchor=anchor, padx=12, pady=(2, 8))
+                    title_lbl = ctk.CTkLabel(card, text=title, font=self.f_sub, text_color=theme.TEXT_MAIN, wraplength=card_wrap, justify=("right" if self.current_lang == "he" else "left"))
+                    title_lbl.pack(anchor=anchor, padx=12, pady=(8, 0))
+                    info_lbl = ctk.CTkLabel(card, text=info, font=self.f_small, text_color=theme.TEXT_MUTED, wraplength=card_wrap, justify=("right" if self.current_lang == "he" else "left"))
+                    info_lbl.pack(anchor=anchor, padx=12, pady=(2, 8))
+                    self._detail_labels.extend([title_lbl, info_lbl])
 
                 if current_group_idx < total_groups:
                     separator = ctk.CTkFrame(self.details_scroll, height=2, fg_color=theme.BORDER_DEFAULT)
