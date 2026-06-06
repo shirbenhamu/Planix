@@ -33,7 +33,12 @@ class AppController:
             model=self.model, 
             collection_manager=self.collection_manager
         )
+        self.app_window.wire_sync_callback(self.calendar_presenter)
         self.calendar_presenter.controller = self
+        
+        # Wire callbacks to calendar_presenter for date editing (both screens)
+        self.app_window.monthly_view.on_range_update_clicked = self.calendar_presenter._handle_range_update
+        self.app_window.input_view.on_range_update_clicked = self.calendar_presenter._handle_range_update
 
         # Intercept and bind view-switching notifications sent from the UI (PLAN-266)
         self.app_window.on_navigation_requested = self._handle_navigation
@@ -53,12 +58,20 @@ class AppController:
 
     def regenerate_schedules_snapshot(self) -> None:
         print("[AppController] Constraint changed. Re-running engine...")
-
+            
+        if not self.model.get_selected_programs():
+            print("[AppController] No programs selected. Skipping generation and clearing schedules.")
+            self.collection_manager.clear_cache()
+            return
+        self.collection_manager.clear_cache()
+            
+        # Switch to annual (yearly) calendar view immediately (even if engine is still running)
+        self.app_window.switch_view("annual")
+        
         # Guard against overlapping generation runs that can overload the UI thread.
         if self.engine_adapter.is_generation_active():
-            print("[AppController] Generation already in progress. Reusing current snapshot flow.")
-            self.app_window.switch_view("calendar")
-            self.app_window.after(100, self._load_snapshot_schedules)
+            print("[AppController] Generation already in progress. Will refresh when complete.")
+            self.app_window.after(500, self._load_snapshot_schedules)
             return
 
         if hasattr(self.model, "is_generating") and self.model.is_generating:
@@ -66,17 +79,21 @@ class AppController:
 
         self.collection_manager.snapshot_mode = False
         self.engine_adapter.generate_from_model(model=self.model, output_path=self.output_path)
-        self.app_window.switch_view("calendar")
-        self.app_window.after(500, self._load_snapshot_schedules)
+        # Load and display immediately, then refresh as data arrives
+        self.app_window.after(100, self._load_snapshot_schedules)
 
     def _load_snapshot_schedules(self) -> None:
+        """Load and display schedules immediately, with background updates."""
         def run():
+            # Build the snapshot index from available data
             self.collection_manager.build_snapshot_index()
+            # Refresh calendar display immediately with current data
             self.app_window.after(0, self.calendar_presenter.refresh_presenter_state)
 
-            # Keep polling while generation is active; release snapshot mode once idle.
+            # If engine is still running, schedule another refresh in 1 second
             if self.engine_adapter.is_generation_active():
-                self.app_window.after(500, self._load_snapshot_schedules)
+                print("[AppController] Engine still running. Scheduling next refresh in 1s...")
+                self.app_window.after(1000, self._load_snapshot_schedules)
             else:
                 self.collection_manager.snapshot_mode = False
                 if hasattr(self.model, "is_generating") and self.model.is_generating:
@@ -84,5 +101,5 @@ class AppController:
                 self.engine_adapter.clear_finished_worker()
                 print("[AppController] Engine idle. Snapshot mode disabled for full file access.")
                 
-        # Run the snapshot loading in a separate thread to avoid blocking the UI during file I/O operations.
+        # Run in a background thread to avoid blocking UI
         threading.Thread(target=run, daemon=True).start()

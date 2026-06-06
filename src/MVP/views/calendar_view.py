@@ -49,18 +49,51 @@ class CalendarGridView(ctk.CTkFrame):
         self.toolbar.on_exclude = lambda: self.on_exclude_clicked(self.selected_cell_key) if self.selected_cell_key and self.on_exclude_clicked else None
         self.toolbar.on_filter = lambda: self.on_filter_clicked() if self.on_filter_clicked else None
         self.toolbar.on_load_more = self._handle_load_more
+        self.on_sync_clicked = None
+        self.toolbar.on_sync_clicked = lambda: self._fire_sync()
 
-        self.grid_frame = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
+        self.scrollable_container = ctk.CTkScrollableFrame(self, fg_color=theme.TRANSPARENT)
+        self.grid_frame = ctk.CTkFrame(self.scrollable_container, fg_color=theme.TRANSPARENT)
+        self.grid_frame.pack(fill="both", expand=False)
+        
         self._setup_empty_state()
         self.update_language(self.current_lang)
-
+    
     def _handle_load_more(self):
         print("Annual View: Load more requested")
 
     def _open_dates_modal(self):
-        periods_data = self.get_exam_periods_callback() if self.get_exam_periods_callback else None
-        show_date_edit_popup(self, self.current_lang, exam_periods_data=periods_data)
+        periods_data = []
 
+        if callable(self.get_exam_periods_callback):
+            try:
+                callback_result = self.get_exam_periods_callback()
+                periods_data = callback_result or []
+                print(
+                    f"[CalendarGridView] _open_dates_modal callback type={type(callback_result).__name__}, count={len(periods_data)}"
+                )
+            except Exception as ex:
+                print(f"[CalendarGridView] Failed to fetch exam periods from callback: {ex}")
+                periods_data = []
+        else:
+            print("[CalendarGridView] get_exam_periods_callback is not callable.")
+
+        # Callback to handle saving updated date pairs from the modal
+        def on_save(date_pairs):
+
+            if self.on_range_update_clicked:
+                print(f"[CalendarGridView] Saving date pairs: {date_pairs}")
+                self.on_range_update_clicked(date_pairs)
+            else:
+                print("[CalendarGridView] on_range_update_clicked is not set")
+        
+        show_date_edit_popup(
+            parent=self,
+            current_lang=self.current_lang,
+            exam_periods_data=periods_data,
+            on_save_callback=on_save
+        )
+    
     def set_monthly_view(self, monthly_view):
         self.monthly_view = monthly_view
 
@@ -72,12 +105,12 @@ class CalendarGridView(ctk.CTkFrame):
         self.show_empty_state()
 
     def show_empty_state(self):
-        self.grid_frame.pack_forget()
+        self.scrollable_container.pack_forget()
         self.empty_state_frame.pack(fill="both", expand=True)
 
     def hide_empty_state(self):
         self.empty_state_frame.pack_forget()
-        self.grid_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        self.scrollable_container.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
     def _get_semester_color(self, month_idx: int):
         # מותאם למצב יום ולילה באמצעות ה-Theme (סתיו=ירוק, אביב=תכלת, קיץ=כתום)
@@ -201,6 +234,7 @@ class CalendarGridView(ctk.CTkFrame):
             return
         self.hide_empty_state()
 
+        self._last_grid_data = {}
         # מציירים מחדש רק תאים שתוכנם באמת השתנה מאז הרענון הקודם.
         changed = False
         for cell_key in self.grid_cells.keys():
@@ -273,3 +307,10 @@ class CalendarGridView(ctk.CTkFrame):
             self.monthly_view.highlight_cell(cell_key)
         if self.on_date_selected: 
             self.on_date_selected(cell_key)
+
+    def _fire_sync(self):
+        print(f"[DEBUG] _fire_sync called. on_sync_clicked={self.on_sync_clicked}")
+        if self.on_sync_clicked:
+            self.on_sync_clicked()
+        else:
+            print("[DEBUG] on_sync_clicked is None — binding never set!")

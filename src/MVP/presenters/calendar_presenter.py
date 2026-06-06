@@ -25,8 +25,9 @@ class CalendarPresenter:
         self.view.on_range_update_clicked = self._handle_range_update
         self.view.on_export_clicked = self._handle_export
         self.view.on_filter_clicked = self._handle_filter_click
-
-        # Initialize display if schedules are already generated and available
+        # Always expose a list-producing callback to the view.
+        self.view.get_exam_periods_callback = lambda: list(self.model.get_exam_periods() or [])
+        self.view.on_sync_clicked = self._handle_sync_action
         self.refresh_presenter_state()
 
     def refresh_presenter_state(self) -> None:
@@ -58,63 +59,81 @@ class CalendarPresenter:
         Determines the unique collection of months spanning across the current schedule block,
         initializes the View layout dimensions, and populates mapping coordinates.
         """
-        if not schedule.exams:
-            return
+        # Computing the displayed months from the configured ExamPeriods
+        # so the calendar always shows the full academic range regardless of
+        # whether exams have been scheduled into those months yet.
+        unique_months: List[int] = []
 
-        # Extract sorted, unique month indices (0-11) present in the schedule block
-        unique_months = sorted(list(set(exam.exam_date.month - 1 for exam in schedule.exams)))
-        
-        # Avoid breaking structural drawing cycles if the grid is already configured identically
-        if self.active_months != unique_months:
-            self.active_months = unique_months
-            self.view.init_grid(self.active_months)
-
-    def _build_course_to_programs_map(self) -> Dict[str, List[str]]:
-        """
-        Read-only helper: maps each course_id to the names of the selected programs it belongs to.
-        Uses existing Model methods only (no scheduling logic touched). Fails soft to an empty map.
-        """
-        course_to_programs: Dict[str, List[str]] = {}
         try:
-            for prog_id in self.model.get_selected_programs():
-                hierarchy = self.model.get_program_course_hierarchy(prog_id)
-                program_name = hierarchy.get("program_name") or prog_id
-                for semesters in hierarchy.get("courses_by_year_and_semester", {}).values():
-                    for course_list in semesters.values():
-                        for course in course_list:
-                            cid = course.get("course_id")
-                            if cid is None:
-                                continue
-                            cid = str(cid).strip()
-                            course_to_programs.setdefault(cid, [])
-                            if program_name not in course_to_programs[cid]:
-                                course_to_programs[cid].append(program_name)
+            exam_periods = self.model.get_exam_periods()
+
+            if exam_periods:
+                # compute continuous month sequence from earliest start_date to latest end_date
+                min_date = min(ep.start_date for ep in exam_periods)
+                max_date = max(ep.end_date for ep in exam_periods)
+
+                # iterate month-by-month to preserve ordering across year boundaries
+                cur_year = min_date.year
+                cur_month = min_date.month
+                while (cur_year, cur_month) <= (max_date.year, max_date.month):
+                    unique_months.append(cur_month - 1)
+                    # advance month
+                    if cur_month == 12:
+                        cur_month = 1
+                        cur_year += 1
+                    else:
+                        cur_month += 1
+            else:
+                # Fall back to deriving months from scheduled exams (legacy behavior)
+                if schedule and getattr(schedule, "exams", None):
+                    unique_months = sorted(list(set(exam.exam_date.month - 1 for exam in schedule.exams)))
+
+            # Avoid breaking structural drawing cycles if the grid is already configured identically
+            if self.active_months != unique_months:
+                self.active_months = unique_months
+                self.view.init_grid(self.active_months)
         except Exception as e:
-            print(f"[CalendarPresenter] Could not build course->program map: {e}")
-        return course_to_programs
+            print(f"Error computing calendar grid months from exam periods: {e}")
+            # On error, keep existing active_months (do not overwrite with possibly invalid data)
 
     def _render_active_schedule(self, schedule: Schedule) -> None:
         """
         Transforms Model-generated raw schedule entries into grid-renderable cell properties.
         """
+        # Initialize a clean slate for the grid data structure and coordinate mapping for the current render cycle
         grid_data: Dict[str, dict] = {}
         self.cell_to_date_mapping.clear()
+        
+        # Build a mapping from course IDs to their associated program names for efficient lookup during exam processing
+        course_to_programs = self._build_course_to_program_map()
+        current_year = schedule.exams[0].exam_date.year if schedule.exams else datetime.now().year
 
-        # Map of course_id -> the real program names it is linked to (among selected programs)
-        course_to_programs = self._build_course_to_programs_map()
-
-        # Pre-populate fallback base state structures for all initialized view grids
+        # Systematically initialize the grid data structure with empty properties for all potential date cells within the active month range
         for row_idx, month_idx in enumerate(self.active_months, start=1):
-            for col_idx in range(31):
+            for day_num in range(1, 32):
+                col_idx = day_num - 1
                 cell_key = f"{row_idx}-{col_idx}"
+
                 grid_data[cell_key] = {
                     "is_excluded": False,
                     "day_text": "",
                     "exams": []
                 }
 
+                try:
+                    real_date = date(current_year, month_idx + 1, day_num)
+                    self.cell_to_date_mapping[cell_key] = real_date
+                    grid_data[cell_key]["day_text"] = str(day_num)
+                except ValueError:
+                    grid_data[cell_key]["day_text"] = ""
+
+
         # Query all globally locked excluded dates directly from primary Model context
         excluded_dates = self.model.get_user_excluded_dates()
+        
+        # Mark all cells corresponding to excluded dates with the appropriate flag for the View to render with exclusion styling
+        for cel_key, cell_date in self.cell_to_date_mapping.items():
+            grid_data[cel_key]["is_excluded"] = cell_date in excluded_dates
 
         # Map schedule array contents systematically onto coordinates
         for exam in schedule.exams:
@@ -125,41 +144,56 @@ class CalendarPresenter:
             if month_idx not in self.active_months:
                 continue
 
+            # Calculate grid coordinates based on the active month index and the day number, ensuring alignment with the View's expected layout structure
             row_idx = self.active_months.index(month_idx) + 1
             col_idx = day_num - 1
             cell_key = f"{row_idx}-{col_idx}"
 
-            # Link coordinate reference to actual date to handle interactive feedback clicks
-            self.cell_to_date_mapping[cell_key] = exam_date
-
-            # Populate cell contextual properties
-            grid_data[cell_key]["day_text"] = str(day_num)
-            grid_data[cell_key]["is_excluded"] = exam_date in excluded_dates
-
-            # Determine course type visualization mapping rule ("ח" for mandatory, "ב" for elective)
-            # The View uses 'is_mandatory' to dynamically alter layout elements
-            is_mandatory = getattr(exam.course, "is_mandatory", True)
-            exam_type_marker = "ח" if is_mandatory else "ב"
-
+            # Determine the exam type marker based on whether the course is mandatory or elective.
             real_c = next((c for c in self.model.data_manager.get_courses() if c.course_id == exam.course.course_id), exam.course)
-            
             is_mandatory = getattr(real_c, "is_mandatory", True)
             exam_type_marker = "ח" if is_mandatory else "ב"
 
-            # Resolve the real program name(s) this course is linked to
+            # Format the program text for display on the exam card, defaulting to a generic placeholder if no linked programs are found.
             course_id = str(getattr(exam.course, "course_id", "")).strip()
             linked_programs = course_to_programs.get(course_id, [])
-            program_text = ", ".join(linked_programs)
+            program_text = ", ".join(linked_programs) if linked_programs else "Prog"
 
             # Parse structural payload matching exact card specifications of inside View layout
             grid_data[cell_key]["exams"].append({
-                "short_name": getattr(exam.course, "course_name", ""),  # שם מלא; ה-View גולש שורות במקום לחתוך
+                "short_name": getattr(exam.course, "course_name", "")[:10],  # Clamp length for clean card display
                 "course_id": getattr(exam.course, "course_id", ""),
                 "type": exam_type_marker,
-                "program": program_text,  # Real linked program name(s); empty if none resolved
+                "program": program_text,  # Extensible placeholder text parameter matching View definitions
             })
 
         self.view.render_calendar_data(grid_data)
+
+    # Helper method to build a mapping from course IDs to their associated program names based on the currently selected programs in the model
+    def _build_course_to_program_map(self) -> Dict[str, List[str]]:
+        course_to_programs: Dict[str, List[str]] = {}
+        try:
+            # Iterate through all selected programs in the model and build a reverse mapping of course_id -> [program_names]
+            for prog_id in self.model.get_selected_programs():
+                # Fetch the full course hierarchy for the program to access course details and names
+                hierarchy = self.model.get_program_course_hierarchy(prog_id)
+                program_name = hierarchy.get("program_name") or prog_id
+                # Traverse the hierarchy to find all courses linked to this program and populate the mapping
+                for semesters in hierarchy.get("courses_by_year_and_semester", {}).values():
+                    for course_list in semesters.values():
+                        for course in course_list:
+                            cid = course.get("course_id")
+                            if cid is None:
+                                continue
+                            # Normalize course_id to string and strip whitespace to ensure consistent mapping keys
+                            cid = str(cid).strip()
+                            course_to_programs.setdefault(cid, [])
+                            # Avoid duplicate program entries for the same course
+                            if program_name not in course_to_programs[cid]:
+                                course_to_programs[cid].append(program_name)
+        except Exception as e:
+            print(f"[CalendarPresenter] Could not build course->program map: {e}")
+        return course_to_programs
 
     # ======= 3. Multi-Schedule Document Traversal (PLAN-260) =======
 
@@ -219,27 +253,50 @@ class CalendarPresenter:
         except Exception as e:
             print(f"Error updating layout following exclusion change: {e}")
 
-    def _handle_range_update(self, start_str: str, end_str: str) -> None:
+    def _handle_range_update(self, date_pairs: List[tuple]) -> None:
         try:
-            # 1. Update period if fields are not blank
-            if start_str.strip() and end_str.strip():
-                start_date = datetime.strptime(start_str.strip(), "%d-%m-%Y").date()
-                end_date = datetime.strptime(end_str.strip(), "%d-%m-%Y").date()
-                self.model.update_custom_exam_period(start_date, end_date)
+            exam_periods = self.model.get_exam_periods() or []
+            if not exam_periods:
+                return
 
-            # 2. Sync program IDs to prevent empty schedule bug
-            if hasattr(self.view, "get_selected_programs"):
-                raw_programs = self.view.get_selected_programs()
-                cleaned_ids = [p.split("(")[-1].split(")")[0].strip() for p in raw_programs if "(" in p and ")" in p]
-                if cleaned_ids:
-                    if hasattr(self.model, "update_selected_programs"):
-                        self.model.update_selected_programs(cleaned_ids)
-                    else:
-                        self.model.selected_programs = cleaned_ids
+            updated_ranges: List[tuple] = []
+            exclusion_dates = []
+            
+            for idx, pair in enumerate(date_pairs):
+                if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+                    continue
+                    
+                start_str = str(pair[0]).strip()
+                end_str = str(pair[1]).strip()
+                
+                # Check if this is an exclusion (start == end)
+                if start_str == end_str and start_str:
+                    try:
+                        ex_date = datetime.strptime(start_str, "%d-%m-%Y").date()
+                        exclusion_dates.append(ex_date)
+                    except ValueError:
+                        pass
+                else:
+                    # Regular exam period range
+                    if idx < len(exam_periods):
+                        start_date = datetime.strptime(start_str, "%d-%m-%Y").date() if start_str else exam_periods[idx].start_date
+                        end_date = datetime.strptime(end_str, "%d-%m-%Y").date() if end_str else exam_periods[idx].end_date
+                        updated_ranges.append((start_date, end_date))
 
-            # 3. Trigger engine
-            if hasattr(self, "controller") and self.controller is not None:
-                self.controller.regenerate_schedules_snapshot()
+            # Update exam period ranges if any exist
+            if updated_ranges:
+                if hasattr(self.model, "update_all_exam_periods"):
+                    self.model.update_all_exam_periods(updated_ranges)
+                else:
+                    # Compatibility fallback for legacy model API
+                    first_start, first_end = updated_ranges[0]
+                    self.model.update_custom_exam_period(first_start, first_end)
+            
+            # Add exclusion dates
+            for ex_date in exclusion_dates:
+                self.model.exclude_date(ex_date)
+            self.collection_manager.clear_cache()
+
         except Exception as e:
             print(f"Error updating exam period range: {e}")
 
@@ -302,3 +359,12 @@ class CalendarPresenter:
             print(f"[CalendarPresenter] Filter execution triggered pipeline update. Reloading engine...")
         except Exception as e:
             print(f"Error handling filter execution pipeline: {e}")
+
+    def _handle_sync_action(self):
+        # clear the collection manager's cache to force it to re-scan the output file and update its internal index, 
+        # then trigger a refresh of the presenter state to reflect any new or updated schedules that may have been generated since the last scan.
+        self.collection_manager.clear_cache() 
+        
+        # After clearing the cache, we need to refresh the presenter state to trigger a new scan of the output file and update the displayed schedules accordingly.
+        if self.controller:
+            self.controller.regenerate_schedules_snapshot()
