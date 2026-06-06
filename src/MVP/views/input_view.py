@@ -6,6 +6,7 @@ from typing import Callable, Dict
 from src.MVP.views.ui_utils import format_text
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.load_choice_modal import show_load_choice_popup
+from src.MVP.views.components.robot_mascot import RobotMascot
 
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
@@ -138,7 +139,8 @@ class InputConfigurationView(ctk.CTkFrame):
         self.files_row = ctk.CTkFrame(self.controls_panel, fg_color=theme.TRANSPARENT)
         self.files_row.pack(fill="x", pady=(0, theme.SPACING_REGULAR))
         self.files_row.grid_columnconfigure(0, weight=1)
-        self.files_row.grid_columnconfigure(1, weight=1)
+        self.files_row.grid_columnconfigure(1, weight=0)   # עמודת הבובה - רוחב קבוע
+        self.files_row.grid_columnconfigure(2, weight=1)
         
         self.courses_cell = ctk.CTkFrame(self.files_row, fg_color=theme.TRANSPARENT)
         self.lbl_courses = ctk.CTkLabel(self.courses_cell, text="", font=self.f_title, text_color=theme.TEXT_MAIN)
@@ -158,7 +160,10 @@ class InputConfigurationView(ctk.CTkFrame):
         self.tip_dates = Tooltip(self.btn_dates, "העלאת קובץ תאריכים")
 
         self.courses_cell.grid(row=0, column=0, sticky="nsew")
-        self.dates_cell.grid(row=0, column=1, sticky="nsew")
+        # בובת הרובוט-סטודנט במרכז, בין קורסים לתאריכים
+        self.mascot = RobotMascot(self.files_row, reserve_bubble=True)
+        self.mascot.grid(row=0, column=1, padx=8)
+        self.dates_cell.grid(row=0, column=2, sticky="nsew")
 
         self.programs_frame = create_card(self.controls_panel)
         self.programs_frame.pack(fill="both", expand=True, pady=theme.SPACING_SMALL)
@@ -198,17 +203,14 @@ class InputConfigurationView(ctk.CTkFrame):
         show_date_edit_popup(self, self.current_lang, exam_periods_data=periods_data)
 
     def show_warning_dialog(self, message: str):
-        err_text = format_text("max_programs_err", self.current_lang)
-        self.error_label.configure(text=err_text)
-        if hasattr(self, "_warning_timer") and self._warning_timer:
-            self.after_cancel(self._warning_timer)
-        self._warning_timer = self.after(3500, lambda: self.error_label.configure(text=""))
+        # ההודעה מוצגת כבועת דיבור של הרובוט במקום הודעה קופצת
+        self.mascot.show_speech(format_text("max_programs_err", self.current_lang), duration=3500)
 
     def _handle_load_courses(self):
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses: 
             self.on_load_courses(file_path)
-            self.winfo_toplevel().show_toast("קובץ קורסים נטען בהצלחה" if self.current_lang == "he" else "Courses file loaded successfully")
+            self.mascot.show_speech(format_text("toast_courses_loaded", self.current_lang))
 
     def _open_dates_load_chooser(self):
         show_load_choice_popup(self, self.current_lang, on_choice_callback=self._perform_dates_load)
@@ -220,12 +222,12 @@ class InputConfigurationView(ctk.CTkFrame):
         )
         if file_path and self.on_load_dates:
             self.on_load_dates(file_path)
-            self.winfo_toplevel().show_toast("קובץ תאריכים עודכן בהצלחה" if self.current_lang == "he" else "Dates file updated successfully")
+            self.mascot.show_speech(format_text("toast_dates_loaded", self.current_lang))
         
     def _handle_clear_courses(self):
         if self.on_clear_courses: 
             self.on_clear_courses()
-            self.winfo_toplevel().show_toast("הנתונים נמחקו" if self.current_lang == "he" else "Data cleared")
+            self.mascot.show_speech(format_text("toast_data_cleared", self.current_lang))
 
     def _handle_run_click(self):
         if self.on_run_clicked: self.on_run_clicked()

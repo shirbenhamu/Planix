@@ -6,6 +6,7 @@ from src.MVP.views.ui_utils import format_text, TRANSLATIONS
 from src.MVP.views.components.exam_modal import show_exam_popup
 from src.MVP.views.components.top_toolbar import TopToolbar
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
+from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views import theme
 
 class MonthlyGridView(ctk.CTkFrame):
@@ -57,9 +58,9 @@ class MonthlyGridView(ctk.CTkFrame):
 
     def _setup_empty_state(self):
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
-        ctk.CTkLabel(self.empty_state_frame, text="📅", font=("Arial", 60), text_color=theme.TEXT_MUTED).pack(pady=(50, 10))
-        self.empty_text = ctk.CTkLabel(self.empty_state_frame, text="", font=self.f_empty, text_color=theme.TEXT_MUTED)
-        self.empty_text.pack()
+        # הרובוט של האפליקציה עם בועת דיבור שמציגה את הודעת "יש לטעון נתונים"
+        self.empty_robot = RobotMascot(self.empty_state_frame, speech=format_text("empty_state", self.current_lang))
+        self.empty_robot.pack(expand=True)
         self.show_empty_state()
 
     def show_empty_state(self):
@@ -275,7 +276,8 @@ class MonthlyGridView(ctk.CTkFrame):
     def update_language(self, lang: str):
         self.current_lang = lang
         self.toolbar.update_language(lang)
-        self.empty_text.configure(text=format_text("empty_state", lang))
+        if hasattr(self, "empty_robot"):
+            self.empty_robot.set_speech(format_text("empty_state", lang))
         self.update_pagination(self._current_page, self._total_pages)
 
         if self.day_headers:
