@@ -11,7 +11,6 @@ from src.MVP.models.course import Course
 from src.MVP.models.planix_model import PlanixModel
 from src.output.file_output_writer import FileOutputWriter
 
-
 # Adapter that bridges the MVP model layer to the legacy V1.0 scheduler.
 class PlanixEngineAdapter:
 
@@ -29,8 +28,6 @@ class PlanixEngineAdapter:
         exam_periods,
         selected_programs: List[str],
         output_path: str,
-
-        # תוספת: מספר מערכות לדלג עליהן
         skip_count: int,
     ) -> None:
         scheduler = ExamScheduler()
@@ -42,9 +39,10 @@ class PlanixEngineAdapter:
 
         writer = FileOutputWriter()
 
-        # אם skip_count גדול מ-0, זה אומר שאנחנו ב"טען עוד" ורוצים לשרשר לקובץ הקיים
+        # If skip_count is greater than zero, this means we are in a 
+        # "Load More" scenario and should append schedules to the existing file.
         is_append = skip_count > 0
-
+        # Write the generated schedules directly to the output file.
         writer.write_schedules(generated_schedules,
                                output_path, skip_count=skip_count, append=is_append)
 
@@ -72,7 +70,7 @@ class PlanixEngineAdapter:
         )
         exam_periods = list(model.data_manager.get_exam_periods())
 
-        # ולידציה: אם מנסים לעשות "טען עוד", קובץ הבסיס חייב להיות קיים בדיסק
+        # If skip_count > 0, the base output file must already exist
         if skip_count > 0 and not os.path.exists(output_path):
             raise FileNotFoundError(
                 f"Cannot 'Load More', base schedule file does not exist at: {output_path}")

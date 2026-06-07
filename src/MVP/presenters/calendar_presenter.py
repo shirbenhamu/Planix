@@ -36,18 +36,18 @@ class CalendarPresenter:
 
 
     def _handle_load_more(self) -> None:
-            """Handles the 'Load More' UI event by delegating to the AppController with current count."""
+            """Handles the 'Load More' UI event by delegating to the AppController with current count"""
             try:
                 import os
                 current_count = 0
 
-                # נבדוק כמה אופציות רשומות כרגע פיזית בקובץ התוצאות
+                # Determine the total number of options currently written to the persistent output file
                 if hasattr(self, "controller") and self.controller is not None:
                     output_path = getattr(
                         self.controller, "output_path", "output_results/final_schedules.txt")
                     if os.path.exists(output_path):
                         with open(output_path, "r", encoding="utf-8") as f:
-                            # סופרים כמה פעמים מופיעה הכותרת של אופציות מערכת מלאות
+                            # Count the occurrences of full system option header tokens
                             current_count = sum(1 for line in f if "--- FULL SYSTEM OPTION" in line)
 
                 print(

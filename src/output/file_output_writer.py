@@ -39,10 +39,13 @@ class FileOutputWriter(IOutputGenerator):
         # Record the start time to monitor execution duration
         start_time = time.time()
         
-        # קביעת ה-mode: "a" עבור טען עוד, "w" עבור ריצה חדשה
+        # Determine file mode: 
+        # 'a' = "Load More"
+        # 'w' = new generation
         mode = 'a' if append else 'w'
 
         with open(output_file_path, mode, encoding='utf-8') as f:
+            # Write the file header only for new generations
             if not append:
                 f.write("=== Complete Academic Year Schedules ===\n")
                 f.write(
@@ -51,9 +54,9 @@ class FileOutputWriter(IOutputGenerator):
             # Generate all possible full-year combinations
             full_year_combinations = itertools.product(*capped_generators)
             
-            # המונה הפנימי של הלולאה לצורך הדילוג
+            # Internal loop counter used for skipping already-generated schedules
             loop_index = 0
-            # מספור האופציות ממשיך מהרף שכבר נטען
+            # Continue numbering from previously generated results
             count = skip_count
 
             # Iterate through each full-year combination generated
