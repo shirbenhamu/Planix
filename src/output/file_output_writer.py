@@ -20,7 +20,9 @@ class FileOutputWriter(IOutputGenerator):
     def write_schedules(
         self,
         schedules_generators: Dict[Tuple[str, str], Iterator[Schedule]],
-        output_file_path: str
+        output_file_path: str,
+        skip_count: int = 0,  
+        append: bool = False
     ) -> None:
         # Create the target directory if it doesn't already exist
         os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
@@ -36,19 +38,35 @@ class FileOutputWriter(IOutputGenerator):
 
         # Record the start time to monitor execution duration
         start_time = time.time()
+        
+        # Determine file mode: 
+        # 'a' = "Load More"
+        # 'w' = new generation
+        mode = 'a' if append else 'w'
 
-        with open(output_file_path, 'w', encoding='utf-8') as f:
-            f.write("=== Complete Academic Year Schedules ===\n")
-            f.write(
-                "Each option below represents a FULL schedule for all selected periods.\n\n")
+        with open(output_file_path, mode, encoding='utf-8') as f:
+            # Write the file header only for new generations
+            if not append:
+                f.write("=== Complete Academic Year Schedules ===\n")
+                f.write(
+                    "Each option below represents a FULL schedule for all selected periods.\n\n")
 
             # Generate all possible full-year combinations
             full_year_combinations = itertools.product(*capped_generators)
-            # Initialize a counter for the generated schedule options
-            count = 0
+            
+            # Internal loop counter used for skipping already-generated schedules
+            loop_index = 0
+            # Continue numbering from previously generated results
+            count = skip_count
 
             # Iterate through each full-year combination generated
             for combo in full_year_combinations:
+                
+                if loop_index < skip_count:
+                    loop_index += 1
+                    continue
+                loop_index += 1
+                
                 count += 1
                 f.write(f"--- FULL SYSTEM OPTION {count} ---\n")
 
@@ -91,5 +109,5 @@ class FileOutputWriter(IOutputGenerator):
                     break
 
             # If the loop finished without finding any results
-            if count == 0:
+            if count == 0 and not append:
                 f.write("No valid full-year combinations could be formed.\n")

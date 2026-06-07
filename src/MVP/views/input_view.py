@@ -88,6 +88,7 @@ class InputConfigurationView(ctk.CTkFrame):
         self.on_load_dates: Callable[[str], None] = None
         self.on_clear_courses: Callable[[], None] = None
         self.on_run_clicked: Callable[[], None] = None
+        self.on_range_update_clicked: Callable[[list], None] = None
         self.get_exam_periods_callback: Callable[[], list] = None
         
         self.checkboxes = []
@@ -199,9 +200,19 @@ class InputConfigurationView(ctk.CTkFrame):
         self.btn_run.pack(fill="x", pady=(theme.SPACING_REGULAR, 0))
 
     def _open_dates_modal(self):
-        periods_data = self.get_exam_periods_callback() if self.get_exam_periods_callback else None
-        show_date_edit_popup(self, self.current_lang, exam_periods_data=periods_data)
-
+        periods_data = self.get_exam_periods_callback() if callable(self.get_exam_periods_callback) else []
+        
+        # Callback to handle saving updated date pairs from the modal
+        def on_save(date_pairs):
+            if self.on_range_update_clicked:
+                self.on_range_update_clicked(date_pairs)
+        
+        show_date_edit_popup(
+            parent=self, 
+            current_lang=self.current_lang, 
+            exam_periods_data=periods_data or [],
+            on_save_callback=on_save
+        )
     def show_warning_dialog(self, message: str):
         # ההודעה מוצגת כבועת דיבור של הרובוט במקום הודעה קופצת
         self.mascot.show_speech(format_text("max_programs_err", self.current_lang), duration=3500)

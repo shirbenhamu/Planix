@@ -178,18 +178,15 @@ class AppWindow(ctk.CTk):
             mt.on_exclude = lambda: ct.on_exclude() if ct.on_exclude else None
             mt.on_export = lambda: ct.on_export() if ct.on_export else None
             mt.on_filter = lambda: ct.on_filter() if ct.on_filter else None
+            mt.on_load_more = lambda: ct.on_load_more() if ct.on_load_more else None
 
         self.monthly_view.on_cell_clicked = (
             lambda key: self.calendar_view._handle_cell_click(key)
         )
 
-        self.calendar_view.get_exam_periods_callback = (
-            lambda: self.input_view.get_exam_periods_callback()
-            if self.input_view.get_exam_periods_callback else None
-        )
         self.monthly_view.get_exam_periods_callback = (
-            lambda: self.input_view.get_exam_periods_callback()
-            if self.input_view.get_exam_periods_callback else None
+            lambda: self.calendar_view.get_exam_periods_callback()
+            if callable(self.calendar_view.get_exam_periods_callback) else []
         )
 
         # עוטפים את receive_data של המסך החודשי (בלי לשנות את הקובץ שלו): ברגע
@@ -205,6 +202,13 @@ class AppWindow(ctk.CTk):
                 self._end_run_indicator()
         self.monthly_view.receive_data = _receive_with_run
 
+    # This method wires the synchronization callback from the calendar presenter to both the calendar and monthly views,
+    # allowing them to trigger a data refresh in the presenter when the user clicks the Sync button in either view's toolbar.
+    #def wire_sync_callback(self, calendar_presenter) -> None:
+       # self.calendar_view.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
+       # self.calendar_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
+       # self.monthly_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
+    
     def _hwnd(self):
         return ctypes.windll.user32.GetParent(self.winfo_id())
 
