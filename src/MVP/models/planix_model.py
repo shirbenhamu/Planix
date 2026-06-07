@@ -267,6 +267,58 @@ class PlanixModel:
         except Exception as e:
             print(f"Error syncing excluded dates to data manager: {e}")
 
+    def _periods_overlap(self, period1: ExamPeriod, period2: ExamPeriod) -> bool:
+        """
+        Check if two exam periods overlap in terms of date ranges and semester/moed.
+        Two periods overlap if:
+        1. They have the same semester AND moed
+        2. Their date ranges overlap (max(start1, start2) <= min(end1, end2))
+        """
+        # Different semester or moed means no conflict
+        if period1.semester != period2.semester or period1.moed != period2.moed:
+            return False
+        
+        # Check if date ranges overlap
+        # Overlap exists if the later start date is <= the earlier end date
+        overlap_start = max(period1.start_date, period2.start_date)
+        overlap_end = min(period1.end_date, period2.end_date)
+        
+        return overlap_start <= overlap_end
+
+    def merge_exam_periods_from_file(self, new_periods: List[ExamPeriod], mode: str = "replace") -> None:
+        """
+        Merge new exam periods from a loaded file into the DataManager, respecting the mode.
+        
+        Args:
+            new_periods: The exam periods parsed from the file
+            mode: "replace" to overwrite existing periods, "append" to add non-overlapping periods
+        """
+        if not self.data_manager:
+            return
+        
+        if mode == "replace":
+            # Simple replacement
+            self.data_manager.exam_periods = new_periods
+            print(f"[PlanixModel] Replaced exam periods. New count: {len(new_periods)}")
+        else:  # mode == "append"
+            # Merge new periods with existing ones, avoiding overlaps
+            existing_periods = self.data_manager.get_exam_periods() or []
+            
+            for period in new_periods:
+                # Check if this period overlaps with any existing period
+                has_overlap = any(self._periods_overlap(period, ex) for ex in existing_periods)
+                
+                if has_overlap:
+                    print(f"[PlanixModel] Skipping overlapping exam period: {period.semester} {period.moed} ({period.start_date} to {period.end_date})")
+                elif period not in existing_periods:
+                    # Add only if it's not a duplicate
+                    existing_periods.append(period)
+                else:
+                    print(f"[PlanixModel] Skipping duplicate exam period: {period.semester} {period.moed}")
+            
+            self.data_manager.exam_periods = existing_periods
+            print(f"[PlanixModel] Merged exam periods. Final count: {len(existing_periods)}")
+
     def get_user_excluded_dates(self) -> List[date]:
         return sorted(self._user_excluded_dates)
 

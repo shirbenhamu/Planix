@@ -21,6 +21,8 @@ class InputPresenter:
         self.view.on_program_selected = self._handle_program_selection
         # Name-click: show a program's details without changing its selection (PLAN-258)
         self.view.on_program_details = self._handle_program_details
+        # Clear button: reset all data and selections
+        self.view.on_clear_courses = self._handle_clear_courses
         self.view.get_exam_periods_callback = lambda: self.model.get_exam_periods() or []
     # ======= 2. File Loading & Configuration Management (PLAN-254 / PLAN-255) =======
 
@@ -64,10 +66,15 @@ class InputPresenter:
         )
 
         mode = self._get_validated_mode()
+        
+        # Save existing exam periods before loading new ones (for append mode in PlanixModel)
+        existing_periods = self.model.data_manager.get_exam_periods() if mode == "append" else None
+        
         try:
             print(f"[Presenter] Dispatching validated paths - Courses: {normalized_courses} | Dates: {normalized_dates}")
             
             # 2. Invoke core DataManager loading flow with fully verified file assets
+            # PlanixModel handles the append/replace logic
             self.model.data_manager.load_data(
                 courses_path=normalized_courses,
                 exam_periods_path=normalized_dates,
@@ -75,10 +82,17 @@ class InputPresenter:
                 mode=mode
             )
             
-            # 3. Trigger dynamic track extraction from loaded memory blocks
+            # 3. If append mode was requested, merge the new periods with existing ones in PlanixModel
+            if mode == "append" and existing_periods:
+                new_periods = self.model.data_manager.get_exam_periods() or []
+                # Restore existing periods and let PlanixModel handle the merge
+                self.model.data_manager.exam_periods = existing_periods
+                self.model.merge_exam_periods_from_file(new_periods, mode="append")
+            
+            # 4. Trigger dynamic track extraction from loaded memory blocks
             self.model.build_available_programs()
             
-            # 4. Refresh passive UI components to update list views smoothly
+            # 5. Refresh passive UI components to update list views smoothly
             self._refresh_programs_list()
             self._update_view_summary()
             
@@ -158,3 +172,28 @@ class InputPresenter:
 
         # Command the passive view container to render the compiled configuration details
         self.view.display_program_courses(hierarchy)
+
+    def _handle_clear_courses(self) -> None:
+        """
+        Clear all data: reset selected programs, courses, and exam periods.
+        Triggered by the trash button in the UI.
+        """
+        try:
+            # Clear selected programs from model
+            self.model.selected_programs = []
+            
+            # Clear available programs
+            self.model.available_programs = {}
+            
+            # Reset data paths
+            self._courses_path = None
+            self._exam_periods_path = None
+            
+            # Refresh UI to reflect empty state
+            self.view.display_program_courses({})
+            self.view.display_programs_list({})
+            self._refresh_programs_list()
+            
+            print("[InputPresenter] All data cleared successfully")
+        except Exception as e:
+            print(f"[InputPresenter] Error clearing data: {e}")
