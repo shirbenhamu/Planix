@@ -8,6 +8,7 @@ from typing import Callable
 
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import ToastNotification, ICON_HAMBURGER
+from src.MVP.views.ui_utils import format_text
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(BASE_DIR)
@@ -64,6 +65,8 @@ class AppWindow(ctk.CTk):
         self.normal_geometry = "1400x800"
         self.on_navigation_requested: Callable[[str], None] = None
         self._sidebar_animating = False
+        self._run_active = False      # האם אנחנו בתהליך הפעלת מנוע (מחשב שיבוצים)
+        self._run_safety = None       # מזהה טיימר בטיחות
 
         self._build_layout()
         self._build_views()
@@ -185,12 +188,26 @@ class AppWindow(ctk.CTk):
             lambda: self.calendar_view.get_exam_periods_callback()
             if callable(self.calendar_view.get_exam_periods_callback) else []
         )
+
+        # עוטפים את receive_data של המסך החודשי (בלי לשנות את הקובץ שלו): ברגע
+        # שמגיעים נתונים אמיתיים — מוודאים שהלוח גלוי ומסיימים את חיווי "מחשב שיבוצים".
+        _orig_receive = self.monthly_view.receive_data
+        def _receive_with_run(grid_data, active_months, _orig=_orig_receive):
+            _orig(grid_data, active_months)
+            if active_months:
+                try:
+                    self.monthly_view.hide_empty_state()
+                except Exception:
+                    pass
+                self._end_run_indicator()
+        self.monthly_view.receive_data = _receive_with_run
+
     # This method wires the synchronization callback from the calendar presenter to both the calendar and monthly views,
     # allowing them to trigger a data refresh in the presenter when the user clicks the Sync button in either view's toolbar.
-    def wire_sync_callback(self, calendar_presenter) -> None:
-        self.calendar_view.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
-        self.calendar_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
-        self.monthly_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
+    #def wire_sync_callback(self, calendar_presenter) -> None:
+       # self.calendar_view.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
+       # self.calendar_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
+       # self.monthly_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
     
     def _hwnd(self):
         return ctypes.windll.user32.GetParent(self.winfo_id())
@@ -274,6 +291,7 @@ class AppWindow(ctk.CTk):
         if action == "run":
             self._show_monthly_on_run = True
             self.switch_view("monthly")
+            self._begin_run_indicator()   # הרובוט אומר "מחשב שיבוצים..." עד שהלוח מופיע
             self.update_idletasks()
             self._switch_view("calendar")
         elif action == "input":
@@ -360,6 +378,42 @@ class AppWindow(ctk.CTk):
         self.calendar_view.update_language(new_lang)
         self.monthly_view.update_language(new_lang)
         self.after(20, self._lift_floating_controls)
+
+    def _begin_run_indicator(self):
+        # מציג את הרובוט במצב הריק עם בועת "מחשב שיבוצים..." ומכסה את אזור הלוח
+        # עד שהתאים הראשונים מגיעים — כך לא רואים את הודעת "יש לטעון נתונים".
+        lang = getattr(self, "current_lang", "he")
+        mv = self.monthly_view
+        if hasattr(mv, "empty_robot"):
+            mv.empty_robot.set_speech(format_text("computing", lang))
+        try:
+            mv.show_empty_state()
+        except Exception:
+            pass
+        self._run_active = True
+        if self._run_safety is not None:
+            self.after_cancel(self._run_safety)
+        # בטיחות: אם משום מה לא הגיעו שיבוצים, נציג הודעה מתאימה (כמעט ולא קורה)
+        self._run_safety = self.after(9000, self._run_no_results)
+
+    def _end_run_indicator(self):
+        if self._run_safety is not None:
+            self.after_cancel(self._run_safety)
+            self._run_safety = None
+        self._run_active = False
+        # מאפסים את בועת הרובוט חזרה לברירת המחדל למצב ריק עתידי
+        lang = getattr(self, "current_lang", "he")
+        if hasattr(self.monthly_view, "empty_robot"):
+            self.monthly_view.empty_robot.set_speech(format_text("empty_state", lang))
+
+    def _run_no_results(self):
+        self._run_safety = None
+        if not self._run_active:
+            return
+        self._run_active = False
+        lang = getattr(self, "current_lang", "he")
+        if hasattr(self.monthly_view, "empty_robot"):
+            self.monthly_view.empty_robot.set_speech(format_text("no_results", lang))
 
     def _toggle_theme(self, new_theme):
         ctk.set_appearance_mode(new_theme)

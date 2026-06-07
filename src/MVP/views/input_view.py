@@ -6,6 +6,7 @@ from typing import Callable, Dict
 from src.MVP.views.ui_utils import format_text
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.load_choice_modal import show_load_choice_popup
+from src.MVP.views.components.robot_mascot import RobotMascot
 
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
@@ -72,6 +73,7 @@ class InputConfigurationView(ctk.CTkFrame):
         super().__init__(master, fg_color=theme.BG_MAIN, **kwargs)
         self.current_lang = "he"
         self._last_hierarchy = {}
+        self._detail_labels = []  # תוויות הכרטיסים בפאנל הפרטים, לעדכון גלישה לפי רוחב העמודה
         
         self.f_mega = ctk.CTkFont(family=theme.FONT_FAMILY, size=32, weight="bold")
         self.f_title = ctk.CTkFont(family=theme.FONT_FAMILY, size=24, weight="bold")
@@ -108,6 +110,9 @@ class InputConfigurationView(ctk.CTkFrame):
         self.main_split.grid_columnconfigure(0, weight=6) 
         self.main_split.grid_columnconfigure(1, weight=4) 
         self.main_split.grid_rowconfigure(0, weight=1)
+        # מקבעים את רוחב העמודות כשבר קבוע מרוחב המסך (60%/40%), ללא תלות בתוכן,
+        # כדי שהחלפת תוכנית לא תזיז את חלוקת העמודות (מקור הקפיצות).
+        self.main_split.bind("<Configure>", self._resize_columns)
 
         # ---------------- LEFT PANEL (Details) ----------------
         self.details_panel = ctk.CTkFrame(self.main_split, fg_color=theme.TRANSPARENT)
@@ -135,7 +140,8 @@ class InputConfigurationView(ctk.CTkFrame):
         self.files_row = ctk.CTkFrame(self.controls_panel, fg_color=theme.TRANSPARENT)
         self.files_row.pack(fill="x", pady=(0, theme.SPACING_REGULAR))
         self.files_row.grid_columnconfigure(0, weight=1)
-        self.files_row.grid_columnconfigure(1, weight=1)
+        self.files_row.grid_columnconfigure(1, weight=0)   # עמודת הבובה - רוחב קבוע
+        self.files_row.grid_columnconfigure(2, weight=1)
         
         self.courses_cell = ctk.CTkFrame(self.files_row, fg_color=theme.TRANSPARENT)
         self.lbl_courses = ctk.CTkLabel(self.courses_cell, text="", font=self.f_title, text_color=theme.TEXT_MAIN)
@@ -155,7 +161,10 @@ class InputConfigurationView(ctk.CTkFrame):
         self.tip_dates = Tooltip(self.btn_dates, "העלאת קובץ תאריכים")
 
         self.courses_cell.grid(row=0, column=0, sticky="nsew")
-        self.dates_cell.grid(row=0, column=1, sticky="nsew")
+        # בובת הרובוט-סטודנט במרכז, בין קורסים לתאריכים
+        self.mascot = RobotMascot(self.files_row, reserve_bubble=True)
+        self.mascot.grid(row=0, column=1, padx=8)
+        self.dates_cell.grid(row=0, column=2, sticky="nsew")
 
         self.programs_frame = create_card(self.controls_panel)
         self.programs_frame.pack(fill="both", expand=True, pady=theme.SPACING_SMALL)
@@ -205,17 +214,14 @@ class InputConfigurationView(ctk.CTkFrame):
             on_save_callback=on_save
         )
     def show_warning_dialog(self, message: str):
-        err_text = format_text("max_programs_err", self.current_lang)
-        self.error_label.configure(text=err_text)
-        if hasattr(self, "_warning_timer") and self._warning_timer:
-            self.after_cancel(self._warning_timer)
-        self._warning_timer = self.after(3500, lambda: self.error_label.configure(text=""))
+        # ההודעה מוצגת כבועת דיבור של הרובוט במקום הודעה קופצת
+        self.mascot.show_speech(format_text("max_programs_err", self.current_lang), duration=3500)
 
     def _handle_load_courses(self):
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses: 
             self.on_load_courses(file_path)
-            self.winfo_toplevel().show_toast("קובץ קורסים נטען בהצלחה" if self.current_lang == "he" else "Courses file loaded successfully")
+            self.mascot.show_speech(format_text("toast_courses_loaded", self.current_lang))
 
     def _open_dates_load_chooser(self):
         show_load_choice_popup(self, self.current_lang, on_choice_callback=self._perform_dates_load)
@@ -227,12 +233,12 @@ class InputConfigurationView(ctk.CTkFrame):
         )
         if file_path and self.on_load_dates:
             self.on_load_dates(file_path)
-            self.winfo_toplevel().show_toast("קובץ תאריכים עודכן בהצלחה" if self.current_lang == "he" else "Dates file updated successfully")
+            self.mascot.show_speech(format_text("toast_dates_loaded", self.current_lang))
         
     def _handle_clear_courses(self):
         if self.on_clear_courses: 
             self.on_clear_courses()
-            self.winfo_toplevel().show_toast("הנתונים נמחקו" if self.current_lang == "he" else "Data cleared")
+            self.mascot.show_speech(format_text("toast_data_cleared", self.current_lang))
 
     def _handle_run_click(self):
         if self.on_run_clicked: self.on_run_clicked()
@@ -266,8 +272,38 @@ class InputConfigurationView(ctk.CTkFrame):
         if self.on_program_details:
             self.on_program_details(prog_id)
 
+    def _current_col0(self) -> int:
+        # רוחב עמודת הפרטים (השמאלית) = 60% מרוחב האזור; fallback לפני שהחלון נפרס
+        w = self.main_split.winfo_width()
+        if w <= 1:
+            w = 1000
+        return int(w * 0.6)
+
+    def _resize_columns(self, event=None):
+        # קובע את שתי העמודות לרוחב פיקסלים קבוע (יחסי למסך), בלי weight, כך שתוכן
+        # לא יכול להזיז את החלוקה. עודף תוכן נגלל בתוך ה-ScrollableFrame ולא דוחף.
+        w = self.main_split.winfo_width()
+        if w <= 1:
+            return
+        col0 = int(w * 0.6)
+        col1 = w - col0
+        self.main_split.grid_columnconfigure(0, weight=0, minsize=col0)
+        self.main_split.grid_columnconfigure(1, weight=0, minsize=col1)
+        # הכותרת והכרטיסים גולשים לפי רוחב העמודה, כך שלא "ידחפו" אותה להתרחב
+        self.details_title.configure(wraplength=max(120, col0 - 60))
+        card_wrap = max(120, col0 - 90)
+        for lbl in self._detail_labels:
+            try:
+                lbl.configure(wraplength=card_wrap)
+            except Exception:
+                pass
+
     def display_program_courses(self, hierarchy: Dict):
         self._last_hierarchy = hierarchy
+        self._detail_labels = []  # נבנה מחדש בכל הצגה
+        col0 = self._current_col0()
+        card_wrap = max(120, col0 - 90)
+        self.details_title.configure(wraplength=max(120, col0 - 60))
         for widget in self.details_scroll.winfo_children(): widget.destroy()
 
         program_name = hierarchy.get("program_name") if isinstance(hierarchy, dict) else None
@@ -333,8 +369,11 @@ class InputConfigurationView(ctk.CTkFrame):
                     title = f"\u200F{c_name} ({c_id})\u200F" if self.current_lang == "he" else f"{c_name} ({c_id})"
                     info = f"\u200F{c_type}  •  {eval_display}\u200F" if self.current_lang == "he" else f"{c_type}  •  {eval_display}"
                     
-                    ctk.CTkLabel(card, text=title, font=self.f_sub, text_color=theme.TEXT_MAIN).pack(anchor=anchor, padx=12, pady=(8, 0))
-                    ctk.CTkLabel(card, text=info, font=self.f_small, text_color=theme.TEXT_MUTED).pack(anchor=anchor, padx=12, pady=(2, 8))
+                    title_lbl = ctk.CTkLabel(card, text=title, font=self.f_sub, text_color=theme.TEXT_MAIN, wraplength=card_wrap, justify=("right" if self.current_lang == "he" else "left"))
+                    title_lbl.pack(anchor=anchor, padx=12, pady=(8, 0))
+                    info_lbl = ctk.CTkLabel(card, text=info, font=self.f_small, text_color=theme.TEXT_MUTED, wraplength=card_wrap, justify=("right" if self.current_lang == "he" else "left"))
+                    info_lbl.pack(anchor=anchor, padx=12, pady=(2, 8))
+                    self._detail_labels.extend([title_lbl, info_lbl])
 
                 if current_group_idx < total_groups:
                     separator = ctk.CTkFrame(self.details_scroll, height=2, fg_color=theme.BORDER_DEFAULT)
