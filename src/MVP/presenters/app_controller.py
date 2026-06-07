@@ -1,4 +1,3 @@
-import threading
 from src.MVP.models.planix_model import PlanixModel
 from src.MVP.models.schedule_collection_manager import ScheduleCollectionManager
 from src.MVP.presenters.input_presenter import InputPresenter
@@ -89,27 +88,33 @@ class AppController:
         self.app_window.after(100, self._load_snapshot_schedules)
 
     def _load_snapshot_schedules(self) -> None:
-        """Load and display schedules immediately, with background updates."""
-        def run():
-            # Build the snapshot index from available data
-            self.collection_manager.build_snapshot_index()
-            # Refresh calendar display immediately with current data
-            self.app_window.after(0, self.calendar_presenter.refresh_presenter_state)
+        """Load and display schedules immediately, on the UI thread."""
+        prev_count = self.collection_manager.get_total_count()
+        
+        # Build the snapshot index from available data
+        self.collection_manager.build_snapshot_index()
+        current_count = self.collection_manager.get_total_count()
+        
+        # Strategy: Only do full UI render on first result and completion
+        if prev_count == 0 and current_count > 0:
+            # First schedules arrived — render full calendar once
+            self.calendar_presenter.refresh_presenter_state()
+        else:
+            # Subsequent updates during generation — only update page counter (very fast)
+            self.calendar_presenter.refresh_pagination_only()
 
-            # If engine is still running, schedule another refresh in 1 second
-            if self.engine_adapter.is_generation_active():
-                print("[AppController] Engine still running. Scheduling next refresh in 1s...")
-                self.app_window.after(1000, self._load_snapshot_schedules)
-            else:
-                self.collection_manager.snapshot_mode = False
-                if hasattr(self.model, "is_generating") and self.model.is_generating:
-                    self.model.is_generating = False
-                self.engine_adapter.clear_finished_worker()
-                print(
-                    "[AppController] Engine idle. Snapshot mode disabled for full file access.")
-
-        # Run the snapshot loading in a separate thread to avoid blocking the UI during file I/O operations.
-        threading.Thread(target=run, daemon=True).start()
+        # If engine is still running, schedule another check in 500ms
+        if self.engine_adapter.is_generation_active():
+            self.app_window.after(500, self._load_snapshot_schedules)
+        else:
+            self.collection_manager.snapshot_mode = False
+            if hasattr(self.model, "is_generating") and self.model.is_generating:
+                self.model.is_generating = False
+            self.engine_adapter.clear_finished_worker()
+            # Final full render when generation complete
+            self.calendar_presenter.refresh_presenter_state()
+            print(
+                "[AppController] Engine idle. Snapshot mode disabled for full file access.")
 
     def load_more_schedules(self, skip_count: int) -> None:
         """
@@ -142,43 +147,41 @@ class AppController:
             500, lambda: self._monitor_load_more_progress(previous_count=skip_count))
 
     def _monitor_load_more_progress(self, previous_count: int) -> None:
-        """Background thread polling monitor dedicated for tracking 'Load More' actions"""
-        def run():
-            # Rebuild the snapshot index from the text file
-            self.collection_manager.build_snapshot_index()
-            # Safely dispatch UI state refresh to the main thread
+        """Monitor 'Load More' actions on the UI thread."""
+        # Rebuild the snapshot index from the text file
+        self.collection_manager.build_snapshot_index()
+        current_count = self.collection_manager.get_total_count()
+        
+        # During generation — only update page counter (very lightweight)
+        self.calendar_presenter.refresh_pagination_only()
+
+        # Continue polling every 500ms if the background worker remains active
+        if self.engine_adapter.is_generation_active():
             self.app_window.after(
-                0, self.calendar_presenter.refresh_presenter_state)
+                500, lambda: self._monitor_load_more_progress(current_count))
+        else:
+            # Execution complete: teardown state flags and release worker resources
+            self.collection_manager.snapshot_mode = False
+            if hasattr(self.model, "is_generating") and self.model.is_generating:
+                self.model.is_generating = False
 
-            # Continue polling every 500ms if the background worker remains active
-            if self.engine_adapter.is_generation_active():
-                self.app_window.after(
-                    500, lambda: self._monitor_load_more_progress(previous_count))
-            else:
-                # Execution complete: teardown state flags and release worker resources
-                self.collection_manager.snapshot_mode = False
-                if hasattr(self.model, "is_generating") and self.model.is_generating:
-                    self.model.is_generating = False
+            self.engine_adapter.clear_finished_worker()
+            # Final full render when load_more complete
+            self.calendar_presenter.refresh_presenter_state()
+            print(
+                "[AppController] Load More background worker has finished execution.")
 
-                self.engine_adapter.clear_finished_worker()
-                print(
-                    "[AppController] Load More background worker has finished execution.")
+            # Evaluate if the backtracking engine discovered new branches or exhausted the search space
+            try:
+                with open(self.output_path, "r", encoding="utf-8") as f:
+                    final_count = f.read().count("--- FULL SYSTEM OPTION")
 
-                # Evaluate if the backtracking engine discovered new branches or exhausted the search space
-                try:
-                    with open(self.output_path, "r", encoding="utf-8") as f:
-                        final_count = f.read().count("--- FULL SYSTEM OPTION")
-
-                    if final_count == previous_count:
-                        print(
-                            "[AppController] Exhausted all options. No new schedules found.")
-                        # Notify the view to inform the user that no more schedules exist
-                        if hasattr(self.calendar_presenter.view, "show_no_more_results"):
-                            self.app_window.after(
-                                0, self.calendar_presenter.view.show_no_more_results)
-                except Exception as e:
+                if final_count == previous_count:
                     print(
-                        f"[AppController] Error evaluating post-run final counts: {e}")
-
-        # Spawn a daemonized background thread to prevent disk I/O from blocking the GUI loop
-        threading.Thread(target=run, daemon=True).start()
+                        "[AppController] Exhausted all options. No new schedules found.")
+                    # Notify the view to inform the user that no more schedules exist
+                    if hasattr(self.calendar_presenter.view, "show_no_more_results"):
+                        self.calendar_presenter.view.show_no_more_results()
+            except Exception as e:
+                print(
+                    f"[AppController] Error evaluating post-run final counts: {e}")

@@ -61,6 +61,19 @@ class CalendarPresenter:
                 print(
                     f"[CalendarPresenter] Error initializing load more pipeline: {e}")
                 
+    def refresh_pagination_only(self) -> None:
+        """
+        Lightweight update: only refresh the pagination counter without redrawing the entire calendar.
+        This is safe to call frequently during polling (every 500ms).
+        """
+        total_schedules = self.collection_manager.get_total_count()
+        if total_schedules == 0:
+            return
+
+        # Only update the page counter — no grid redraw
+        current_idx = self.collection_manager.get_current_index()
+        self.view.update_pagination(current_page=current_idx + 1, total_pages=total_schedules)
+
     def refresh_presenter_state(self) -> None:
         """
         Scans the manager context, initializes layout structure if data exists, and triggers render cycle.
@@ -138,6 +151,9 @@ class CalendarPresenter:
         # Build a mapping from course IDs to their associated program names for efficient lookup during exam processing
         course_to_programs = self._build_course_to_program_map()
         current_year = schedule.exams[0].exam_date.year if schedule.exams else datetime.now().year
+        
+        # Cache courses dictionary to avoid repeated get_courses() calls in the exam loop
+        all_courses = {c.course_id: c for c in self.model.data_manager.get_courses()}
 
         # Systematically initialize the grid data structure with empty properties for all potential date cells within the active month range
         for row_idx, month_idx in enumerate(self.active_months, start=1):
@@ -181,7 +197,7 @@ class CalendarPresenter:
             cell_key = f"{row_idx}-{col_idx}"
 
             # Determine the exam type marker based on whether the course is mandatory or elective.
-            real_c = next((c for c in self.model.data_manager.get_courses() if c.course_id == exam.course.course_id), exam.course)
+            real_c = all_courses.get(exam.course.course_id, exam.course)
             is_mandatory = getattr(real_c, "is_mandatory", True)
             exam_type_marker = "ח" if is_mandatory else "ב"
 

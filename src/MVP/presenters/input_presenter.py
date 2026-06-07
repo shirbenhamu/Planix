@@ -21,6 +21,8 @@ class InputPresenter:
         self.view.on_program_selected = self._handle_program_selection
         # Name-click: show a program's details without changing its selection (PLAN-258)
         self.view.on_program_details = self._handle_program_details
+        # Clear button: reset all data and selections
+        self.view.on_clear_courses = self._handle_clear_courses
         self.view.get_exam_periods_callback = lambda: self.model.get_exam_periods() or []
     # ======= 2. File Loading & Configuration Management (PLAN-254 / PLAN-255) =======
 
@@ -158,3 +160,28 @@ class InputPresenter:
 
         # Command the passive view container to render the compiled configuration details
         self.view.display_program_courses(hierarchy)
+
+    def _handle_clear_courses(self) -> None:
+        """
+        Clear all data: reset selected programs, courses, and exam periods.
+        Triggered by the trash button in the UI.
+        """
+        try:
+            # Clear selected programs from model
+            self.model.selected_programs = []
+            
+            # Clear available programs
+            self.model.available_programs = {}
+            
+            # Reset data paths
+            self._courses_path = None
+            self._exam_periods_path = None
+            
+            # Refresh UI to reflect empty state
+            self.view.display_program_courses({})
+            self.view.display_programs_list({})
+            self._refresh_programs_list()
+            
+            print("[InputPresenter] All data cleared successfully")
+        except Exception as e:
+            print(f"[InputPresenter] Error clearing data: {e}")
