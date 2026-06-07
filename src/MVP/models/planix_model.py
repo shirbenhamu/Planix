@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Set
 
 from src.data_manager import DataManager
 from src.MVP.models.course import Course
-from src.MVP.models.exam_period import ExamPeriod
+from src.MVP.models.exam_period import ExcludedDate, ExamPeriod
 
 PROGRAM_MAPPING = {
     "83101": "Computer Engineering",
@@ -41,7 +41,8 @@ class PlanixModel:
     _is_generating: bool = field(default=False, init=False, repr=False)
     _generation_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _user_excluded_dates: Set[date] = field(default_factory=set, init=False, repr=False)
-
+    _current_start_date: Optional[date] = field(default=None, init=False, repr=False)
+    _current_end_date: Optional[date] = field(default=None, init=False, repr=False)
 
     # The is_generating property provides a thread-safe way to track whether the engine is currently 
     # running a generation process, allowing the UI to react accordingly (e.g., by showing loading 
@@ -149,26 +150,62 @@ class PlanixModel:
         if start_date > end_date:
             raise ValueError("start_date cannot be after end_date.")
 
-        existing_exam_periods = self.data_manager.get_exam_periods()
-        if existing_exam_periods:
-            template_exam_period = existing_exam_periods[0]
-            semester = template_exam_period.semester
-            moed = template_exam_period.moed
-            excluded_dates = list(template_exam_period.excluded_dates)
-        else:
-            semester = ""
-            moed = ""
-            excluded_dates = []
+        # Update the model's current date range state, which will be used during the next synchronization with the DataManager before generation.
+        self._current_start_date = start_date
+        self._current_end_date = end_date
+        
+        # Enforce the updated state to the DataManager immediately to ensure that any subsequent operations (like schedule generation)
+        # will use the most current date range and exclusions configured by the user.
+        self.enforce_state_to_data_manager()
 
-        new_exam_period = ExamPeriod(
-            semester=semester,
-            moed=moed,
-            start_date=start_date,
-            end_date=end_date,
-            excluded_dates=excluded_dates,
-        )
-        self.data_manager.exam_periods = [new_exam_period]
+    def update_all_exam_periods(self, updated_ranges: List[tuple]) -> None:
+        if not self.data_manager:
+            return
 
+        existing_periods = self.data_manager.get_exam_periods() or []
+        if not existing_periods:
+            return
+
+        if len(updated_ranges) != len(existing_periods):
+            raise ValueError("updated_ranges length must match existing exam periods length.")
+
+        new_periods: List[ExamPeriod] = []
+        for idx, period in enumerate(existing_periods):
+            start_date, end_date = updated_ranges[idx]
+            self._validate_date_value(start_date)
+            self._validate_date_value(end_date)
+
+            if start_date > end_date:
+                raise ValueError(f"start_date cannot be after end_date for period index {idx}.")
+
+            original_exclusions = []
+            for ex in period.excluded_dates:
+                dt_val = getattr(ex, "start_date", ex) 
+                if dt_val not in self._user_excluded_dates and start_date <= dt_val <= end_date:
+                    original_exclusions.append(ex)
+
+
+            user_exclusions = [
+                ExcludedDate(start_date=dt, end_date=dt, comment="User Excluded")
+                for dt in sorted(self._user_excluded_dates)
+                if start_date <= dt <= end_date
+            ]
+
+            combined_exclusions = original_exclusions + user_exclusions
+
+            new_periods.append(
+                ExamPeriod(
+                    semester=period.semester,
+                    moed=period.moed,
+                    start_date=start_date,
+                    end_date=end_date,
+                    excluded_dates=combined_exclusions,
+                )
+            )
+
+        self.data_manager.exam_periods = new_periods
+        print(f"[PlanixModel] Updated all exam periods. Count: {len(new_periods)}")
+    
     def _normalize_program_id(self, program_id: str) -> str:
         if not isinstance(program_id, str):
             raise TypeError("program_id must be a string.")
@@ -194,10 +231,12 @@ class PlanixModel:
     def exclude_date(self, d: date) -> None:
         self._validate_date_value(d)
         self._user_excluded_dates.add(d)
+        self._sync_excluded_dates_to_data_manager()
 
     def include_date(self, d: date) -> None:
         self._validate_date_value(d)
         self._user_excluded_dates.discard(d)
+        self._sync_excluded_dates_to_data_manager()
 
     def toggle_date_exclusion(self, d: date) -> None:
         self._validate_date_value(d)
@@ -205,6 +244,28 @@ class PlanixModel:
             self._user_excluded_dates.remove(d)
         else:
             self._user_excluded_dates.add(d)
+        self._sync_excluded_dates_to_data_manager()
+
+    def _sync_excluded_dates_to_data_manager(self) -> None:
+        if not self.data_manager:
+            return
+        try:
+            exam_periods = self.data_manager.get_exam_periods() or []
+            for period in exam_periods:
+                # Preserve original exclusions (Friday/Saturday) and add user exclusions as ExcludedDate objects
+                original_exclusions = [
+                    ex for ex in period.excluded_dates
+                    if isinstance(ex, ExcludedDate)
+                    and getattr(ex, "comment", "") != "User Excluded"
+                ]
+                user_exclusions = [
+                    ExcludedDate(start_date=dt, end_date=dt, comment="User Excluded")
+                    for dt in self._user_excluded_dates
+                    if period.start_date <= dt <= period.end_date
+                ]
+                period.excluded_dates = original_exclusions + user_exclusions
+        except Exception as e:
+            print(f"Error syncing excluded dates to data manager: {e}")
 
     def get_user_excluded_dates(self) -> List[date]:
         return sorted(self._user_excluded_dates)
@@ -294,3 +355,37 @@ class PlanixModel:
     def _validate_date_value(self, value: date) -> None:
         if not isinstance(value, date):
             raise TypeError("Expected a datetime.date value.")
+
+    def get_exam_periods(self) -> list:
+        if self.data_manager:
+            return self.data_manager.get_exam_periods() or []
+        return []
+
+    # This method enforces the current state of user-excluded dates to the DataManager's exam periods, ensuring that any changes made
+    # by the user to the excluded dates are reflected in the underlying data structure that will be used during schedule generation.
+    def enforce_state_to_data_manager(self) -> None:
+        if not self.data_manager:
+            return
+            
+        existing_periods = self.data_manager.get_exam_periods() or []
+        if not existing_periods:
+            return
+        
+        # Update the exam periods in the DataManager to reflect the current user-excluded dates,
+        # while preserving any original exclusions (like Fridays/Saturdays) that are not user-driven.
+        for period in existing_periods:
+            original_exclusions = []
+            for ex in period.excluded_dates:
+                dt_val = getattr(ex, "start_date", ex)
+                if dt_val not in self._user_excluded_dates:
+                    original_exclusions.append(ex)
+            
+            user_exclusions = [
+                ExcludedDate(start_date=dt, end_date=dt, comment="User Excluded")
+                for dt in sorted(self._user_excluded_dates)
+                if period.start_date <= dt <= period.end_date
+            ]
+            # Combine original exclusions with user exclusions to form the new list of excluded dates for the period
+            period.excluded_dates = original_exclusions + user_exclusions
+
+        print(f"[PlanixModel] State enforced successfully. Synced user exclusions to DataManager.")
