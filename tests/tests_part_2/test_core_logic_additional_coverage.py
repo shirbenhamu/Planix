@@ -921,3 +921,77 @@ def test_app_controller_monitor_load_more_no_more_results_without_view_notificat
         0,
         controller.calendar_presenter.refresh_presenter_state,
     )   
+
+def test_input_presenter_trigger_data_loading_handles_data_manager_exception(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    view = MagicMock()
+    view.load_mode_var.get.return_value = "replace"
+    view.checkboxes = []
+
+    model = MagicMock()
+    model.data_manager.load_data.side_effect = RuntimeError("load failed")
+
+    presenter = InputPresenter(view, model)
+    presenter._courses_path = "courses.txt"
+    presenter._exam_periods_path = "periods.txt"
+
+    with patch("builtins.print") as print_mock:
+        presenter._trigger_data_loading()
+
+    model.set_data_paths.assert_called_once()
+    model.data_manager.load_data.assert_called_once()
+    model.build_available_programs.assert_not_called()
+
+    assert any(
+        "Error during data loading flow execution" in str(call.args[0])
+        for call in print_mock.call_args_list
+    )
+
+
+def test_input_presenter_handle_load_dates_saves_path_and_triggers_loading():
+    view = MagicMock()
+    model = MagicMock()
+
+    presenter = InputPresenter(view, model)
+    presenter._trigger_data_loading = MagicMock()
+
+    presenter._handle_load_dates("data/exam_periods.txt")
+
+    assert presenter._exam_periods_path == "data/exam_periods.txt"
+    presenter._trigger_data_loading.assert_called_once()
+
+
+def test_input_presenter_refresh_programs_list_selects_and_deselects_checkboxes():
+    selected_checkbox = MagicMock()
+    selected_checkbox.cget.return_value = "Software Engineering (83108)"
+
+    unselected_checkbox = MagicMock()
+    unselected_checkbox.cget.return_value = "Computer Science (83200)"
+
+    view = MagicMock()
+    view.checkboxes = [selected_checkbox, unselected_checkbox]
+
+    model = MagicMock()
+    model.get_available_programs.return_value = {
+        "83108": "Software Engineering",
+        "83200": "Computer Science",
+    }
+    model.get_selected_programs.return_value = ["83108"]
+
+    presenter = InputPresenter(view, model)
+
+    presenter._refresh_programs_list()
+
+    view.display_programs_list.assert_called_once_with(
+        {
+            "83108": "Software Engineering",
+            "83200": "Computer Science",
+        }
+    )
+
+    selected_checkbox.select.assert_called_once()
+    selected_checkbox.deselect.assert_not_called()
+
+    unselected_checkbox.deselect.assert_called_once()
+    unselected_checkbox.select.assert_not_called()
