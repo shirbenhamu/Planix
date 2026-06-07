@@ -175,6 +175,7 @@ class AppWindow(ctk.CTk):
             mt.on_exclude = lambda: ct.on_exclude() if ct.on_exclude else None
             mt.on_export = lambda: ct.on_export() if ct.on_export else None
             mt.on_filter = lambda: ct.on_filter() if ct.on_filter else None
+            mt.on_load_more = lambda: ct.on_load_more() if ct.on_load_more else None
 
         self.monthly_view.on_cell_clicked = (
             lambda key: self.calendar_view._handle_cell_click(key)

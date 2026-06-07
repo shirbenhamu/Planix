@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 
+
 class CalendarPresenter:
     def __init__(self, view, model, collection_manager, controller=None):
         """
@@ -25,11 +26,41 @@ class CalendarPresenter:
         self.view.on_range_update_clicked = self._handle_range_update
         self.view.on_export_clicked = self._handle_export
         self.view.on_filter_clicked = self._handle_filter_click
+
+        if hasattr(self.view, "on_load_more_clicked"):
+            self.view.on_load_more_clicked = self._handle_load_more
+
+        # Initialize display if schedules are already generated and available
         # Always expose a list-producing callback to the view.
         self.view.get_exam_periods_callback = lambda: list(self.model.get_exam_periods() or [])
         self.view.on_sync_clicked = self._handle_sync_action
         self.refresh_presenter_state()
 
+
+    def _handle_load_more(self) -> None:
+            """Handles the 'Load More' UI event by delegating to the AppController with current count"""
+            try:
+                import os
+                current_count = 0
+
+                # Determine the total number of options currently written to the persistent output file
+                if hasattr(self, "controller") and self.controller is not None:
+                    output_path = getattr(
+                        self.controller, "output_path", "output_results/final_schedules.txt")
+                    if os.path.exists(output_path):
+                        with open(output_path, "r", encoding="utf-8") as f:
+                            # Count the occurrences of full system option header tokens
+                            current_count = sum(1 for line in f if "--- FULL SYSTEM OPTION" in line)
+
+                print(
+                    f"[CalendarPresenter] User clicked 'Load More'. Passing skip_count={current_count} to controller.")
+
+                if hasattr(self, "controller") and self.controller is not None:
+                    self.controller.load_more_schedules(skip_count=current_count)
+            except Exception as e:
+                print(
+                    f"[CalendarPresenter] Error initializing load more pipeline: {e}")
+                
     def refresh_presenter_state(self) -> None:
         """
         Scans the manager context, initializes layout structure if data exists, and triggers render cycle.

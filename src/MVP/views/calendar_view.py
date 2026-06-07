@@ -29,7 +29,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_export_clicked, self.on_exclude_clicked = None, None 
         self.on_date_selected, self.on_filter_clicked = None, None 
         self.get_exam_periods_callback = None  # מקור הנתונים לחלון עריכת התאריכים
-        
+        self.on_load_more_clicked = None
         self.day_headers, self.month_labels, self.grid_cells = [], [], {}  
         self.selected_cell_key = None 
         self.active_month_indices = []
@@ -39,6 +39,7 @@ class CalendarGridView(ctk.CTkFrame):
         # --- Toolbar ---
         self.toolbar = TopToolbar(self, is_monthly=False)
         self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
+        self.toolbar.on_load_more = lambda: self.on_load_more_clicked() if self.on_load_more_clicked else None
         
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
         self.toolbar.on_next = lambda: self.on_next_clicked() if self.on_next_clicked else None
@@ -48,7 +49,6 @@ class CalendarGridView(ctk.CTkFrame):
         self.toolbar.on_edit_dates = self._open_dates_modal
         self.toolbar.on_exclude = lambda: self.on_exclude_clicked(self.selected_cell_key) if self.selected_cell_key and self.on_exclude_clicked else None
         self.toolbar.on_filter = lambda: self.on_filter_clicked() if self.on_filter_clicked else None
-        self.toolbar.on_load_more = self._handle_load_more
         self.on_sync_clicked = None
         self.toolbar.on_sync_clicked = lambda: self._fire_sync()
 
