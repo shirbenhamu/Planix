@@ -703,3 +703,221 @@ def test_app_controller_monitor_load_more_continues_when_worker_is_active():
         controller.calendar_presenter.refresh_presenter_state,
     )
     assert controller.app_window.after.call_count == 2
+    
+def test_app_controller_load_snapshot_schedules_continues_when_engine_is_active():
+    controller = object.__new__(AppController)
+    controller.collection_manager = MagicMock()
+    controller.app_window = MagicMock()
+    controller.calendar_presenter = MagicMock()
+    controller.engine_adapter = MagicMock()
+    controller.engine_adapter.is_generation_active.return_value = True
+    controller.model = MagicMock()
+    controller.model.is_generating = True
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    with patch("src.MVP.presenters.app_controller.threading.Thread", ImmediateThread):
+        controller._load_snapshot_schedules()
+
+    controller.collection_manager.build_snapshot_index.assert_called_once()
+    controller.app_window.after.assert_any_call(
+        0,
+        controller.calendar_presenter.refresh_presenter_state,
+    )
+    controller.app_window.after.assert_any_call(
+        1000,
+        controller._load_snapshot_schedules,
+    )
+    controller.engine_adapter.clear_finished_worker.assert_not_called()
+    assert controller.model.is_generating is True
+
+
+def test_app_controller_load_snapshot_schedules_finishes_when_engine_is_idle():
+    controller = object.__new__(AppController)
+    controller.collection_manager = MagicMock()
+    controller.collection_manager.snapshot_mode = True
+    controller.app_window = MagicMock()
+    controller.calendar_presenter = MagicMock()
+    controller.engine_adapter = MagicMock()
+    controller.engine_adapter.is_generation_active.return_value = False
+    controller.model = MagicMock()
+    controller.model.is_generating = True
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    with patch("src.MVP.presenters.app_controller.threading.Thread", ImmediateThread):
+        controller._load_snapshot_schedules()
+
+    controller.collection_manager.build_snapshot_index.assert_called_once()
+    controller.app_window.after.assert_called_once_with(
+        0,
+        controller.calendar_presenter.refresh_presenter_state,
+    )
+    assert controller.collection_manager.snapshot_mode is False
+    assert controller.model.is_generating is False
+    controller.engine_adapter.clear_finished_worker.assert_called_once()
+
+
+def test_app_controller_load_snapshot_schedules_finishes_without_is_generating_attribute():
+    controller = object.__new__(AppController)
+    controller.collection_manager = MagicMock()
+    controller.collection_manager.snapshot_mode = True
+    controller.app_window = MagicMock()
+    controller.calendar_presenter = MagicMock()
+    controller.engine_adapter = MagicMock()
+    controller.engine_adapter.is_generation_active.return_value = False
+
+    class ModelWithoutGenerating:
+        pass
+
+    controller.model = ModelWithoutGenerating()
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    with patch("src.MVP.presenters.app_controller.threading.Thread", ImmediateThread):
+        controller._load_snapshot_schedules()
+
+    controller.collection_manager.build_snapshot_index.assert_called_once()
+    assert controller.collection_manager.snapshot_mode is False
+    controller.engine_adapter.clear_finished_worker.assert_called_once()
+
+
+def test_app_controller_monitor_load_more_handles_final_count_read_error():
+    controller = object.__new__(AppController)
+    controller.output_path = "missing_or_locked_output.txt"
+    controller.collection_manager = MagicMock()
+    controller.collection_manager.snapshot_mode = True
+    controller.model = MagicMock()
+    controller.model.is_generating = True
+    controller.engine_adapter = MagicMock()
+    controller.engine_adapter.is_generation_active.return_value = False
+    controller.calendar_presenter = MagicMock()
+    controller.calendar_presenter.view.show_no_more_results = MagicMock()
+    controller.app_window = MagicMock()
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    with patch("src.MVP.presenters.app_controller.threading.Thread", ImmediateThread):
+        with patch("builtins.open", side_effect=OSError("file is locked")):
+            with patch("builtins.print") as print_mock:
+                controller._monitor_load_more_progress(previous_count=3)
+
+    controller.collection_manager.build_snapshot_index.assert_called_once()
+    assert controller.collection_manager.snapshot_mode is False
+    assert controller.model.is_generating is False
+    controller.engine_adapter.clear_finished_worker.assert_called_once()
+    controller.app_window.after.assert_called_once_with(
+        0,
+        controller.calendar_presenter.refresh_presenter_state,
+    )
+    controller.calendar_presenter.view.show_no_more_results.assert_not_called()
+    assert any(
+        "Error evaluating post-run final counts" in str(call.args[0])
+        for call in print_mock.call_args_list
+    )
+
+
+def test_app_controller_monitor_load_more_does_not_notify_when_new_results_exist():
+    controller = object.__new__(AppController)
+    controller.output_path = "fake_output.txt"
+    controller.collection_manager = MagicMock()
+    controller.collection_manager.snapshot_mode = True
+    controller.model = MagicMock()
+    controller.model.is_generating = True
+    controller.engine_adapter = MagicMock()
+    controller.engine_adapter.is_generation_active.return_value = False
+    controller.calendar_presenter = MagicMock()
+    controller.calendar_presenter.view.show_no_more_results = MagicMock()
+    controller.app_window = MagicMock()
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    file_content = (
+        "--- FULL SYSTEM OPTION 1 ---\n"
+        "--- FULL SYSTEM OPTION 2 ---\n"
+    )
+
+    with patch("src.MVP.presenters.app_controller.threading.Thread", ImmediateThread):
+        with patch("builtins.open", mock_open(read_data=file_content)):
+            controller._monitor_load_more_progress(previous_count=1)
+
+    controller.collection_manager.build_snapshot_index.assert_called_once()
+    assert controller.collection_manager.snapshot_mode is False
+    assert controller.model.is_generating is False
+    controller.engine_adapter.clear_finished_worker.assert_called_once()
+    controller.app_window.after.assert_called_once_with(
+        0,
+        controller.calendar_presenter.refresh_presenter_state,
+    )
+    controller.calendar_presenter.view.show_no_more_results.assert_not_called()
+
+
+def test_app_controller_monitor_load_more_no_more_results_without_view_notification_method():
+    controller = object.__new__(AppController)
+    controller.output_path = "fake_output.txt"
+    controller.collection_manager = MagicMock()
+    controller.collection_manager.snapshot_mode = True
+    controller.model = MagicMock()
+    controller.model.is_generating = True
+    controller.engine_adapter = MagicMock()
+    controller.engine_adapter.is_generation_active.return_value = False
+    controller.calendar_presenter = MagicMock()
+
+    class ViewWithoutNoMoreResults:
+        pass
+
+    controller.calendar_presenter.view = ViewWithoutNoMoreResults()
+    controller.app_window = MagicMock()
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+            self.daemon = daemon
+
+        def start(self):
+            self.target()
+
+    file_content = "--- FULL SYSTEM OPTION 1 ---\n"
+
+    with patch("src.MVP.presenters.app_controller.threading.Thread", ImmediateThread):
+        with patch("builtins.open", mock_open(read_data=file_content)):
+            controller._monitor_load_more_progress(previous_count=1)
+
+    controller.collection_manager.build_snapshot_index.assert_called_once()
+    assert controller.collection_manager.snapshot_mode is False
+    assert controller.model.is_generating is False
+    controller.engine_adapter.clear_finished_worker.assert_called_once()
+    controller.app_window.after.assert_called_once_with(
+        0,
+        controller.calendar_presenter.refresh_presenter_state,
+    )   
