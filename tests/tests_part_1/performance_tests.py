@@ -8,8 +8,8 @@ from datetime import date
 #  for courses and exam periods.
 from src.engine.exam_scheduler import ExamScheduler
 from src.output.file_output_writer import FileOutputWriter
-from MVP.models.course import Course, ProgramCourseInfo
-from MVP.models.exam_period import ExamPeriod
+from src.MVP.models.course import Course, ProgramCourseInfo
+from src.MVP.models.exam_period import ExamPeriod
 
 MAX_ALLOWED_DURATION_SECONDS = 30.5  #    
 
