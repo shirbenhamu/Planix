@@ -113,6 +113,22 @@ class TopToolbar(ctk.CTkFrame):
         self.export_btn.pack(side="right", padx=5)
         self.tip_export = Tooltip(self.export_btn, "ייצוא לוח זמנים")
 
+        self.on_sync_clicked = None 
+
+        # Sync button
+        btn_run = ctk.CTkButton(
+            self, 
+            text="Sync", 
+            width=60,
+            fg_color=theme.SUCCESS, 
+            command=self._on_sync_btn_click
+        )
+        btn_run.pack(side="right", padx=10)
+
+    def _on_sync_btn_click(self):
+        if self.on_sync_clicked:
+            self.on_sync_clicked()
+
     def set_pagination(self, current: int, total: int):
         self.page_entry.delete(0, "end")
         self.page_entry.insert(0, str(current))

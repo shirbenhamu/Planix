@@ -21,7 +21,7 @@ class InputPresenter:
         self.view.on_program_selected = self._handle_program_selection
         # Name-click: show a program's details without changing its selection (PLAN-258)
         self.view.on_program_details = self._handle_program_details
-
+        self.view.get_exam_periods_callback = lambda: self.model.get_exam_periods() or []
     # ======= 2. File Loading & Configuration Management (PLAN-254 / PLAN-255) =======
 
     def _get_validated_mode(self) -> str:

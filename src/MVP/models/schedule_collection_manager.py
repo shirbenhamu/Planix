@@ -274,3 +274,15 @@ class ScheduleCollectionManager:
             raise TypeError("data_manager must be a DataManager instance.")
 
         return data_manager
+
+    # Clears the cached offsets and resets the scanning state, allowing the manager to rebuild the index from scratch on the next access.
+    # This is useful when the underlying data has changed significantly, such as after a new generation run, to ensure that the manager 
+    # has an up-to-date view of the available schedules.
+    def clear_cache(self) -> None:
+        with self._lock:
+            self._offsets.clear()
+            self._scan_position = 0
+            self._current_index = 0
+            self.total_schedules = 0
+            self.snapshot_mode = False
+            print("[ScheduleCollectionManager] Cache cleared. Ready for fresh scan.")

@@ -21,6 +21,7 @@ class MonthlyGridView(ctk.CTkFrame):
 
         self.on_hamburger_clicked = None 
         self.on_cell_clicked = None 
+        self.on_range_update_clicked = None
         self.get_exam_periods_callback = None 
         self.on_load_more_clicked = None
         
@@ -53,7 +54,21 @@ class MonthlyGridView(ctk.CTkFrame):
 
     def _open_dates_modal(self):
         periods_data = self.get_exam_periods_callback() if self.get_exam_periods_callback else None
-        show_date_edit_popup(self, self.current_lang, exam_periods_data=periods_data)
+        
+        # Callback to handle saving updated date pairs from the modal
+        def on_save(date_pairs):
+            if self.on_range_update_clicked:
+                print(f"[MonthlyView] Saving date pairs: {date_pairs}")
+                self.on_range_update_clicked(date_pairs)
+            else:
+                print("[MonthlyView] on_range_update_clicked is not set")
+        
+        show_date_edit_popup(
+            parent=self,
+            current_lang=self.current_lang,
+            exam_periods_data=periods_data,
+            on_save_callback=on_save
+        )
 
     def _setup_empty_state(self):
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
