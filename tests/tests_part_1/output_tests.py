@@ -3,8 +3,8 @@ from datetime import date
 
 #importing the relevant classes for testing
 from src.output.file_output_writer import FileOutputWriter
-from MVP.models.schedule import Schedule, ScheduledExam
-from MVP.models.course import Course, ProgramCourseInfo
+from src.MVP.models.schedule import Schedule, ScheduledExam
+from src.MVP.models.course import Course, ProgramCourseInfo
 
 # =========================================================================
 # Function Fixture (Fixture) for Creating Sample Courses for Testing
@@ -123,8 +123,8 @@ def test_write_schedules_utf8_encoding_support(tmp_path):
     """
     verifies that the file output writer supports UTF-8 encoding correctly  .
     """
-    from MVP.models.course import Course
-    from MVP.models.schedule import Schedule, ScheduledExam
+    from src.MVP.models.course import Course
+    from src.MVP.models.schedule import Schedule, ScheduledExam
     
     writer = FileOutputWriter()
     output_path = tmp_path / "utf8_test_output.txt"
