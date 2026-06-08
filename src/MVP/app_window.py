@@ -13,7 +13,7 @@ from src.MVP.views.ui_utils import format_text
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.append(BASE_DIR)
 
-# קבועי Win32 עבור נראות בשורת המשימות + מזעור
+# Win32 constants for taskbar visibility + minimize
 GWL_EXSTYLE = -20
 WS_EX_APPWINDOW = 0x00040000
 WS_EX_TOOLWINDOW = 0x00000080
@@ -23,16 +23,13 @@ SW_MINIMIZE = 6
 def load_custom_fonts():
     if os.name != "nt":
         return
-
     fonts_dir = os.path.join(BASE_DIR, "assets", "fonts")
     if not os.path.exists(fonts_dir):
         return
-
     for font_file in os.listdir(fonts_dir):
         if font_file.endswith((".ttf", ".otf")):
             font_path = os.path.join(fonts_dir, font_file)
             ctypes.windll.gdi32.AddFontResourceExW(font_path, 0x10 | 0x20, 0)
-
 
 load_custom_fonts()
 
@@ -44,13 +41,13 @@ from src.MVP.views.components.sidebar import Sidebar
 
 class AppWindow(ctk.CTk):
     SIDEBAR_WIDTH = 240
-    TOP_STRIP = 48  # רצועה עליונה לכפתורי החלון, כדי שה-toolbar לא יתנגש בהם
+    TOP_STRIP = 48  # Top strip for the window buttons, so the toolbar doesn't collide with them
 
     def __init__(self):
         super().__init__()
 
         self.title("Planix")
-        self.overrideredirect(True)          # מסיר את שורת הכותרת של Windows
+        self.overrideredirect(True)          # removes the Windows title bar
         self.geometry("1400x800")
         self.minsize(1100, 700)
 
@@ -65,8 +62,8 @@ class AppWindow(ctk.CTk):
         self.normal_geometry = "1400x800"
         self.on_navigation_requested: Callable[[str], None] = None
         self._sidebar_animating = False
-        self._run_active = False      # האם אנחנו בתהליך הפעלת מנוע (מחשב שיבוצים)
-        self._run_safety = None       # מזהה טיימר בטיחות
+        self._run_active = False      # whether an engine run is in progress (computing schedules)
+        self._run_safety = None       # safety timer id
 
         self._build_layout()
         self._build_views()
@@ -81,11 +78,22 @@ class AppWindow(ctk.CTk):
             self.after(50, self._enable_taskbar)
 
     def show_toast(self, message: str, level="success", duration=2000):
-        """פונקציה גלובלית המאפשרת לכל מסך להציג הודעת Toast צפה"""
-        toast = ToastNotification(self, message=message, level=level)
-        toast.place(relx=0.5, rely=0.88, anchor="s")
-        toast.lift()
-        self.after(duration, toast.destroy)
+        """Global helper that lets any screen show a floating Toast message, with crash protection"""
+        try:
+            toast = ToastNotification(self, message=message, level=level)
+            toast.place(relx=0.5, rely=0.88, anchor="s")
+            toast.lift()
+            
+            def safe_destroy():
+                try:
+                    if toast.winfo_exists():
+                        toast.destroy()
+                except Exception:
+                    pass
+            
+            self.after(duration, safe_destroy)
+        except Exception:
+            pass
 
     def _build_layout(self):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
@@ -99,7 +107,6 @@ class AppWindow(ctk.CTk):
         self.views_container.grid_rowconfigure(0, weight=1)
         self.views_container.grid_columnconfigure(0, weight=1)
 
-        # האתחול ההתחלתי של הסיידבר ממוקם מחוץ לטווח הראייה (x=-240) לצורך האנימציה
         self.sidebar = Sidebar(self.main_container, base_dir=BASE_DIR)
         self.sidebar.place(x=-self.SIDEBAR_WIDTH, y=0, relheight=1.0, anchor="nw")
         
@@ -119,7 +126,6 @@ class AppWindow(ctk.CTk):
         self._hide_inner_hamburger_buttons()
 
     def _build_top_controls(self):
-        # המבורגר גלובלי מעודכן עם גופן האייקונים הוקטורי החדש
         self.global_hamburger_btn = ctk.CTkButton(
             self, text=ICON_HAMBURGER, width=44, height=44, corner_radius=0,
             fg_color="transparent", hover_color=("gray85", "gray20"),
@@ -189,8 +195,6 @@ class AppWindow(ctk.CTk):
             if callable(self.calendar_view.get_exam_periods_callback) else []
         )
 
-        # עוטפים את receive_data של המסך החודשי (בלי לשנות את הקובץ שלו): ברגע
-        # שמגיעים נתונים אמיתיים — מוודאים שהלוח גלוי ומסיימים את חיווי "מחשב שיבוצים".
         _orig_receive = self.monthly_view.receive_data
         def _receive_with_run(grid_data, active_months, _orig=_orig_receive):
             _orig(grid_data, active_months)
@@ -202,13 +206,18 @@ class AppWindow(ctk.CTk):
                 self._end_run_indicator()
         self.monthly_view.receive_data = _receive_with_run
 
-    # This method wires the synchronization callback from the calendar presenter to both the calendar and monthly views,
-    # allowing them to trigger a data refresh in the presenter when the user clicks the Sync button in either view's toolbar.
     def wire_sync_callback(self, calendar_presenter) -> None:
-        self.calendar_view.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
-        self.calendar_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
-        self.monthly_view.toolbar.on_sync_clicked = lambda: calendar_presenter._handle_sync_action()
-    
+        def wrapped_sync():
+            self._begin_run_indicator()
+            self.update_idletasks()
+            calendar_presenter._handle_sync_action()
+
+        self.calendar_view.on_sync_clicked = wrapped_sync
+        if hasattr(self.calendar_view, "toolbar"):
+            self.calendar_view.toolbar.on_sync_clicked = wrapped_sync
+        if hasattr(self.monthly_view, "toolbar"):
+            self.monthly_view.toolbar.on_sync_clicked = wrapped_sync
+
     def _hwnd(self):
         return ctypes.windll.user32.GetParent(self.winfo_id())
 
@@ -227,11 +236,13 @@ class AppWindow(ctk.CTk):
             pass
 
     def _lift_floating_controls(self):
-        for w in (
-            self.global_hamburger_btn, self.close_btn,
-            self.max_btn, self.min_btn, self.drag_area,
-        ):
-            w.lift()
+        try:
+            for w in (
+                self.global_hamburger_btn, self.close_btn,
+                self.max_btn, self.min_btn, self.drag_area,
+            ):
+                w.lift()
+        except Exception: pass
 
     def _hide_inner_hamburger_buttons(self):
         candidates = []
@@ -243,11 +254,11 @@ class AppWindow(ctk.CTk):
                 candidates.append(tb.hamburger_btn)
 
         for btn in candidates:
-            for forget in (btn.place_forget, btn.pack_forget, btn.grid_forget):
-                try:
-                    forget()
-                except Exception:
-                    pass
+            try:
+                for forget in (btn.place_forget, btn.pack_forget, btn.grid_forget):
+                    try: forget()
+                    except Exception: pass
+            except Exception: pass
 
     def _start_move(self, event):
         if self.is_maximized:
@@ -281,17 +292,21 @@ class AppWindow(ctk.CTk):
     def _minimize_window(self):
         if os.name == "nt":
             try:
-                ctypes.windll.user32.ShowWindow(self._hwnd(), SW_MINIMIZE)
+                hwnd = self._hwnd()
+                ctypes.windll.user32.ShowWindow(hwnd, SW_MINIMIZE)
                 return
             except Exception:
                 pass
-        self.iconify()
+        try:
+            self.iconify()
+        except Exception:
+            pass
 
     def _handle_sidebar_click(self, action: str):
         if action == "run":
             self._show_monthly_on_run = True
             self.switch_view("monthly")
-            self._begin_run_indicator()   # הרובוט אומר "מחשב שיבוצים..." עד שהלוח מופיע
+            self._begin_run_indicator()
             self.update_idletasks()
             self._switch_view("calendar")
         elif action == "input":
@@ -335,7 +350,6 @@ class AppWindow(ctk.CTk):
         self._animate_sidebar_open(-self.SIDEBAR_WIDTH)
 
     def _animate_sidebar_open(self, current_x):
-        """אנימציית החלקה לפתיחת הסיידבר"""
         if current_x < 0:
             next_x = min(0, current_x + 35)
             self.sidebar.place(x=next_x, y=0, relheight=1.0, anchor="nw")
@@ -352,7 +366,6 @@ class AppWindow(ctk.CTk):
         self._animate_sidebar_close(0)
 
     def _animate_sidebar_close(self, current_x):
-        """אנימציית החלקה לסגירת הסיידבר"""
         if current_x > -self.SIDEBAR_WIDTH:
             next_x = max(-self.SIDEBAR_WIDTH, current_x - 35)
             self.sidebar.place(x=next_x, y=0, relheight=1.0, anchor="nw")
@@ -367,9 +380,14 @@ class AppWindow(ctk.CTk):
     def _check_hover_close(self, event):
         if not self.sidebar_visible or self._sidebar_animating:
             return
-        mouse_x = event.x_root - self.winfo_rootx()
-        if mouse_x > self.sidebar_width + 20:
-            self._close_sidebar()
+        try:
+            if not self.winfo_viewable():
+                return
+            mouse_x = event.x_root - self.winfo_rootx()
+            if mouse_x > self.sidebar_width + 20:
+                self._close_sidebar()
+        except Exception:
+            pass
 
     def _toggle_language(self, new_lang):
         self.current_lang = new_lang
@@ -379,41 +397,47 @@ class AppWindow(ctk.CTk):
         self.monthly_view.update_language(new_lang)
         self.after(20, self._lift_floating_controls)
 
-    def _begin_run_indicator(self):
-        # מציג את הרובוט במצב הריק עם בועת "מחשב שיבוצים..." ומכסה את אזור הלוח
-        # עד שהתאים הראשונים מגיעים — כך לא רואים את הודעת "יש לטעון נתונים".
+    def _set_run_robots_speech(self, key: str):
+        """Update the robot speech bubble on both calendar screens (monthly and annual), because
+        the run/sync process may end on either of them — so the correct text is always shown."""
         lang = getattr(self, "current_lang", "he")
+        for view in (self.monthly_view, self.calendar_view):
+            robot = getattr(view, "empty_robot", None)
+            if robot is not None:
+                try:
+                    robot.set_speech(format_text(key, lang))
+                except Exception:
+                    pass
+
+    def _begin_run_indicator(self):
+        # "Computing schedules..." on both calendar screens (monthly and annual), because the run
+        # may end on either of them — so the correct text is always shown.
+        self._set_run_robots_speech("computing")
         mv = self.monthly_view
-        if hasattr(mv, "empty_robot"):
-            mv.empty_robot.set_speech(format_text("computing", lang))
         try:
             mv.show_empty_state()
         except Exception:
             pass
         self._run_active = True
         if self._run_safety is not None:
-            self.after_cancel(self._run_safety)
-        # בטיחות: אם משום מה לא הגיעו שיבוצים, נציג הודעה מתאימה (כמעט ולא קורה)
+            try: self.after_cancel(self._run_safety)
+            except Exception: pass
         self._run_safety = self.after(9000, self._run_no_results)
 
     def _end_run_indicator(self):
         if self._run_safety is not None:
-            self.after_cancel(self._run_safety)
+            try: self.after_cancel(self._run_safety)
+            except Exception: pass
             self._run_safety = None
         self._run_active = False
-        # מאפסים את בועת הרובוט חזרה לברירת המחדל למצב ריק עתידי
-        lang = getattr(self, "current_lang", "he")
-        if hasattr(self.monthly_view, "empty_robot"):
-            self.monthly_view.empty_robot.set_speech(format_text("empty_state", lang))
+        self._set_run_robots_speech("empty_state")
 
     def _run_no_results(self):
         self._run_safety = None
         if not self._run_active:
             return
         self._run_active = False
-        lang = getattr(self, "current_lang", "he")
-        if hasattr(self.monthly_view, "empty_robot"):
-            self.monthly_view.empty_robot.set_speech(format_text("no_results", lang))
+        self._set_run_robots_speech("no_results")
 
     def _toggle_theme(self, new_theme):
         ctk.set_appearance_mode(new_theme)

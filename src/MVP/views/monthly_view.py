@@ -73,7 +73,7 @@ class MonthlyGridView(ctk.CTkFrame):
 
     def _setup_empty_state(self):
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
-        # הרובוט של האפליקציה עם בועת דיבור שמציגה את הודעת "יש לטעון נתונים"
+        # The app's robot with a speech bubble showing the "Please load data" message
         self.empty_robot = RobotMascot(self.empty_state_frame, speech=format_text("empty_state", self.current_lang))
         self.empty_robot.pack(expand=True)
         self.show_empty_state()
@@ -98,7 +98,7 @@ class MonthlyGridView(ctk.CTkFrame):
         
         days = TRANSLATIONS["days"][self.current_lang]
         for i in range(7):
-            # כותרות ימים שקופות ומרחפות, צבע טקסט עדין
+            # Transparent, floating day headers with a subtle text color
             lbl = ctk.CTkLabel(self.grid_frame, text=days[i], font=self.f_header, fg_color="transparent", text_color=theme.TEXT_MUTED)
             lbl.grid(row=0, column=i, sticky="nsew", padx=2, pady=2)
             self.day_headers.append(lbl)
@@ -107,7 +107,7 @@ class MonthlyGridView(ctk.CTkFrame):
             self.grid_frame.grid_rowconfigure(row, weight=1, uniform="week") 
             for col in range(7):
                 cell_key = f"{row}-{col}"
-                # תאים עם זוויות חדות (Seamless Grid) וגבולות עדינים
+                # Cells with sharp corners (Seamless Grid) and subtle borders
                 cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=theme.BORDER_DEFAULT, fg_color=theme.BG_CARD, corner_radius=0)
                 cell.grid(row=row, column=col, sticky="nsew", padx=0, pady=0)
                 self.grid_cells[cell_key] = cell
@@ -183,14 +183,14 @@ class MonthlyGridView(ctk.CTkFrame):
         for widget in cell_frame.winfo_children(): widget.destroy()
 
         if content is None:
-            # תא ריק - מתמזג עם רקע האפליקציה ונראה חלק לגמרי
+            # Empty cell - blends with the app background and looks perfectly seamless
             cell_frame.configure(fg_color=theme.BG_MAIN)
             cell_frame.unbind("<Button-1>")
             return
 
         original_key = content["original_key"]
         
-        # צבעי תאים
+        # Cell colors
         if content["is_excluded"]:
             cell_frame.configure(fg_color=("#ffe6e6", "#4a1c1c"))
         else:
@@ -211,20 +211,20 @@ class MonthlyGridView(ctk.CTkFrame):
             if hasattr(exams_container, "_parent_canvas"):
                 exams_container._parent_canvas.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
-            # פלטת צבעים אלגנטית למצב שיש מספר מבחנים באותו יום
+            # Elegant color palette for when there are multiple exams on the same day
             elegant_colors = [
-                ("#0d6efd", "#0077b6"), # כחול
-                ("#20c997", "#128260"), # ירוק-מנטה
-                ("#f39c12", "#d68910"), # כתום
-                ("#e83e8c", "#b8306f"), # ורוד
-                ("#8e44ad", "#6c3483")  # סגול
+                ("#0d6efd", "#0077b6"), # Blue
+                ("#20c997", "#128260"), # Mint-green
+                ("#f39c12", "#d68910"), # Orange
+                ("#e83e8c", "#b8306f"), # Pink
+                ("#8e44ad", "#6c3483")  # Purple
             ]
 
             for i, exam in enumerate(exams):
-                # בחירת צבע באופן דינמי לפי אינדקס המבחן
+                # Pick a color dynamically based on the exam index
                 pill_color = elegant_colors[i % len(elegant_colors)]
                 
-                # עיצוב "גלולה" (Pill) עם פינות מעוגלות מאוד
+                # "Pill" styling with very rounded corners
                 card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
                 card.pack(fill="x", expand=False, padx=2, pady=3)
 
@@ -237,7 +237,7 @@ class MonthlyGridView(ctk.CTkFrame):
 
                 card_lines = []
                 
-                # טקסט ממורכז או מיושר לפי שפה - בחרתי להשאיר ממורכז בגלולות כדי לשמור על מראה "אירוע" נקי
+                # Centered or language-aligned text - kept centered in the pills to preserve a clean "event" look
                 name_lbl = ctk.CTkLabel(card, text=full_name, font=self.f_card, text_color="white", justify="center")
                 name_lbl.pack(padx=6, pady=(4, 0), fill="x")
                 card_lines.append(name_lbl)

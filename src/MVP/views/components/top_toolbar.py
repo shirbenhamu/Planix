@@ -34,7 +34,6 @@ class TopToolbar(ctk.CTkFrame):
         self.on_month_next = None
         self.on_load_more = None
         self.on_edit_dates = None
-        self.on_load_more = None
 
         self.hamburger_btn = ctk.CTkLabel(self, text="☰", font=(
             "Arial", 22), cursor="hand2", text_color=theme.TEXT_ACCENT)
@@ -70,7 +69,7 @@ class TopToolbar(ctk.CTkFrame):
         ctk.CTkButton(self.nav_frame, text=">", font=f_btn, width=30, height=26,
                       command=lambda: self.on_next() if self.on_next else None).pack(side="left", padx=2)
 
-        # --- כפתורי פעולה מבוססי גופן האייקונים החדש ---
+        # --- Action buttons based on the new icon font ---
         self.edit_dates_btn = ctk.CTkButton(
             self, text=f" {ICON_EDIT} ", font=f_icon, fg_color=ACCENT, hover_color=ACCENT_HOVER,
             text_color="white", height=28, width=35,
@@ -90,7 +89,7 @@ class TopToolbar(ctk.CTkFrame):
         self.filter_btn = ctk.CTkButton(
             self, text=f" {ICON_FILTER} ", font=f_icon, fg_color=ACCENT, hover_color=ACCENT_HOVER,
             text_color="white", height=28, width=35,
-            command=lambda: self.on_filter() if self.on_filter else None,
+            command=lambda: None,  # Filter button disabled
         )
         self.filter_btn.pack(side="left", padx=4)
         self.tip_filter = Tooltip(self.filter_btn, "מסננים")
@@ -103,7 +102,7 @@ class TopToolbar(ctk.CTkFrame):
         self.exclude_btn.pack(side="left", padx=4)
         self.tip_exclude = Tooltip(self.exclude_btn, "החרג יום נבחר")
 
-        # כפתור הורדה אלגנטי וממותג בצד ימין
+        # Elegant, branded download button on the right side
         self.export_btn = ctk.CTkButton(
             self, text=ICON_EXPORT, fg_color=theme.SUCCESS, hover_color=theme.SUCCESS_HOVER,
             font=ctk.CTkFont(family="bootstrap-icons", size=16), height=28, width=40,
@@ -136,7 +135,7 @@ class TopToolbar(ctk.CTkFrame):
 
     def update_language(self, lang: str):
         self.current_lang = lang
-        # עדכון בועות המידע בהתאם לשפת הממשק
+        # Update the tooltips according to the UI language
         if lang == "he":
             self.tip_edit.text = "עריכת תאריכים"
             self.tip_load_more.text = "טען מערכות נוספות"

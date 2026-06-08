@@ -66,7 +66,7 @@ class Sidebar(ctk.CTkFrame):
             logo_path = os.path.join(self.base_dir, "assets", "logo.png")
             if os.path.exists(logo_path):
                 img = ctk.CTkImage(light_image=Image.open(logo_path), dark_image=Image.open(logo_path), size=(120, 120))
-                # לוגו נקי ישירות על רקע הסיידבר, ללא מסגרת מיותרת
+                # Clean logo directly on the sidebar background, without an unnecessary frame
                 ctk.CTkLabel(self.bottom_frame, image=img, text="").pack(pady=(0, 15))
         except Exception: pass
 

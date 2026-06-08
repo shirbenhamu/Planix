@@ -7,8 +7,8 @@ from src.MVP.views.ui_utils import format_text
 def show_load_choice_popup(parent, current_lang: str, on_choice_callback=None):
     """
     In-app overlay popup (NOT an OS window) for choosing how to load the dates file:
-      - "append"  -> add to existing data ("הוסף קובץ")
-      - "replace" -> overwrite existing data ("דרוס קובץ קיים")
+      - "append"  -> add to existing data ("Add File")
+      - "replace" -> overwrite existing data ("Overwrite Existing")
 
     Mirrors the attach/place pattern of date_edit_modal so it renders centered over
     the main window without being clipped by inner frames.

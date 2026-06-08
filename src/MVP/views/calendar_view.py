@@ -11,15 +11,15 @@ from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views import theme
 
 class CalendarGridView(ctk.CTkFrame):
-    CELL_HEIGHT = 110  # גובה קבוע לכל בלוק יום בתצוגה השנתית
+    CELL_HEIGHT = 110  # Fixed height for each day block in the annual view
 
     def __init__(self, master, **kwargs):
-        # הרקע המרכזי של האפליקציה (מתמזג עם ה-Toolbar)
+        # The app's main background (blends with the Toolbar)
         super().__init__(master, fg_color=theme.BG_MAIN, **kwargs)
         self.current_lang = "he"
         self._current_page, self._total_pages = 1, 1
         
-        # שימוש בפונטים מה-Theme
+        # Use the fonts from the Theme
         self.f_header = ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold")
         self.f_card = ctk.CTkFont(family=theme.FONT_FAMILY, size=10, weight="bold")
         self.f_empty = ctk.CTkFont(family=theme.FONT_FAMILY, size=18, weight="bold")
@@ -29,13 +29,13 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_page_jump, self.on_range_update_clicked = None, None 
         self.on_export_clicked, self.on_exclude_clicked = None, None 
         self.on_date_selected, self.on_filter_clicked = None, None 
-        self.get_exam_periods_callback = None  # מקור הנתונים לחלון עריכת התאריכים
+        self.get_exam_periods_callback = None  # Data source for the date-edit window
         self.on_load_more_clicked = None
         self.day_headers, self.month_labels, self.grid_cells = [], [], {}  
         self.selected_cell_key = None 
         self.active_month_indices = []
-        self._last_grid_data = {}  # מטמון לציור מחדש רק של תאים שהשתנו (מונע ריצוד ברענון החי)
-        self._cell_day_number = {}  # מספר היום (1..31) לכל תא תקין, להצגה כמו לוח שנה
+        self._last_grid_data = {}  # Cache to redraw only changed cells (prevents flicker during live refresh)
+        self._cell_day_number = {}  # Day number (1..31) for each valid cell, shown like a calendar
         
         # --- Toolbar ---
         self.toolbar = TopToolbar(self, is_monthly=False)
@@ -100,7 +100,7 @@ class CalendarGridView(ctk.CTkFrame):
 
     def _setup_empty_state(self):
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
-        # הרובוט של האפליקציה עם בועת דיבור שמציגה את הודעת "יש לטעון נתונים"
+        # The app's robot with a speech bubble showing the "Please load data" message
         self.empty_robot = RobotMascot(self.empty_state_frame, speech=format_text("empty_state", self.current_lang))
         self.empty_robot.pack(expand=True)
         self.show_empty_state()
@@ -114,7 +114,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.scrollable_container.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
     def _get_semester_color(self, month_idx: int):
-        # מותאם למצב יום ולילה באמצעות ה-Theme (סתיו=ירוק, אביב=תכלת, קיץ=כתום)
+        # Adapts to day/night mode via the Theme (Fall=green, Spring=sky-blue, Summer=orange)
         if month_idx in [9, 10, 11, 0, 1]: return theme.SUCCESS  
         elif month_idx in [2, 3, 4, 5]: return theme.TEXT_ACCENT 
         else: return ("#e67e22", "#f39c12") 
@@ -137,7 +137,7 @@ class CalendarGridView(ctk.CTkFrame):
         
         days = TRANSLATIONS["days"][self.current_lang]
         for i in range(31):
-            # כותרות צפות שקופות (בלי הבלוק האפור)
+            # Floating transparent headers (without the gray block)
             lbl = ctk.CTkLabel(self.grid_frame, text=days[i % 7], font=self.f_header, fg_color="transparent", text_color=theme.TEXT_MUTED)
             lbl.grid(row=0, column=i, sticky="nsew", padx=1, pady=1)
             self.day_headers.append(lbl)
@@ -148,17 +148,17 @@ class CalendarGridView(ctk.CTkFrame):
             num_days = calendar.monthrange(year, month_idx + 1)[1]
             for col in range(31):
                 cell_key = f"{row_idx}-{col}"
-                # רשת נקייה - פינות זוויות ישרות, גבולות עדינים
+                # Clean grid - straight corners, subtle borders
                 cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=theme.BORDER_DEFAULT, fg_color=theme.BG_CARD, corner_radius=0, height=self.CELL_HEIGHT)
                 cell.grid(row=row_idx, column=col, sticky="nsew", padx=0, pady=0)
                 cell.pack_propagate(False)  
                 self.grid_cells[cell_key] = cell
                 cell.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
                 
-                if col < num_days:  # תאים חוקיים בלבד
+                if col < num_days:  # valid cells only
                     self._cell_day_number[cell_key] = col + 1
                 else:
-                    # תאים שאינם בחודש (למשל 31 בפברואר) יהיו שקופים וללא גבולות
+                    # Cells not in the month (e.g. Feb 31) are transparent and borderless
                     cell.configure(fg_color=theme.BG_MAIN, border_width=0)
                 
             m_text = TRANSLATIONS["months"][self.current_lang][month_idx]
@@ -175,15 +175,15 @@ class CalendarGridView(ctk.CTkFrame):
 
         day_num = self._cell_day_number.get(cell_key)
         
-        # אם התא לא קיים בחודש הזה (למשל סוף פברואר) משאירים אותו שקוף
+        # If the cell doesn't exist in this month (e.g. end of February) keep it transparent
         if day_num is None:
             cell_frame.configure(fg_color=theme.BG_MAIN, border_width=0)
             return
 
-        # שחזור גבולות במידה וצריך
+        # Restore borders if needed
         cell_frame.configure(border_width=1, border_color=theme.BORDER_DEFAULT)
 
-        # צבע רקע תא תקין או מוחרג
+        # Background color for a valid or excluded cell
         if cell_data.get("is_excluded"):
             cell_frame.configure(fg_color=("#ffe6e6", "#4a1c1c"))
         else:
@@ -202,19 +202,19 @@ class CalendarGridView(ctk.CTkFrame):
             if hasattr(exams_container, "_parent_canvas"):
                 exams_container._parent_canvas.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
 
-            # אותה פלטת צבעים אלגנטית כמו בתצוגה החודשית
+            # Same elegant color palette as in the monthly view
             elegant_colors = [
-                ("#0d6efd", "#0077b6"), # כחול
-                ("#20c997", "#128260"), # ירוק-מנטה
-                ("#f39c12", "#d68910"), # כתום
-                ("#e83e8c", "#b8306f"), # ורוד
-                ("#8e44ad", "#6c3483")  # סגול
+                ("#0d6efd", "#0077b6"), # Blue
+                ("#20c997", "#128260"), # Mint-green
+                ("#f39c12", "#d68910"), # Orange
+                ("#e83e8c", "#b8306f"), # Pink
+                ("#8e44ad", "#6c3483")  # Purple
             ]
 
             for i, exam in enumerate(exams):
                 pill_color = elegant_colors[i % len(elegant_colors)]
                 
-                # כרטיסיית גלולה עגולה (Pill)
+                # Rounded pill card (Pill)
                 card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
                 card.pack(fill="x", expand=False, padx=1, pady=2)
                 card.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
@@ -223,7 +223,7 @@ class CalendarGridView(ctk.CTkFrame):
                 lbl.pack(padx=2, pady=2)
                 lbl.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
 
-        # מסגרת במקרה של בחירה
+        # Border in case of selection
         if self.selected_cell_key == cell_key:
             cell_frame.configure(border_color=theme.BORDER_ACTIVE, border_width=2)
 
@@ -236,7 +236,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.hide_empty_state()
 
         self._last_grid_data = {}
-        # מציירים מחדש רק תאים שתוכנם באמת השתנה מאז הרענון הקודם.
+        # Redraw only cells whose content actually changed since the previous refresh.
         changed = False
         for cell_key in self.grid_cells.keys():
             new_data = grid_data.get(cell_key, {})
@@ -282,7 +282,7 @@ class CalendarGridView(ctk.CTkFrame):
                     m_text = TRANSLATIONS["months"][lang][self.active_month_indices[i]]
                     m_lbl.configure(text=f"\u200F{m_text}\u200F" if lang == "he" else m_text)
         for cell_key, cell_frame in self.grid_cells.items():
-            # מוודאים שאנחנו מעדכנים עוגן (Anchor) רק לתאים קיימים
+            # Make sure we update the anchor only for existing cells
             if self._cell_day_number.get(cell_key) is not None and cell_frame.winfo_children() and isinstance(cell_frame.winfo_children()[0], ctk.CTkLabel):
                 cell_frame.winfo_children()[0].pack_configure(anchor="ne" if lang == "he" else "nw")
 
@@ -294,7 +294,7 @@ class CalendarGridView(ctk.CTkFrame):
         if file_path and self.on_export_clicked: self.on_export_clicked(file_path)
 
     def _handle_cell_click(self, cell_key):
-        # מונע בחירה של תאים שקופים/לא קיימים
+        # Prevent selecting transparent/non-existent cells
         if self._cell_day_number.get(cell_key) is None:
             return
 

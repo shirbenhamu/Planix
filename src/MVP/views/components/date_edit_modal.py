@@ -20,7 +20,7 @@ def show_date_edit_popup(parent, current_lang: str, exam_periods_data: List = No
     if hasattr(root_window, "date_popup_box") and root_window.date_popup_box.winfo_exists():
         root_window.date_popup_box.destroy()
 
-    # Popup frame - ללא height קבוע כדי שיגדל בהתאם למספר השורות!
+    # Popup frame - no fixed height, so it grows according to the number of rows!
     root_window.date_popup_box = ctk.CTkFrame(
         root_window,
         fg_color=("gray90", "gray15"),
@@ -30,7 +30,11 @@ def show_date_edit_popup(parent, current_lang: str, exam_periods_data: List = No
         width=500
     )
 
-    root_window.date_popup_box.place(relx=0.5, rely=0.5, anchor="center")
+    # Place the modal in the center only after all content is built (see _show_centered at the end),
+    # so it opens directly at its final size without a size "jump" while the content is being built.
+    def _show_centered():
+        root_window.update_idletasks()
+        root_window.date_popup_box.place(relx=0.5, rely=0.5, anchor="center")
 
     # Fonts
     f_title = ctk.CTkFont(family="Rubik", size=22, weight="bold")
@@ -84,6 +88,7 @@ def show_date_edit_popup(parent, current_lang: str, exam_periods_data: List = No
             msg = format_text("no_periods_defined", current_lang)
 
         btn_close.pack(pady=(5, 10))
+        _show_centered()
         return
 
 
@@ -107,10 +112,16 @@ def show_date_edit_popup(parent, current_lang: str, exam_periods_data: List = No
         moed_prefix = format_text("moed", current_lang)
         sem_prefix = format_text("semester", current_lang)
 
+        # Translate the moed value (Aleph/Bet/Gimel) to the current language; keep the raw value if no translation
+        moed_key = f"moed_{moed}"
+        moed_display = format_text(moed_key, current_lang)
+        if moed_key in moed_display:
+            moed_display = moed
+
         if current_lang == "he":
-            lbl_text = f"\u200F{sem_prefix} {sem_display} | {moed_prefix} {moed}׳\u200F"
+            lbl_text = f"\u200F{sem_prefix} {sem_display} | {moed_prefix} {moed_display}׳\u200F"
         else:
-            lbl_text = f"{sem_display} {sem_prefix} | {moed_prefix} {moed}"
+            lbl_text = f"{sem_display} {sem_prefix} | {moed_prefix} {moed_display}"
 
         start_ph = (
             start_val.strftime("%d/%m/%Y")
@@ -345,3 +356,6 @@ def show_date_edit_popup(parent, current_lang: str, exam_periods_data: List = No
     )
 
     btn_save.pack(side="right", padx=30)
+
+    # All content is ready — now place the modal in the center, so it opens smoothly at its final size
+    _show_centered()
