@@ -121,6 +121,7 @@ class CalendarPresenter:
         # whether exams have been scheduled into those months yet.
         unique_months: List[int] = []
 
+
         try:
             exam_periods = self.model.get_exam_periods()
 

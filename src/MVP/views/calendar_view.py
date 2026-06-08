@@ -172,6 +172,7 @@ class CalendarGridView(ctk.CTkFrame):
             
         self.grid_frame.grid_rowconfigure(len(month_indices) + 1, weight=1)
 
+
     def update_single_cell(self, cell_key: str, cell_data: dict):
         """
         Update a single cell efficiently using object pooling with pack_forget().
