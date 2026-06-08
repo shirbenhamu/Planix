@@ -17,6 +17,9 @@ class CalendarPresenter:
         self.active_months: List[int] = []
         # Reverse mapping from matrix coordinates back to specific dates for interactive manipulation
         self.cell_to_date_mapping: Dict[str, date] = {}
+        
+        # RENDER GUARD: Prevent overlapping render cycles from stacking up
+        self.is_rendering = False
 
         # 1. UI Event Binding - Tasks PLAN-258 and PLAN-261
         self.view.on_next_clicked = self._handle_next_schedule
@@ -77,24 +80,34 @@ class CalendarPresenter:
     def refresh_presenter_state(self) -> None:
         """
         Scans the manager context, initializes layout structure if data exists, and triggers render cycle.
+        Uses a render guard to prevent overlapping render cycles from stacking up in the UI thread.
         """
-        total_schedules = self.collection_manager.get_total_count()
-        if total_schedules == 0:
-            self.view.show_empty_state()
+        # RENDER GUARD: Exit immediately if already rendering to prevent UI thread thrashing
+        if self.is_rendering:
             return
-
-        # Synchronize pagination view context
-        current_idx = self.collection_manager.get_current_index()
-        self.view.update_pagination(current_page=current_idx + 1, total_pages=total_schedules)
-
-        # Pull active schedule structure
+        
+        self.is_rendering = True
         try:
-            active_schedule = self.collection_manager.get_current_schedule()
-            self._setup_calendar_grid_dimensions(active_schedule)
-            self._render_active_schedule(active_schedule)
-        except Exception as e:
-            print(f"Error refreshing calendar state: {e}")
-            self.view.show_empty_state()
+            total_schedules = self.collection_manager.get_total_count()
+            if total_schedules == 0:
+                self.view.show_empty_state()
+                return
+
+            # Synchronize pagination view context
+            current_idx = self.collection_manager.get_current_index()
+            self.view.update_pagination(current_page=current_idx + 1, total_pages=total_schedules)
+
+            # Pull active schedule structure
+            try:
+                active_schedule = self.collection_manager.get_current_schedule()
+                self._setup_calendar_grid_dimensions(active_schedule)
+                self._render_active_schedule(active_schedule)
+            except Exception as e:
+                print(f"Error refreshing calendar state: {e}")
+                self.view.show_empty_state()
+        finally:
+            # Always release the render guard to prevent permanent UI blocking
+            self.is_rendering = False
 
     # ======= 2. Grid Optimization & Transformation (PLAN-258) =======
 
