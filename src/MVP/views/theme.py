@@ -1,16 +1,16 @@
 # src/MVP/views/theme.py
 
 # --- Colors: (Light Mode, Dark Mode) ---
-# רקע האפליקציה: תכלת רך ביום, כחול-פחם עמוק בלילה
+# App background: soft sky-blue by day, deep charcoal-blue at night
 BG_MAIN = ("#e3f2f7", "#122330") 
 
-# רקע כרטיסיות (Cards) - בלילה הוספנו גוון כחלחל עדין במקום אפור נקי
+# Card background - at night we added a subtle bluish tint instead of plain gray
 BG_CARD = ("#ffffff", "#1e2b3c") 
 BG_CARD_HOVER = ("#f8f9fa", "#263648")
 
 BORDER_DEFAULT = ("#dee2e6", "#2c3e50")
 
-# צבע האקסנט המאוחד! כחול עמוק ביום (לניגודיות), ותכלת זוהר בלילה
+# Unified accent color! Deep blue by day (for contrast), and glowing sky-blue at night
 BORDER_ACTIVE = ("#0077b6", "#38b6ff")  
 
 TEXT_MAIN = ("#212529", "#ffffff")

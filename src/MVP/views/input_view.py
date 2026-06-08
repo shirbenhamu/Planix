@@ -73,7 +73,7 @@ class InputConfigurationView(ctk.CTkFrame):
         super().__init__(master, fg_color=theme.BG_MAIN, **kwargs)
         self.current_lang = "he"
         self._last_hierarchy = {}
-        self._detail_labels = []  # תוויות הכרטיסים בפאנל הפרטים, לעדכון גלישה לפי רוחב העמודה
+        self._detail_labels = [] 
         
         self.f_mega = ctk.CTkFont(family=theme.FONT_FAMILY, size=32, weight="bold")
         self.f_title = ctk.CTkFont(family=theme.FONT_FAMILY, size=24, weight="bold")
@@ -84,8 +84,8 @@ class InputConfigurationView(ctk.CTkFrame):
 
         self.on_program_selected: Callable[[str], None] = None
         self.on_program_details: Callable[[str], None] = None
-        self.on_load_courses: Callable[[str], None] = None
-        self.on_load_dates: Callable[[str], None] = None
+        self.on_load_courses: Callable[[str], bool] = None
+        self.on_load_dates: Callable[[str], bool] = None
         self.on_clear_courses: Callable[[], None] = None
         self.on_run_clicked: Callable[[], None] = None
         self.on_range_update_clicked: Callable[[list], None] = None
@@ -94,6 +94,9 @@ class InputConfigurationView(ctk.CTkFrame):
         self.checkboxes = []
         self._program_ids = []
         self.load_mode_var = ctk.StringVar(value="append")
+        
+        self.has_courses = False
+        self.has_dates = False
         
         self._setup_ui()
         self.update_language(self.current_lang)
@@ -110,8 +113,6 @@ class InputConfigurationView(ctk.CTkFrame):
         self.main_split.grid_columnconfigure(0, weight=6) 
         self.main_split.grid_columnconfigure(1, weight=4) 
         self.main_split.grid_rowconfigure(0, weight=1)
-        # מקבעים את רוחב העמודות כשבר קבוע מרוחב המסך (60%/40%), ללא תלות בתוכן,
-        # כדי שהחלפת תוכנית לא תזיז את חלוקת העמודות (מקור הקפיצות).
         self.main_split.bind("<Configure>", self._resize_columns)
 
         # ---------------- LEFT PANEL (Details) ----------------
@@ -140,14 +141,13 @@ class InputConfigurationView(ctk.CTkFrame):
         self.files_row = ctk.CTkFrame(self.controls_panel, fg_color=theme.TRANSPARENT)
         self.files_row.pack(fill="x", pady=(0, theme.SPACING_REGULAR))
         self.files_row.grid_columnconfigure(0, weight=1)
-        self.files_row.grid_columnconfigure(1, weight=0)   # עמודת הבובה - רוחב קבוע
+        self.files_row.grid_columnconfigure(1, weight=0)
         self.files_row.grid_columnconfigure(2, weight=1)
         
         self.courses_cell = ctk.CTkFrame(self.files_row, fg_color=theme.TRANSPARENT)
         self.lbl_courses = ctk.CTkLabel(self.courses_cell, text="", font=self.f_title, text_color=theme.TEXT_MAIN)
         self.lbl_courses.pack(pady=(0, theme.SPACING_SMALL))
         
-        # הטמעת אייקון וקטורי ו-Tooltip
         self.btn_courses = create_icon_button(self.courses_cell, text=ICON_UPLOAD, command=self._handle_load_courses)
         self.btn_courses.pack()
         self.tip_courses = Tooltip(self.btn_courses, "העלאת קובץ קורסים")
@@ -161,7 +161,6 @@ class InputConfigurationView(ctk.CTkFrame):
         self.tip_dates = Tooltip(self.btn_dates, "העלאת קובץ תאריכים")
 
         self.courses_cell.grid(row=0, column=0, sticky="nsew")
-        # בובת הרובוט-סטודנט במרכז, בין קורסים לתאריכים
         self.mascot = RobotMascot(self.files_row, reserve_bubble=True)
         self.mascot.grid(row=0, column=1, padx=8)
         self.dates_cell.grid(row=0, column=2, sticky="nsew")
@@ -202,7 +201,6 @@ class InputConfigurationView(ctk.CTkFrame):
     def _open_dates_modal(self):
         periods_data = self.get_exam_periods_callback() if callable(self.get_exam_periods_callback) else []
         
-        # Callback to handle saving updated date pairs from the modal
         def on_save(date_pairs):
             if self.on_range_update_clicked:
                 self.on_range_update_clicked(date_pairs)
@@ -213,15 +211,19 @@ class InputConfigurationView(ctk.CTkFrame):
             exam_periods_data=periods_data or [],
             on_save_callback=on_save
         )
+
     def show_warning_dialog(self, message: str):
-        # ההודעה מוצגת כבועת דיבור של הרובוט במקום הודעה קופצת
         self.mascot.show_speech(format_text("max_programs_err", self.current_lang), duration=3500)
 
     def _handle_load_courses(self):
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses: 
-            self.on_load_courses(file_path)
-            self.mascot.show_speech(format_text("toast_courses_loaded", self.current_lang))
+            success = self.on_load_courses(file_path)
+            if success:
+                self.has_courses = True
+                self.mascot.show_speech(format_text("toast_courses_loaded", self.current_lang))
+            else:
+                self.mascot.show_speech(format_text("err_courses_format", self.current_lang), duration=3500)
 
     def _open_dates_load_chooser(self):
         show_load_choice_popup(self, self.current_lang, on_choice_callback=self._perform_dates_load)
@@ -232,15 +234,32 @@ class InputConfigurationView(ctk.CTkFrame):
             filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")]
         )
         if file_path and self.on_load_dates:
-            self.on_load_dates(file_path)
-            self.mascot.show_speech(format_text("toast_dates_loaded", self.current_lang))
+            success = self.on_load_dates(file_path)
+            if success:
+                self.has_dates = True
+                self.mascot.show_speech(format_text("toast_dates_loaded", self.current_lang))
+            else:
+                self.mascot.show_speech(format_text("err_dates_format", self.current_lang), duration=3500)
         
     def _handle_clear_courses(self):
-        if self.on_clear_courses: 
+        if self.on_clear_courses:
             self.on_clear_courses()
-            self.mascot.show_speech(format_text("toast_data_cleared", self.current_lang))
+            # The trash button clears only the courses file — the dates state is preserved (has_dates unchanged)
+            self.has_courses = False
+            self.mascot.show_speech(format_text("toast_courses_cleared", self.current_lang))
 
     def _handle_run_click(self):
+        # Pre-run checks to prevent switching screens when data is missing
+        if not self.has_courses and not self.has_dates:
+            self.mascot.show_speech(format_text("err_both_missing", self.current_lang), duration=3500)
+            return
+        if not self.has_courses:
+            self.mascot.show_speech(format_text("err_courses_missing", self.current_lang), duration=3500)
+            return
+        if not self.has_dates:
+            self.mascot.show_speech(format_text("err_dates_missing", self.current_lang), duration=3500)
+            return
+            
         if self.on_run_clicked: self.on_run_clicked()
 
     def display_programs_list(self, programs: Dict[str, str]):
@@ -273,15 +292,12 @@ class InputConfigurationView(ctk.CTkFrame):
             self.on_program_details(prog_id)
 
     def _current_col0(self) -> int:
-        # רוחב עמודת הפרטים (השמאלית) = 60% מרוחב האזור; fallback לפני שהחלון נפרס
         w = self.main_split.winfo_width()
         if w <= 1:
             w = 1000
         return int(w * 0.6)
 
     def _resize_columns(self, event=None):
-        # קובע את שתי העמודות לרוחב פיקסלים קבוע (יחסי למסך), בלי weight, כך שתוכן
-        # לא יכול להזיז את החלוקה. עודף תוכן נגלל בתוך ה-ScrollableFrame ולא דוחף.
         w = self.main_split.winfo_width()
         if w <= 1:
             return
@@ -289,7 +305,6 @@ class InputConfigurationView(ctk.CTkFrame):
         col1 = w - col0
         self.main_split.grid_columnconfigure(0, weight=0, minsize=col0)
         self.main_split.grid_columnconfigure(1, weight=0, minsize=col1)
-        # הכותרת והכרטיסים גולשים לפי רוחב העמודה, כך שלא "ידחפו" אותה להתרחב
         self.details_title.configure(wraplength=max(120, col0 - 60))
         card_wrap = max(120, col0 - 90)
         for lbl in self._detail_labels:
@@ -300,7 +315,7 @@ class InputConfigurationView(ctk.CTkFrame):
 
     def display_program_courses(self, hierarchy: Dict):
         self._last_hierarchy = hierarchy
-        self._detail_labels = []  # נבנה מחדש בכל הצגה
+        self._detail_labels = [] 
         col0 = self._current_col0()
         card_wrap = max(120, col0 - 90)
         self.details_title.configure(wraplength=max(120, col0 - 60))
@@ -387,7 +402,6 @@ class InputConfigurationView(ctk.CTkFrame):
         self.details_title.configure(text=format_text("details_title", lang))
         self.btn_run.configure(text=format_text("btn_run", lang))
         
-        # עדכון בועות המידע בהתאם לשפה החדשה
         if lang == "he":
             self.tip_courses.text = "העלאת קובץ קורסים"
             self.tip_dates.text = "העלאת קובץ תאריכים"

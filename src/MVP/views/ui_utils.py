@@ -15,9 +15,18 @@ TRANSLATIONS = {
     "empty_state": {"he": "יש לטעון נתונים", "en": "Please load data"},
     "computing": {"he": "מחשב שיבוצים...", "en": "Computing schedules..."},
     "no_results": {"he": "לא נמצאו מערכות מתאימות", "en": "No matching schedules found"},
+    
+    # --- Loading-indicator & robot translations ---
     "toast_courses_loaded": {"he": "קובץ קורסים נטען בהצלחה", "en": "Courses file loaded successfully"},
     "toast_dates_loaded": {"he": "קובץ תאריכים עודכן בהצלחה", "en": "Dates file updated successfully"},
     "toast_data_cleared": {"he": "הנתונים נמחקו", "en": "Data cleared"},
+    "toast_courses_cleared": {"he": "קובץ הקורסים נמחק", "en": "Courses file cleared"},
+    "err_both_missing": {"he": "אנא טען קובצי קורסים ותאריכים", "en": "Please load courses and dates files"},
+    "err_courses_missing": {"he": "אנא טען קובץ קורסים", "en": "Please load a courses file"},
+    "err_dates_missing": {"he": "אנא טען קובץ תאריכים", "en": "Please load a dates file"},
+    "err_courses_format": {"he": "קובץ הקורסים שהועלה אינו תקין", "en": "The uploaded courses file is invalid"},
+    "err_dates_format": {"he": "קובץ התאריכים שהועלה אינו תקין", "en": "The uploaded dates file is invalid"},
+
     "days": {"he": ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"], "en": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]},
     "months": {"he": ["ינו", "פבר", "מרץ", "אפר", "מאי", "יונ", "יול", "אוג", "ספט", "אוק", "נוב", "דצמ"], "en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]},
     "months_full": {"he": ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"], "en": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]},
@@ -55,6 +64,12 @@ TRANSLATIONS = {
     "no_dates_loaded": {"he": "אנא העלה קובץ תאריכים תחילה", "en": "Please load a dates file first"},
     "semester": {"he": "סמסטר", "en": "Semester"},
     "moed": {"he": "מועד", "en": "Moed"},
+    "no_periods_defined": {"he": "לא הוגדרו תקופות בחינה", "en": "No exam periods defined"},
+
+    # --- Moed values (translate the raw data value Aleph/Bet/Gimel for both languages) ---
+    "moed_Aleph": {"he": "א", "en": "A"},
+    "moed_Bet": {"he": "ב", "en": "B"},
+    "moed_Gimel": {"he": "ג", "en": "C"},
     
     # --- Dynamic Value Translations ---
     "semester_FALL": {"he": "סתיו", "en": "Fall"}, 
