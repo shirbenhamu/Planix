@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 
@@ -175,9 +175,18 @@ class CalendarPresenter:
                     grid_data[cell_key]["day_text"] = ""
 
 
-        # Query all globally locked excluded dates directly from primary Model context
-        excluded_dates = self.model.get_user_excluded_dates()
-        
+        # Collect every excluded date the calendar should highlight in red:
+        #   1. Dates the user manually excluded by clicking a cell.
+        #   2. Excluded dates defined in the loaded exam-periods (dates) file —
+        #      expanded from their start/end ranges into individual days.
+        excluded_dates = set(self.model.get_user_excluded_dates())
+        for period in (self.model.get_exam_periods() or []):
+            for excl in getattr(period, "excluded_dates", []) or []:
+                current_excluded = excl.start_date
+                while current_excluded <= excl.end_date:
+                    excluded_dates.add(current_excluded)
+                    current_excluded += timedelta(days=1)
+
         # Mark all cells corresponding to excluded dates with the appropriate flag for the View to render with exclusion styling
         for cel_key, cell_date in self.cell_to_date_mapping.items():
             grid_data[cel_key]["is_excluded"] = cell_date in excluded_dates
