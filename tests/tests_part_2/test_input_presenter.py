@@ -51,7 +51,7 @@ class TestInputPresenter:
         monkeypatch.chdir(tmp_path)
 
         expected_courses_path = os.path.normpath("fake_courses.txt")
-        expected_exam_periods_path = os.path.normpath(".")
+        expected_exam_periods_path = os.path.normpath("data/_empty_dates.txt")
         expected_selected_programs_path = os.path.normpath("data/selected_programs.txt")
 
         # Act

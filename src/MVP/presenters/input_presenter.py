@@ -33,7 +33,7 @@ class InputPresenter:
                 f.write("")
         return placeholder
 
-    def _trigger_data_loading(self, rollback_courses_path: str, rollback_dates_path: str) -> bool:
+    def _trigger_data_loading(self, rollback_courses_path: str = None, rollback_dates_path: str = None) -> bool:
         os.makedirs("data", exist_ok=True)
         
         dummy_programs_path = os.path.normpath("data/selected_programs.txt")

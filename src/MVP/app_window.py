@@ -401,7 +401,11 @@ class AppWindow(ctk.CTk):
         """Update the robot speech bubble on both calendar screens (monthly and annual), because
         the run/sync process may end on either of them — so the correct text is always shown."""
         lang = getattr(self, "current_lang", "he")
-        for view in (self.monthly_view, self.calendar_view):
+        for view_name in ("monthly_view", "calendar_view"):
+            view = self.__dict__.get(view_name)
+            if view is None:
+                continue
+
             robot = getattr(view, "empty_robot", None)
             if robot is not None:
                 try:

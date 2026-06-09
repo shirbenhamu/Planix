@@ -36,7 +36,7 @@ class TestCacheAndFilesLoading:
         """Create a corrupted courses file with an invalid evaluation method."""
         file_path.write_text(
             """Broken Course
-            99999
+            99
             Dr. Error
             83108, 1, FALL, Obligatory
             InvalidEvaluationMethod
