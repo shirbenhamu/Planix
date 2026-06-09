@@ -25,13 +25,17 @@ class TestAppController:
         with patch("src.MVP.presenters.app_controller.PlanixModel") as mock_model_cls, \
              patch("src.MVP.presenters.app_controller.ScheduleCollectionManager") as mock_manager_cls, \
              patch("src.MVP.presenters.app_controller.InputPresenter") as mock_input_pres_cls, \
-             patch("src.MVP.presenters.app_controller.CalendarPresenter") as mock_cal_pres_cls:
+             patch("src.MVP.presenters.app_controller.CalendarPresenter") as mock_cal_pres_cls, \
+             patch("src.MVP.presenters.app_controller.PlanixEngineAdapter") as mock_engine_cls:
             
             # Setup mock instances returned by the constructors
-            mock_model_cls.return_value = MagicMock()
+            mock_model_instance = MagicMock()
+            mock_model_instance.data_manager = mock_data_manager
+            mock_model_cls.return_value = mock_model_instance
             mock_manager_cls.return_value = MagicMock()
             mock_input_pres_cls.return_value = MagicMock()
             mock_cal_pres_cls.return_value = MagicMock()
+            mock_engine_cls.return_value = MagicMock()
             
             controller_instance = AppController(mock_window, mock_data_manager)
             
@@ -59,6 +63,7 @@ class TestAppController:
              patch("src.MVP.presenters.app_controller.CalendarPresenter") as mock_cal_pres_cls:
             
             shared_model_mock = MagicMock()
+            shared_model_mock.data_manager = mock_data_manager
             mock_model_cls.return_value = shared_model_mock
             
             # Act - Instantiate the core orchestrator
@@ -82,10 +87,23 @@ class TestAppController:
 
     def test_navigation_to_calendar_view_refreshes_state_before_switching(self, mock_window, controller):
         """Verify that switching coordinates to the calendar panel auto-refreshes matrix parameters before presentation."""
+        # Mock the after() method to execute the callback immediately
+        def mock_after(delay, callback):
+            callback()
+        mock_window.after.side_effect = mock_after
+        
+        # Setup model mock to return selected programs
+        controller.model.get_selected_programs.return_value = ["83108"]
+        
+        # Setup collection manager mock to trigger refresh_presenter_state
+        controller.collection_manager.get_total_count.return_value = 0
+        controller.collection_manager.build_snapshot_index.return_value = None
+        controller.engine_adapter.is_generation_active.return_value = False
+        
         # Act
         controller._handle_navigation("calendar")
         
         # Assert
         # The calendar presenter must refresh calculations before displaying layout frames
-        controller._mock_cal_presenter.refresh_presenter_state.assert_called_once()
+        controller.calendar_presenter.refresh_presenter_state.assert_called_once()
         mock_window.switch_view.assert_called_with("calendar")

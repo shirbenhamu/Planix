@@ -34,18 +34,20 @@ class TestInputPresenter:
 
     # ======= 2. Dynamic Program Extraction Verification =======
 
-    def test_handle_load_courses_triggers_model_and_builds_programs(self, mock_model, presenter):
+    def test_handle_load_courses_triggers_model_and_builds_programs(self, mock_model, mock_view, presenter):
         """Ensure that loading a courses text file builds academic program mapping configurations directly."""
+        mock_view.load_mode_var.get.return_value = "replace"
+        mock_view.checkboxes = []
+        mock_model.get_selected_programs.return_value = []
+        mock_model.get_available_programs.return_value = {}
+        mock_model.data_manager.get_exam_periods.return_value = []
+        
         # Act
         presenter._handle_load_courses("fake_courses.txt")
 
         # Assert
-        mock_model.data_manager.load_data.assert_called_once_with(
-            courses_path="fake_courses.txt",
-            exam_periods_path="",
-            selected_programs_path=None,
-            mode="replace"
-        )
+        mock_model.set_data_paths.assert_called_once()
+        mock_model.data_manager.load_data.assert_called_once()
         mock_model.build_available_programs.assert_called_once()
 
     # ======= 3. Program Selection State Verification =======

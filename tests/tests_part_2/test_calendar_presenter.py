@@ -2,7 +2,7 @@ import pytest
 from datetime import date
 from unittest.mock import MagicMock, patch
 from src.MVP.presenters.calendar_presenter import CalendarPresenter
-from MVP.models.schedule import Schedule, ScheduledExam
+from src.MVP.models.schedule import Schedule, ScheduledExam
 
 class TestCalendarPresenter:
     @pytest.fixture
@@ -17,6 +17,13 @@ class TestCalendarPresenter:
         """Creates a mock instance of the PlanixModel."""
         model = MagicMock()
         model.get_user_excluded_dates.return_value = []
+        # Mock get_exam_periods to return a proper exam period for February
+        mock_exam_period = MagicMock()
+        mock_exam_period.start_date = date(2026, 2, 1)
+        mock_exam_period.end_date = date(2026, 2, 28)
+        model.get_exam_periods.return_value = [mock_exam_period]
+        # Mock get_courses to return empty list or courses as needed
+        model.data_manager.get_courses.return_value = []
         return model
 
     @pytest.fixture
