@@ -103,6 +103,8 @@ class TestCalendarPresenter:
 
     def test_handle_next_schedule_navigates_and_refreshes(self, mock_collection_manager, presenter):
         """Ensure that clicking 'Next' advances the collection index and refreshes the layout."""
+        # Setup: Tell the collection manager there are schedules available
+        mock_collection_manager.get_total_count.return_value = 5
         mock_collection_manager.next_schedule.return_value = True
         with patch.object(presenter, 'refresh_presenter_state') as mock_refresh:
             # Act
