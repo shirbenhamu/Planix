@@ -11,15 +11,15 @@ from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views import theme
 
 class CalendarGridView(ctk.CTkFrame):
-    CELL_HEIGHT = 110  # Fixed height for each day block in the annual view
+    CELL_HEIGHT = 110  # גובה קבוע לכל בלוק יום בתצוגה השנתית
 
     def __init__(self, master, **kwargs):
-        # The app's main background (blends with the Toolbar)
+        # הרקע המרכזי של האפליקציה (מתמזג עם ה-Toolbar)
         super().__init__(master, fg_color=theme.BG_MAIN, **kwargs)
         self.current_lang = "he"
         self._current_page, self._total_pages = 1, 1
         
-        # Use the fonts from the Theme
+        # שימוש בפונטים מה-Theme
         self.f_header = ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold")
         self.f_card = ctk.CTkFont(family=theme.FONT_FAMILY, size=10, weight="bold")
         self.f_empty = ctk.CTkFont(family=theme.FONT_FAMILY, size=18, weight="bold")
@@ -29,13 +29,16 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_page_jump, self.on_range_update_clicked = None, None 
         self.on_export_clicked, self.on_exclude_clicked = None, None 
         self.on_date_selected, self.on_filter_clicked = None, None 
-        self.get_exam_periods_callback = None  # Data source for the date-edit window
+        self.get_exam_periods_callback = None  # מקור הנתונים לחלון עריכת התאריכים
         self.on_load_more_clicked = None
         self.day_headers, self.month_labels, self.grid_cells = [], [], {}  
         self.selected_cell_key = None 
         self.active_month_indices = []
-        self._last_grid_data = {}  # Cache to redraw only changed cells (prevents flicker during live refresh)
-        self._cell_day_number = {}  # Day number (1..31) for each valid cell, shown like a calendar
+        self._last_grid_data = {}  # מטמון לציור מחדש רק של תאים שהשתנו (מונע ריצוד ברענון החי)
+        self._cell_day_number = {}  # מספר היום (1..31) לכל תא תקין, להצגה כמו לוח שנה
+        
+        # OBJECT POOLING: Store widget references for each cell to avoid destroy/recreate
+        self._cell_widget_pools: Dict[str, dict] = {}  # cell_key -> {day_label, exams_container, exam_cards}
         
         # --- Toolbar ---
         self.toolbar = TopToolbar(self, is_monthly=False)
@@ -100,7 +103,7 @@ class CalendarGridView(ctk.CTkFrame):
 
     def _setup_empty_state(self):
         self.empty_state_frame = ctk.CTkFrame(self, fg_color="transparent")
-        # The app's robot with a speech bubble showing the "Please load data" message
+        # הרובוט של האפליקציה עם בועת דיבור שמציגה את הודעת "יש לטעון נתונים"
         self.empty_robot = RobotMascot(self.empty_state_frame, speech=format_text("empty_state", self.current_lang))
         self.empty_robot.pack(expand=True)
         self.show_empty_state()
@@ -114,7 +117,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.scrollable_container.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
     def _get_semester_color(self, month_idx: int):
-        # Adapts to day/night mode via the Theme (Fall=green, Spring=sky-blue, Summer=orange)
+        # מותאם למצב יום ולילה באמצעות ה-Theme (סתיו=ירוק, אביב=תכלת, קיץ=כתום)
         if month_idx in [9, 10, 11, 0, 1]: return theme.SUCCESS  
         elif month_idx in [2, 3, 4, 5]: return theme.TEXT_ACCENT 
         else: return ("#e67e22", "#f39c12") 
@@ -130,6 +133,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.grid_cells.clear()
         self._last_grid_data = {}  
         self._cell_day_number = {}
+        self._cell_widget_pools.clear()  # Clear widget pool when reinitializing grid
 
         for i in range(31): self.grid_frame.grid_columnconfigure(i, weight=1, uniform="day_column")
         self.grid_frame.grid_columnconfigure(31, weight=0, minsize=50)
@@ -137,7 +141,7 @@ class CalendarGridView(ctk.CTkFrame):
         
         days = TRANSLATIONS["days"][self.current_lang]
         for i in range(31):
-            # Floating transparent headers (without the gray block)
+            # כותרות צפות שקופות (בלי הבלוק האפור)
             lbl = ctk.CTkLabel(self.grid_frame, text=days[i % 7], font=self.f_header, fg_color="transparent", text_color=theme.TEXT_MUTED)
             lbl.grid(row=0, column=i, sticky="nsew", padx=1, pady=1)
             self.day_headers.append(lbl)
@@ -148,17 +152,17 @@ class CalendarGridView(ctk.CTkFrame):
             num_days = calendar.monthrange(year, month_idx + 1)[1]
             for col in range(31):
                 cell_key = f"{row_idx}-{col}"
-                # Clean grid - straight corners, subtle borders
+                # רשת נקייה - פינות זוויות ישרות, גבולות עדינים
                 cell = ctk.CTkFrame(self.grid_frame, border_width=1, border_color=theme.BORDER_DEFAULT, fg_color=theme.BG_CARD, corner_radius=0, height=self.CELL_HEIGHT)
                 cell.grid(row=row_idx, column=col, sticky="nsew", padx=0, pady=0)
                 cell.pack_propagate(False)  
                 self.grid_cells[cell_key] = cell
                 cell.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
                 
-                if col < num_days:  # valid cells only
+                if col < num_days:  # תאים חוקיים בלבד
                     self._cell_day_number[cell_key] = col + 1
                 else:
-                    # Cells not in the month (e.g. Feb 31) are transparent and borderless
+                    # תאים שאינם בחודש (למשל 31 בפברואר) יהיו שקופים וללא גבולות
                     cell.configure(fg_color=theme.BG_MAIN, border_width=0)
                 
             m_text = TRANSLATIONS["months"][self.current_lang][month_idx]
@@ -168,64 +172,128 @@ class CalendarGridView(ctk.CTkFrame):
             
         self.grid_frame.grid_rowconfigure(len(month_indices) + 1, weight=1)
 
+
     def update_single_cell(self, cell_key: str, cell_data: dict):
+        """
+        Update a single cell efficiently using object pooling with pack_forget().
+        Reuses existing widgets instead of destroying and recreating them.
+        All widgets are kept in memory and shown/hidden using pack_forget().
+        """
         cell_frame = self.grid_cells.get(cell_key)
-        if not cell_frame: return
-        for widget in cell_frame.winfo_children(): widget.destroy()
+        if not cell_frame:
+            return
 
         day_num = self._cell_day_number.get(cell_key)
         
-        # If the cell doesn't exist in this month (e.g. end of February) keep it transparent
+        # אם התא לא קיים בחודש הזה (למשל סוף פברואר) משאירים אותו שקוף
         if day_num is None:
             cell_frame.configure(fg_color=theme.BG_MAIN, border_width=0)
             return
 
-        # Restore borders if needed
-        cell_frame.configure(border_width=1, border_color=theme.BORDER_DEFAULT)
+        # Initialize widget pool for this cell if it doesn't exist
+        if cell_key not in self._cell_widget_pools:
+            self._cell_widget_pools[cell_key] = {
+                "day_label": None,
+                "exams_container": None,
+                "exam_cards": []
+            }
 
-        # Background color for a valid or excluded cell
+        pool = self._cell_widget_pools[cell_key]
+
+        # Update cell frame properties
+        cell_frame.configure(border_width=1, border_color=theme.BORDER_DEFAULT)
         if cell_data.get("is_excluded"):
             cell_frame.configure(fg_color=("#ffe6e6", "#4a1c1c"))
         else:
             cell_frame.configure(fg_color=theme.BG_CARD)
 
-        anchor = "ne" if self.current_lang == "he" else "nw"
-        day_lbl = ctk.CTkLabel(cell_frame, text=str(day_num), font=self.f_card, text_color=theme.TEXT_MAIN)
-        day_lbl.pack(anchor=anchor, padx=4, pady=2)
-        day_lbl.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
+        # Handle day label (create if missing, update if exists)
+        if pool["day_label"] is None:
+            anchor = "ne" if self.current_lang == "he" else "nw"
+            day_lbl = ctk.CTkLabel(cell_frame, text=str(day_num), font=self.f_card, text_color=theme.TEXT_MAIN)
+            day_lbl.pack(anchor=anchor, padx=4, pady=2)
+            day_lbl.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
+            pool["day_label"] = day_lbl
+        else:
+            # Just update text if it changed
+            if pool["day_label"].cget("text") != str(day_num):
+                pool["day_label"].configure(text=str(day_num))
 
+        # Handle exams container - use pack_forget/pack instead of destroy
         exams = cell_data.get("exams", [])
+        
         if exams:
-            exams_container = ctk.CTkScrollableFrame(cell_frame, fg_color="transparent")
-            exams_container.pack(fill="both", expand=True, padx=2, pady=(0, 2))
-            
-            if hasattr(exams_container, "_parent_canvas"):
-                exams_container._parent_canvas.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
+            # Create exams container if it doesn't exist
+            if pool["exams_container"] is None:
+                exams_container = ctk.CTkScrollableFrame(cell_frame, fg_color="transparent")
+                exams_container.pack(fill="both", expand=True, padx=2, pady=(0, 2))
+                
+                if hasattr(exams_container, "_parent_canvas"):
+                    exams_container._parent_canvas.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
+                
+                pool["exams_container"] = exams_container
+            else:
+                # Container exists, show it if it was hidden
+                exams_container = pool["exams_container"]
+                try:
+                    exams_container.pack(fill="both", expand=True, padx=2, pady=(0, 2))
+                except:
+                    pass
+        else:
+            # No exams, hide the container using pack_forget (keep it in memory)
+            if pool["exams_container"] is not None:
+                pool["exams_container"].pack_forget()
+            exams_container = None
 
-            # Same elegant color palette as in the monthly view
+        # Update exam cards in the pool (only if we have an exams container)
+        if exams_container:
             elegant_colors = [
-                ("#0d6efd", "#0077b6"), # Blue
-                ("#20c997", "#128260"), # Mint-green
-                ("#f39c12", "#d68910"), # Orange
-                ("#e83e8c", "#b8306f"), # Pink
-                ("#8e44ad", "#6c3483")  # Purple
+                ("#0d6efd", "#0077b6"), # כחול
+                ("#20c997", "#128260"), # ירוק-מנטה
+                ("#f39c12", "#d68910"), # כתום
+                ("#e83e8c", "#b8306f"), # ורוד
+                ("#8e44ad", "#6c3483")  # סגול
             ]
 
+            # Update or create exam cards
             for i, exam in enumerate(exams):
                 pill_color = elegant_colors[i % len(elegant_colors)]
                 
-                # Rounded pill card (Pill)
-                card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
-                card.pack(fill="x", expand=False, padx=1, pady=2)
-                card.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
+                if i < len(pool["exam_cards"]):
+                    # Card exists, update it and show it
+                    card = pool["exam_cards"][i]
+                    card.configure(fg_color=pill_color)
+                    # Update label text
+                    label = None
+                    for child in card.winfo_children():
+                        if isinstance(child, ctk.CTkLabel):
+                            label = child
+                            break
+                    if label and label.cget("text") != exam.get('course_id', ''):
+                        label.configure(text=exam.get('course_id', ''))
+                    # Ensure card is visible
+                    card.pack(fill="x", expand=False, padx=1, pady=2)
+                else:
+                    # Create new card
+                    card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
+                    card.pack(fill="x", expand=False, padx=1, pady=2)
+                    card.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
 
-                lbl = ctk.CTkLabel(card, text=f"{exam.get('course_id', '')}", font=self.f_card, text_color="white", justify="center")
-                lbl.pack(padx=2, pady=2)
-                lbl.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
+                    lbl = ctk.CTkLabel(card, text=f"{exam.get('course_id', '')}", font=self.f_card, text_color="white", justify="center")
+                    lbl.pack(padx=2, pady=2)
+                    lbl.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
 
-        # Border in case of selection
+                    pool["exam_cards"].append(card)
+            
+            # Hide excess cards using pack_forget (keep them in memory for reuse)
+            for i in range(len(exams), len(pool["exam_cards"])):
+                pool["exam_cards"][i].pack_forget()
+
+        # Update selection border - always apply regardless of data change
         if self.selected_cell_key == cell_key:
             cell_frame.configure(border_color=theme.BORDER_ACTIVE, border_width=2)
+        else:
+            cell_frame.configure(border_color=theme.BORDER_DEFAULT, border_width=1)
 
     def render_calendar_data(self, grid_data: Dict[str, dict]):
         if not grid_data:
@@ -235,12 +303,13 @@ class CalendarGridView(ctk.CTkFrame):
             return
         self.hide_empty_state()
 
-        self._last_grid_data = {}
-        # Redraw only cells whose content actually changed since the previous refresh.
+        # מציירים מחדש רק תאים שתוכנם באמת השתנה מאז הרענון הקודם.
         changed = False
         for cell_key in self.grid_cells.keys():
             new_data = grid_data.get(cell_key, {})
-            if new_data == self._last_grid_data.get(cell_key):
+            # STRICT DIRTY CHECKING: Only update if data actually changed
+            old_data = self._last_grid_data.get(cell_key, {})
+            if new_data == old_data:
                 continue
             self.update_single_cell(cell_key, new_data)
             self._last_grid_data[cell_key] = new_data
@@ -282,7 +351,7 @@ class CalendarGridView(ctk.CTkFrame):
                     m_text = TRANSLATIONS["months"][lang][self.active_month_indices[i]]
                     m_lbl.configure(text=f"\u200F{m_text}\u200F" if lang == "he" else m_text)
         for cell_key, cell_frame in self.grid_cells.items():
-            # Make sure we update the anchor only for existing cells
+            # מוודאים שאנחנו מעדכנים עוגן (Anchor) רק לתאים קיימים
             if self._cell_day_number.get(cell_key) is not None and cell_frame.winfo_children() and isinstance(cell_frame.winfo_children()[0], ctk.CTkLabel):
                 cell_frame.winfo_children()[0].pack_configure(anchor="ne" if lang == "he" else "nw")
 
@@ -294,7 +363,7 @@ class CalendarGridView(ctk.CTkFrame):
         if file_path and self.on_export_clicked: self.on_export_clicked(file_path)
 
     def _handle_cell_click(self, cell_key):
-        # Prevent selecting transparent/non-existent cells
+        # מונע בחירה של תאים שקופים/לא קיימים
         if self._cell_day_number.get(cell_key) is None:
             return
 
