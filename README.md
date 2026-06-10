@@ -12,6 +12,7 @@ https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigi
 
 UML Class diagram:
 
+In Folder "diagrams".
 
 Presentation:
 
