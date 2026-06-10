@@ -441,3 +441,8 @@ class PlanixModel:
             period.excluded_dates = original_exclusions + user_exclusions
 
         print(f"[PlanixModel] State enforced successfully. Synced user exclusions to DataManager.")
+
+    def clear_user_exclusions(self) -> None:
+        """Clears all manual user date exclusions."""
+        self._user_excluded_dates.clear()
+        self._sync_excluded_dates_to_data_manager()
