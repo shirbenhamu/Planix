@@ -10,8 +10,11 @@ Jira Project Management:
 
 https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigin=eyJpIjoiNjYwMDQ0NDEyMjc5NDQwZTllNGM4ZmRhMmE4ZDc5ZmIiLCJwIjoiaiJ9
 
-UML Class diagram:
+Presentation:
 
+https://canva.link/tz751xhsp8qb7r7
+
+UML Class diagram: In Folder "diagrams".
 
 ## Description
 
@@ -56,29 +59,31 @@ Agile Development Workflow - The project is managed using Agile methodologies al
 ## Launching
 | Command | Description | 
 |---|---|
-|`python -m src.main` |Run the system|
 |`pip install -r requirements.txt` |Install Dependencies|
-|`` |Run the tests|
-
-## Testing Framework
-
-The architecture includes a comprehensive testing suite designed to validate individual component state machines and end-to-end integration boundaries. 
-The suite consists of **31 test cases** built entirely on top of the `pytest` framework.
+|`python -m src.main` |Run the system|
+|`python -m pytest tests/tests_part_2 -q` |Run version 2.0 tests|
+|`python -m pytest tests` |Run all the tests|
 
 ## Running Example
 
-**Running the system**
-
 **Input page**
 
-**Monthly view output page**
+![pic1](./images/inputScreen.png)
+
+![pic1](./images/inputScreen2.png)
 
 **Monthly view output page**
+
+![pic1](./images/monthlyView.png)
 
 **Yearly view output page**
 
-**Export output file**
+![pic1](./images/yearlyView.png)
 
-**Darkmode**
+**LightMode**
+
+![pic1](./images/lightMode.png)
 
 **Running the tests**
+
+![pic1](./images/runningTests2.png)

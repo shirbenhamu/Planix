@@ -70,6 +70,11 @@ class InputPresenter:
                 self.model.data_manager.exam_periods = existing_periods
                 self.model.merge_exam_periods_from_file(new_periods, mode="append")
             
+            if mode == "replace":
+                if hasattr(self.model, "clear_user_exclusions"):
+                    self.model.clear_user_exclusions(
+                    )
+
             self.model.build_available_programs()
             self._refresh_programs_list()
             self._update_view_summary()
