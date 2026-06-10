@@ -13,6 +13,10 @@ https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigi
 UML Class diagram:
 
 
+Presentation:
+
+https://canva.link/tz751xhsp8qb7r7
+
 ## Description
 
 Planix is an exam scheduling system designed to help students in the Faculty of Engineering efficiently organize their examination timetables.
