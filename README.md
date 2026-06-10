@@ -10,9 +10,7 @@ Jira Project Management:
 
 https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigin=eyJpIjoiNjYwMDQ0NDEyMjc5NDQwZTllNGM4ZmRhMmE4ZDc5ZmIiLCJwIjoiaiJ9
 
-UML Class diagram:
-
-In Folder "diagrams".
+UML Class diagram: In Folder "diagrams".
 
 Presentation:
 
