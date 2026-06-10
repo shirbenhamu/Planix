@@ -267,3 +267,73 @@ class TestCacheAndFilesLoading:
         assert available_programs == {"83108": "Software Engineering"}
         assert model.get_available_programs() == {"83108": "Software Engineering"}
         assert model.data_manager.get_courses()[0].course_id == "10001"
+        
+        # ======= PLAN-336. Cache Reset Between Application Sessions Verification =======
+
+    def test_cache_does_not_persist_between_application_sessions(self, tmp_path):
+        """Verify that cache data from one application session is not kept after restart."""
+        # Arrange - first application session loads valid files into DataManager cache
+        self._reset_data_manager_singleton()
+
+        courses_path = tmp_path / "courses.txt"
+        periods_path = tmp_path / "exam_periods.txt"
+        selected_programs_path = tmp_path / "selected_programs.txt"
+
+        self._write_courses_file(courses_path)
+        self._write_exam_periods_file(periods_path)
+        self._write_selected_programs_file(selected_programs_path)
+
+        first_session_data_manager = DataManager(parser=TextFileParser())
+        self._load_files(
+            first_session_data_manager,
+            courses_path,
+            periods_path,
+            selected_programs_path
+        )
+
+        assert len(first_session_data_manager.get_courses()) == 1
+        assert len(first_session_data_manager.get_exam_periods()) == 1
+        assert first_session_data_manager.get_selected_programs() == ["83108"]
+
+        # Act - simulate closing and reopening the application process
+        self._reset_data_manager_singleton()
+        new_session_data_manager = DataManager(parser=TextFileParser())
+
+        # Assert - the new application session starts with an empty in-memory cache
+        assert new_session_data_manager.get_courses() == []
+        assert new_session_data_manager.get_exam_periods() == []
+        assert new_session_data_manager.get_selected_programs() == []
+        
+        # ======= PLAN-337. Input Files Cache Cleanup After Application Close Verification =======
+
+    def test_courses_and_exam_periods_input_cache_is_empty_after_application_restart(self, tmp_path):
+        """Verify that uploaded courses and exam-period input data do not remain cached after restart."""
+        # Arrange - first application session loads courses and exam-periods into memory
+        self._reset_data_manager_singleton()
+
+        courses_path = tmp_path / "courses.txt"
+        periods_path = tmp_path / "exam_periods.txt"
+        selected_programs_path = tmp_path / "selected_programs.txt"
+
+        self._write_courses_file(courses_path, course_id="10001", course_name="Temporary Cached Course")
+        self._write_exam_periods_file(periods_path)
+        self._write_selected_programs_file(selected_programs_path)
+
+        first_session_data_manager = DataManager(parser=TextFileParser())
+        self._load_files(
+            first_session_data_manager,
+            courses_path,
+            periods_path,
+            selected_programs_path
+        )
+
+        assert [course.course_id for course in first_session_data_manager.get_courses()] == ["10001"]
+        assert len(first_session_data_manager.get_exam_periods()) == 1
+
+        # Act - simulate closing the application and opening a new clean session
+        self._reset_data_manager_singleton()
+        new_session_data_manager = DataManager(parser=TextFileParser())
+
+        # Assert - uploaded input-file data is not kept in the new in-memory cache
+        assert new_session_data_manager.get_courses() == []
+        assert new_session_data_manager.get_exam_periods() == []
