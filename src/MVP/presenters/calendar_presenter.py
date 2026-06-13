@@ -33,6 +33,16 @@ class CalendarPresenter:
         if hasattr(self.view, "on_load_more_clicked"):
             self.view.on_load_more_clicked = self._handle_load_more
 
+        # Runtime re-sort (PLAN-412): re-orders the existing in-memory index and
+        # refreshes the window WITHOUT re-running the engine or touching constraints.
+        if hasattr(self.view, "on_sort_changed"):
+            self.view.on_sort_changed = self._handle_sort_changed
+
+        # Refresh-feed (PLAN-415): manual refresh button re-ranks the cumulative
+        # results under the active sort and redraws — no engine re-run.
+        if hasattr(self.view, "on_refresh_clicked"):
+            self.view.on_refresh_clicked = self._handle_refresh
+
         # Initialize display if schedules are already generated and available
         # Always expose a list-producing callback to the view.
         self.view.get_exam_periods_callback = lambda: list(self.model.get_exam_periods() or [])
@@ -64,6 +74,25 @@ class CalendarPresenter:
                 print(
                     f"[CalendarPresenter] Error initializing load more pipeline: {e}")
                 
+    def _handle_sort_changed(self, sort_keys, ascending=None) -> None:
+        """
+        Re-sorts the result collection by the chosen metric priority order and
+        refreshes the displayed window (PLAN-412).
+
+        This operates purely on the existing in-memory sparse index: it never
+        re-runs the engine and never invalidates the active threshold (k)
+        constraints — only the order in which already-valid schedules are shown
+        changes. The window updates to the new top schedules immediately.
+        """
+        try:
+            self.collection_manager.sort_collection(sort_keys, ascending=ascending)
+        except (ValueError, TypeError) as e:
+            print(f"[CalendarPresenter] Ignoring invalid sort request: {e}")
+            return
+
+        # Reflect the new ordering in the calendar/pagination view right away.
+        self.refresh_presenter_state()
+
     def refresh_pagination_only(self) -> None:
         """
         Lightweight update: only refresh the pagination counter without redrawing the entire calendar.
@@ -102,6 +131,7 @@ class CalendarPresenter:
                 active_schedule = self.collection_manager.get_current_schedule()
                 self._setup_calendar_grid_dimensions(active_schedule)
                 self._render_active_schedule(active_schedule)
+                self._update_metrics_display()
             except Exception as e:
                 print(f"Error refreshing calendar state: {e}")
                 self.view.show_empty_state()
@@ -269,8 +299,11 @@ class CalendarPresenter:
 
     def _handle_next_schedule(self) -> None:
         """
-        Advances to the next schedule option. If the collection is currently empty, 
-        attempts a fresh counter scan in case the background file worker just finished writing.
+        Advances to the next schedule option. When the user navigates beyond the
+        currently-known results, the refresh-feed (PLAN-415) kicks in: it pulls in
+        any newly generated schedules, re-ranks them under the active sort, and
+        retries. If nothing more exists and the engine has finished, an
+        "End of results" boundary indicator is shown.
         """
         if self.collection_manager.get_total_count() == 0:
             self.refresh_presenter_state()
@@ -278,6 +311,71 @@ class CalendarPresenter:
 
         if self.collection_manager.next_schedule():
             self.refresh_presenter_state()
+            return
+
+        # At the last known schedule. Only trigger the refresh-feed while the
+        # engine may still produce more; otherwise this is a true boundary.
+        if self._engine_is_active():
+            # Pull in newly generated schedules, re-ranked under the active sort.
+            self.collection_manager.apply_sort_and_refresh()
+            if self.collection_manager.next_schedule():
+                self.refresh_presenter_state()
+            # else: still generating, nothing new yet — wait for the next tick.
+        else:
+            # Boundary handling: no more results and the engine has finished.
+            self._show_end_of_results()
+
+    def _update_metrics_display(self) -> None:
+        """Pushes the active schedule's five metrics to the view's ranking bar."""
+        if not hasattr(self.view, "update_metrics_display"):
+            return
+        try:
+            metrics = self.collection_manager.get_current_metrics()
+        except (ValueError, IndexError):
+            metrics = None
+        self.view.update_metrics_display(metrics)
+
+    def _handle_refresh(self) -> None:
+        """
+        Manual refresh-feed trigger (PLAN-415): re-ranks the cumulative results
+        found so far under the active sort and redraws the window. Never re-runs
+        the engine and never re-selects the sort criterion (it is preserved).
+        """
+        self.collection_manager.apply_sort_and_refresh()
+        self.refresh_presenter_state()
+
+    def auto_refresh_feed(self) -> bool:
+        """
+        Auto-refresh tick driven while the engine is generating (PLAN-415). Pulls
+        newly discovered schedules into the ranked window. Returns True while the
+        worker is still alive (keep polling) and False once it has finished, at
+        which point a final full redraw is issued (Termination, PLAN-504).
+        """
+        self.collection_manager.apply_sort_and_refresh()
+
+        if self._engine_is_active():
+            self.refresh_pagination_only()
+            return True
+
+        # Worker finished: auto-refresh stops after one last full render.
+        self.refresh_presenter_state()
+        return False
+
+    def _engine_is_active(self) -> bool:
+        """True while the background generation worker is still alive."""
+        controller = getattr(self, "controller", None)
+        adapter = getattr(controller, "engine_adapter", None) if controller else None
+        if adapter is None:
+            return False
+        try:
+            return bool(adapter.is_generation_active())
+        except Exception:
+            return False
+
+    def _show_end_of_results(self) -> None:
+        """Surfaces the 'End of results' boundary indicator if the view supports it."""
+        if hasattr(self.view, "show_no_more_results"):
+            self.view.show_no_more_results()
 
     def _handle_prev_schedule(self) -> None:
         """

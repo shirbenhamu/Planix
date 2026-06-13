@@ -7,6 +7,7 @@ from src.MVP.views.components.exam_modal import show_exam_popup
 from src.MVP.views.components.top_toolbar import TopToolbar
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
+from src.MVP.views.components.ranking_bar import RankingBar
 from src.MVP.views import theme
 
 class MonthlyGridView(ctk.CTkFrame):
@@ -45,6 +46,16 @@ class MonthlyGridView(ctk.CTkFrame):
         self.toolbar.on_month_prev = self._prev_month
         self.toolbar.on_month_next = self._next_month
         self.toolbar.on_edit_dates = self._open_dates_modal
+
+        # --- Ranking bar (PLAN-411..415): same sort/refresh/metrics as annual ---
+        self.on_sort_changed = None      # wired (via app_window) to the presenter
+        self.on_refresh_clicked = None
+        self.ranking_bar = RankingBar(self, lang=self.current_lang)
+        self.ranking_bar.pack(fill="x", padx=20, pady=(0, 10))
+        self.ranking_bar.on_sort_changed = lambda keys, asc: (
+            self.on_sort_changed(keys, asc) if self.on_sort_changed else None)
+        self.ranking_bar.on_refresh = lambda: (
+            self.on_refresh_clicked() if self.on_refresh_clicked else None)
 
         self.grid_frame = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
         self._setup_empty_state()
@@ -288,9 +299,21 @@ class MonthlyGridView(ctk.CTkFrame):
                 cell.configure(fg_color=("#ffe6e6", "#4a1c1c") if is_excluded else theme.BG_CARD)
                 self._last_cell_content.pop(target_key, None) 
 
+    def update_metrics_display(self, metrics):
+        """Live metrics readout for the active schedule (PLAN-408)."""
+        if hasattr(self, "ranking_bar"):
+            self.ranking_bar.update_metrics(metrics)
+
+    def show_no_more_results(self):
+        """End-of-results boundary indicator for the refresh-feed (PLAN-415)."""
+        if hasattr(self, "ranking_bar"):
+            self.ranking_bar.show_no_more_results()
+
     def update_language(self, lang: str):
         self.current_lang = lang
         self.toolbar.update_language(lang)
+        if hasattr(self, "ranking_bar"):
+            self.ranking_bar.set_language(lang)
         if hasattr(self, "empty_robot"):
             self.empty_robot.set_speech(format_text("empty_state", lang))
         self.update_pagination(self._current_page, self._total_pages)

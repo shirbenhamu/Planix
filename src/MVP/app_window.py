@@ -186,6 +186,17 @@ class AppWindow(ctk.CTk):
             mt.on_filter = lambda: ct.on_filter() if ct.on_filter else None
             mt.on_load_more = lambda: ct.on_load_more() if ct.on_load_more else None
 
+        # Route the monthly ranking bar through the same presenter handlers the
+        # annual view is wired to, so sort/refresh work identically on both.
+        self.monthly_view.on_sort_changed = (
+            lambda keys, asc: self.calendar_view.on_sort_changed(keys, asc)
+            if self.calendar_view.on_sort_changed else None
+        )
+        self.monthly_view.on_refresh_clicked = (
+            lambda: self.calendar_view.on_refresh_clicked()
+            if self.calendar_view.on_refresh_clicked else None
+        )
+
         self.monthly_view.on_cell_clicked = (
             lambda key: self.calendar_view._handle_cell_click(key)
         )

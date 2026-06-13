@@ -4,6 +4,7 @@ import time
 from typing import Dict, Tuple, Iterator, List
 from src.output.i_output_generator import IOutputGenerator
 from src.MVP.models.schedule import Schedule
+from src.metrics.metrics_calculator import MetricsCalculator, format_metrics_line
 
 DEFAULT_MAX_RUNTIME_SECONDS = 29
 MAX_PER_PERIOD = 2000
@@ -16,6 +17,10 @@ class FileOutputWriter(IOutputGenerator):
     # Defines a safety timeout for generating the output
     def __init__(self, max_time_seconds: int = DEFAULT_MAX_RUNTIME_SECONDS):
         self.max_time_seconds = max_time_seconds
+        # Scores every full-year schedule at write time so the metrics can be
+        # persisted next to it (PLAN-409) and parsed later without re-reading
+        # the schedule body. Stateless, so a single shared instance is fine.
+        self._metrics_calculator = MetricsCalculator()
 
     def write_schedules(
         self,
@@ -97,6 +102,17 @@ class FileOutputWriter(IOutputGenerator):
                         f"Course: {exam.course.course_id} - {exam.course.course_name} | "
                         f"Instructor: {exam.course.instructor}\n"
                     )
+
+                # Persist the five section-3 metrics for this full-year option on
+                # a dedicated METRICS line (PLAN-409). It sits between the exam
+                # body and the separator so the values are guaranteed present
+                # once a block is closed, and it is ignored by schedule-body
+                # parsers (they only read "Date:" lines), keeping V1.0 intact.
+                full_year_schedule = Schedule(
+                    exams=[exam for exam, _, _ in all_exams_with_info]
+                )
+                metrics = self._metrics_calculator.compute(full_year_schedule)
+                f.write(format_metrics_line(metrics) + "\n")
 
                 # Write a visual separator after finishing one full-year option
                 f.write("-" * 60 + "\n\n")

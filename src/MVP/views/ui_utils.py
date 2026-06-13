@@ -78,7 +78,30 @@ TRANSLATIONS = {
     "eval_EXAM": {"he": "מבחן", "en": "Exam"},
     "eval_PROJECT": {"he": "פרויקט", "en": "Project"},
     "eval_ASSIGNMENT": {"he": "מטלה", "en": "Assignment"},
-    "eval_OTHER": {"he": "אחר", "en": "Other"}
+    "eval_OTHER": {"he": "אחר", "en": "Other"},
+
+    # --- Ranking bar: sort + windowing controls (PLAN-411..415) ---
+    "sort_by": {"he": "מיון לפי:", "en": "Sort by:"},
+    "sort_then": {"he": "ואז:", "en": "then:"},
+    "sort_dir_desc": {"he": "יורד", "en": "Desc"},
+    "sort_dir_asc": {"he": "עולה", "en": "Asc"},
+    "sort_none": {"he": "— ללא —", "en": "— None —"},
+    "refresh_btn": {"he": "רענן", "en": "Refresh"},
+    "end_of_results": {"he": "סוף התוצאות", "en": "End of results"},
+
+    # Sort-metric labels (dropdown) for the five section-3 metrics
+    "metric_avg_gap_all": {"he": "ממוצע ימים בין בחינות", "en": "Avg days between exams"},
+    "metric_min_gap_mandatory": {"he": "מרווח מינימלי (חובה)", "en": "Min gap (mandatory)"},
+    "metric_elective_conflicts": {"he": "התנגשויות בחירה", "en": "Elective conflicts"},
+    "metric_mandatory_span": {"he": "מרווח ראשונה-אחרונה (חובה)", "en": "First–last span (mandatory)"},
+    "metric_max_exams_per_day": {"he": "מקסימום בחינות ביום", "en": "Max exams per day"},
+
+    # Compact metric labels for the live readout
+    "metric_short_avg_gap_all": {"he": "ממוצע", "en": "Avg"},
+    "metric_short_min_gap_mandatory": {"he": "מינ' חובה", "en": "Min(mand)"},
+    "metric_short_elective_conflicts": {"he": "התנגשויות", "en": "Conflicts"},
+    "metric_short_mandatory_span": {"he": "מרווח חובה", "en": "Span(mand)"},
+    "metric_short_max_exams_per_day": {"he": "מקס'/יום", "en": "Max/day"},
 }
 
 def format_text(key: str, lang: str) -> str:

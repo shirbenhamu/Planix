@@ -87,3 +87,44 @@ Agile Development Workflow - The project is managed using Agile methodologies al
 **Running the tests**
 
 ![pic1](./images/runningTests2.png)
+
+## File-based mode (CLI) — ranking & windowing
+
+The V1.0 file-based version exposes the same ranking and top-N windowing as the
+GUI, driven by CLI flags or a JSON config (it reuses the exact same
+`ScheduleCollectionManager.sort_collection()` code path).
+
+Rank by the default criterion (average days between exams, descending), top 10:
+
+```bash
+python -m src.cli --programs 83101,83102
+```
+
+Rank by max exams/day then min-gap (priority order), show the best 5, to a file:
+
+```bash
+python -m src.cli --programs 83101,83102 \
+    --sort max_exams_per_day,min_gap_mandatory --window 5 --output top5.txt
+```
+
+Run from a JSON config, ascending order:
+
+```bash
+python -m src.cli --config my_run.json --ascending
+```
+
+```json
+{
+  "courses": "data/courses.txt",
+  "exam_periods": "data/exam_periods.txt",
+  "programs": ["83101", "83102"],
+  "sort": ["avg_gap_all", "min_gap_mandatory"],
+  "ascending": false,
+  "window": 10,
+  "output": "top.txt"
+}
+```
+
+Valid sort keys (section-3 metrics): `min_gap_mandatory`, `avg_gap_all`,
+`elective_conflicts`, `mandatory_span`, `max_exams_per_day`. CLI flags override
+matching config keys.

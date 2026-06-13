@@ -8,6 +8,7 @@ from src.MVP.views.components.exam_modal import show_exam_popup
 from src.MVP.views.components.top_toolbar import TopToolbar
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
+from src.MVP.views.components.ranking_bar import RankingBar
 from src.MVP.views import theme
 
 class CalendarGridView(ctk.CTkFrame):
@@ -55,6 +56,16 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_sync_clicked = None
         self.toolbar.on_sync_clicked = lambda: self._fire_sync()
 
+        # --- Ranking bar (PLAN-411..415): sort, refresh, live metrics ---
+        self.on_sort_changed = None      # set by the presenter -> _handle_sort_changed
+        self.on_refresh_clicked = None   # set by the presenter -> _handle_refresh
+        self.ranking_bar = RankingBar(self, lang=self.current_lang)
+        self.ranking_bar.pack(fill="x", padx=20, pady=(0, 10))
+        self.ranking_bar.on_sort_changed = lambda keys, asc: (
+            self.on_sort_changed(keys, asc) if self.on_sort_changed else None)
+        self.ranking_bar.on_refresh = lambda: (
+            self.on_refresh_clicked() if self.on_refresh_clicked else None)
+
         self.scrollable_container = ctk.CTkScrollableFrame(self, fg_color=theme.TRANSPARENT)
         self.grid_frame = ctk.CTkFrame(self.scrollable_container, fg_color=theme.TRANSPARENT)
         self.grid_frame.pack(fill="both", expand=False)
@@ -62,6 +73,19 @@ class CalendarGridView(ctk.CTkFrame):
         self._setup_empty_state()
         self.update_language(self.current_lang)
     
+    def update_metrics_display(self, metrics):
+        """Shows the five section-3 metrics of the active schedule (PLAN-408),
+        and bridges them to the monthly view so both stay in sync."""
+        self.ranking_bar.update_metrics(metrics)
+        if getattr(self, "monthly_view", None):
+            self.monthly_view.update_metrics_display(metrics)
+
+    def show_no_more_results(self):
+        """End-of-results boundary indicator for the refresh-feed (PLAN-415)."""
+        self.ranking_bar.show_no_more_results()
+        if getattr(self, "monthly_view", None):
+            self.monthly_view.show_no_more_results()
+
     def _handle_load_more(self):
         print("Annual View: Load more requested")
 
@@ -336,6 +360,8 @@ class CalendarGridView(ctk.CTkFrame):
     def update_language(self, lang: str):
         self.current_lang = lang
         self.toolbar.update_language(lang)
+        if hasattr(self, "ranking_bar"):
+            self.ranking_bar.set_language(lang)
         if hasattr(self, "empty_robot"):
             self.empty_robot.set_speech(format_text("empty_state", lang))
         self.update_pagination(self._current_page, self._total_pages)

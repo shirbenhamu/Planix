@@ -4,7 +4,7 @@ import customtkinter as ctk
 from src.MVP.views.ui_utils import format_text
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
-    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_FILTER, ICON_EXCLUDE, ICON_EXPORT
+    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_EXCLUDE, ICON_EXPORT
 )
 
 ACCENT = ("#0077b6", "#3b8ed0")
@@ -86,14 +86,6 @@ class TopToolbar(ctk.CTkFrame):
         self.load_more_btn.pack(side="left", padx=4)
         self.tip_load_more = Tooltip(self.load_more_btn, "טען מערכות נוספות")
 
-        self.filter_btn = ctk.CTkButton(
-            self, text=f" {ICON_FILTER} ", font=f_icon, fg_color=ACCENT, hover_color=ACCENT_HOVER,
-            text_color="white", height=28, width=35,
-            command=lambda: None,  # Filter button disabled
-        )
-        self.filter_btn.pack(side="left", padx=4)
-        self.tip_filter = Tooltip(self.filter_btn, "מסננים")
-
         self.exclude_btn = ctk.CTkButton(
             self, text=f" {ICON_EXCLUDE} ", font=f_icon, fg_color=theme.DANGER, hover_color=theme.DANGER_HOVER,
             text_color="white", height=28, width=35,
@@ -139,12 +131,10 @@ class TopToolbar(ctk.CTkFrame):
         if lang == "he":
             self.tip_edit.text = "עריכת תאריכים"
             self.tip_load_more.text = "טען מערכות נוספות"
-            self.tip_filter.text = "מסננים"
             self.tip_exclude.text = "החרג יום נבחר"
             self.tip_export.text = "ייצוא לוח זמנים"
         else:
             self.tip_edit.text = "Edit Dates"
             self.tip_load_more.text = "Load More"
-            self.tip_filter.text = "Filters"
             self.tip_exclude.text = "Exclude Date"
             self.tip_export.text = "Export Schedule"
