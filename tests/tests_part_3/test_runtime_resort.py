@@ -178,6 +178,32 @@ def test_active_sort_maintained_as_snapshot_grows(tmp_path):
 
     # New block is inserted in sorted position: 12, 9, 5, 3.
     assert [mt[0] for _, mt in manager._offsets] == [12.0, 9.0, 5.0, 3.0]
-    # The user stays on the schedule they were viewing (gap 5), now at index 2.
-    assert manager.get_current_metrics()[0] == 5.0
-    assert manager.get_current_index() == 2
+    # The page number stays put (still index 1) — it only moves when the USER
+    # navigates. The content at page 1 now reflects the updated ranking (gap 9).
+    assert manager.get_current_index() == 1
+    assert manager.get_current_metrics()[0] == 9.0
+
+
+def test_page_number_stays_at_one_during_generation(tmp_path):
+    # Regression: when the user runs generation and does NOT navigate, the page
+    # counter must stay at 1 as better schedules stream in — not grow on its own.
+    out, dm, courses = _write_three_schedules(tmp_path)  # gaps 3,9,5
+    c1, c2 = courses
+    manager = ScheduleCollectionManager(str(out), dm)  # default sort -> index 0
+    assert manager.get_current_index() == 0
+
+    # Engine streams progressively better schedules (regenerate-all + skip done).
+    for extra_gap in (12, 20):
+        gaps = [3, 9, 5] + [g for g in (12, 20) if g <= extra_gap]
+        schedules = [
+            Schedule(exams=[ScheduledExam(c1, date(2026, 2, 1)),
+                            ScheduledExam(c2, date(2026, 2, 1 + g))])
+            for g in gaps
+        ]
+        FileOutputWriter().write_schedules(
+            {("FALL", "Aleph"): iter(schedules)}, str(out),
+            skip_count=3, append=True,
+        )
+        manager.build_snapshot_index()
+        # Never navigated -> still page 1 (index 0).
+        assert manager.get_current_index() == 0

@@ -96,6 +96,19 @@ def test_on_refresh_calls_handler():
     bar.on_refresh.assert_called_once()
 
 
+def test_on_info_click_calls_handler():
+    bar = _bar()
+    bar.on_info = MagicMock()
+    bar._on_info_click()
+    bar.on_info.assert_called_once()
+
+
+def test_on_info_click_noop_without_handler():
+    bar = _bar()
+    bar.on_info = None
+    bar._on_info_click()  # must not raise
+
+
 # --- live metrics readout (i18n aware) --------------------------------------
 def test_render_metrics_hebrew():
     bar = _bar(lang="he")
@@ -152,3 +165,19 @@ def test_display_order_covers_all_metrics_default_first():
 def test_translations_exist_for_every_metric(key, lang):
     assert TRANSLATIONS[f"metric_{key}"][lang]
     assert TRANSLATIONS[f"metric_short_{key}"][lang]
+
+
+# --- info/help modal: every string is translated in BOTH languages ----------
+@pytest.mark.parametrize("lang", ["he", "en"])
+def test_info_help_translations_exist(lang):
+    for key in (
+        "info_btn_tooltip", "info_title", "info_sort_title", "info_sort_desc",
+        "info_metrics_title", "info_refresh_title", "info_refresh_desc",
+    ):
+        assert TRANSLATIONS[key][lang], f"missing {key}/{lang}"
+
+
+@pytest.mark.parametrize("key", METRIC_KEYS)
+@pytest.mark.parametrize("lang", ["he", "en"])
+def test_info_metric_descriptions_exist(key, lang):
+    assert TRANSLATIONS[f"info_metric_{key}"][lang], f"missing info_metric_{key}/{lang}"

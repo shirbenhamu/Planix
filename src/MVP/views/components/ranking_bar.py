@@ -17,6 +17,7 @@ import customtkinter as ctk
 
 from src.MVP.views import theme
 from src.MVP.views.ui_utils import TRANSLATIONS
+from src.MVP.views.components.ui_components import Tooltip
 from src.metrics.metrics_calculator import METRIC_KEYS
 
 # Display order in the dropdowns: avg_gap_all first so it shows as the default,
@@ -49,6 +50,7 @@ class RankingBar(ctk.CTkFrame):
         # Public callbacks (wired by the embedding view / presenter).
         self.on_sort_changed = None   # (sort_keys: list[str], ascending: bool) -> None
         self.on_refresh = None        # () -> None
+        self.on_info = None           # () -> None  (open the help modal)
 
         # Selection state, stored as metric keys so it survives language changes.
         self._primary_key = "avg_gap_all"
@@ -97,12 +99,19 @@ class RankingBar(ctk.CTkFrame):
             self, font=self._font, width=110, height=30, corner_radius=8,
             fg_color=theme.SUCCESS, hover_color=theme.SUCCESS_HOVER, text_color="white",
             command=self._on_refresh)
+        # Round "i" help button — opens the metrics/sorting explanation modal.
+        self.info_btn = ctk.CTkButton(
+            self, text="ⓘ", width=30, height=30, corner_radius=15,
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=15, weight="bold"),
+            fg_color=theme.BG_CARD_HOVER, hover_color=theme.BORDER_ACTIVE,
+            text_color=theme.TEXT_ACCENT, command=self._on_info_click)
+        self._info_tooltip = Tooltip(self.info_btn, "")
         self.metrics_label = ctk.CTkLabel(
             self, font=self._font_metrics, text_color=theme.TEXT_MUTED)
 
         self._control_widgets = [
             self.lbl_sort, self.primary_menu, self.lbl_then,
-            self.secondary_menu, self.direction_menu, self.refresh_btn,
+            self.secondary_menu, self.direction_menu, self.refresh_btn, self.info_btn,
         ]
 
     # --- language / labels --------------------------------------------------
@@ -112,6 +121,7 @@ class RankingBar(ctk.CTkFrame):
         self.lbl_sort.configure(text=self._rtl(self._t("sort_by")))
         self.lbl_then.configure(text=self._rtl(self._t("sort_then")))
         self.refresh_btn.configure(text=f"↻ {self._t('refresh_btn')}")
+        self._info_tooltip.text = self._t("info_btn_tooltip")
 
         primary_labels = [self._metric_label(k) for k in METRIC_DISPLAY_ORDER]
         self._primary_label_to_key = {
@@ -165,6 +175,10 @@ class RankingBar(ctk.CTkFrame):
     def _on_refresh(self) -> None:
         if self.on_refresh:
             self.on_refresh()
+
+    def _on_info_click(self) -> None:
+        if self.on_info:
+            self.on_info()
 
     def _fire(self) -> None:
         if not self.on_sort_changed:

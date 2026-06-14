@@ -353,23 +353,21 @@ class ScheduleCollectionManager:
         if self._sort_spec is None:
             if reset_to_top:
                 self._current_index = 0
+                self._window_start = 0
             return
-
-        current_offset: Optional[int] = None
-        if not reset_to_top and 0 <= self._current_index < len(self._offsets):
-            current_offset = self._offsets[self._current_index][0]
 
         self._offsets.sort(key=self._build_sort_key(self._sort_spec))
 
-        if reset_to_top or current_offset is None:
+        if reset_to_top:
+            # A user-selected/default sort jumps to the new best (page 1).
             self._current_index = 0
-            # A fresh ranking starts the Top-N window back at the new best.
             self._window_start = 0
         else:
-            for new_index, (offset, _metrics) in enumerate(self._offsets):
-                if offset == current_offset:
-                    self._current_index = new_index
-                    break
+            # A background re-sort (new schedules streaming in during generation,
+            # or a refresh) keeps the user's PAGE position stable — page N always
+            # means rank N, only the content at that page updates. The page number
+            # changes only when the user navigates, never on its own. Just clamp.
+            self._current_index = min(self._current_index, len(self._offsets) - 1)
 
     # Validates the requested keys/directions and resolves them into an ordered
     # list of (metric_position, ascending) pairs.
