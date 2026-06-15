@@ -102,6 +102,41 @@ TRANSLATIONS = {
     "metric_short_elective_conflicts": {"he": "התנגשויות", "en": "Conflicts"},
     "metric_short_mandatory_span": {"he": "מרווח חובה", "en": "Span(mand)"},
     "metric_short_max_exams_per_day": {"he": "מקס'/יום", "en": "Max/day"},
+
+    # --- Info / help screen for the ranking features ---
+    "info_btn_tooltip": {"he": "הסבר על המיון והמדדים", "en": "About sorting & metrics"},
+    "info_title": {"he": "דירוג ומדדים — הסבר", "en": "Ranking & Metrics — Help"},
+    "info_sort_title": {"he": "מיון", "en": "Sorting"},
+    "info_sort_desc": {
+        "he": "המיון משנה רק את סדר ההצגה של הלוחות — הוא אף פעם לא מוסיף או מסיר לוחות. בוחרים מדד ראשי, מדד משני לשובר־שוויון, וכיוון (יורד/עולה). השינוי מיידי ואינו מריץ את המנוע מחדש.",
+        "en": "Sorting only changes the display order of the schedules — it never adds or removes any. Pick a primary metric, an optional secondary tie-breaker, and a direction (descending/ascending). It applies instantly and does not re-run the engine.",
+    },
+    "info_metrics_title": {"he": "חמשת המדדים", "en": "The five metrics"},
+    "info_metric_avg_gap_all": {
+        "he": "ממוצע מספר הימים בין כל זוג בחינות (חובה או בחירה) באותה תוכנית ושנה. ערך גבוה = הבחינות מפוזרות יותר.",
+        "en": "Average number of days between every pair of exams (mandatory or elective) in the same program and year. Higher = exams are more spread out.",
+    },
+    "info_metric_min_gap_mandatory": {
+        "he": "המרווח הקטן ביותר (בימים) בין שתי בחינות חובה באותה תוכנית ושנה. ערך גבוה = אין שתי בחינות חובה צמודות.",
+        "en": "The smallest gap (in days) between two mandatory exams in the same program and year. Higher = no two mandatory exams are crammed together.",
+    },
+    "info_metric_elective_conflicts": {
+        "he": "כמה זוגות קורסי בחירה באותה תוכנית נופלים באותו יום. ערך נמוך = פחות חפיפות בקורסי בחירה.",
+        "en": "How many pairs of elective courses in the same program fall on the same day. Lower = fewer elective clashes.",
+    },
+    "info_metric_mandatory_span": {
+        "he": "מספר הימים בין בחינת החובה הראשונה לאחרונה באותה תוכנית ושנה.",
+        "en": "The number of days between the first and last mandatory exam in the same program and year.",
+    },
+    "info_metric_max_exams_per_day": {
+        "he": "מספר הבחינות המקסימלי המשובצות באותו יום בלוח.",
+        "en": "The maximum number of exams scheduled on any single day in the schedule.",
+    },
+    "info_refresh_title": {"he": "רענן מול Sync", "en": "Refresh vs. Sync"},
+    "info_refresh_desc": {
+        "he": "רענן: מושך לתצוגה לוחות חדשים שהמנוע ייצר וממיין אותם מחדש — בלי להריץ את המנוע מחדש. Sync: מריץ את המנוע מאפס (למשל אחרי שינוי תוכניות או תאריכים).",
+        "en": "Refresh: pulls in newly generated schedules and re-ranks them — without re-running the engine. Sync: re-runs the engine from scratch (e.g. after changing programs or dates).",
+    },
 }
 
 def format_text(key: str, lang: str) -> str:

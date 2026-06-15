@@ -9,6 +9,7 @@ from src.MVP.views.components.top_toolbar import TopToolbar
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views.components.ranking_bar import RankingBar
+from src.MVP.views.components.info_modal import show_metrics_info_popup
 from src.MVP.views import theme
 
 class CalendarGridView(ctk.CTkFrame):
@@ -65,6 +66,7 @@ class CalendarGridView(ctk.CTkFrame):
             self.on_sort_changed(keys, asc) if self.on_sort_changed else None)
         self.ranking_bar.on_refresh = lambda: (
             self.on_refresh_clicked() if self.on_refresh_clicked else None)
+        self.ranking_bar.on_info = lambda: show_metrics_info_popup(self, self.current_lang)
 
         self.scrollable_container = ctk.CTkScrollableFrame(self, fg_color=theme.TRANSPARENT)
         self.grid_frame = ctk.CTkFrame(self.scrollable_container, fg_color=theme.TRANSPARENT)
