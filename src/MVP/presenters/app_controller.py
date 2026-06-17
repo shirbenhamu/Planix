@@ -59,22 +59,25 @@ class AppController:
 
     def regenerate_schedules_snapshot(self) -> None:
         """
-        Acceptance Criteria Met: Cal_pres triggers a clean engine refresh
-        (cancel current + restart) when constraints change dynamically.
+        Acceptance Criteria Met: Updated to follow UI Lock design pattern.
+        If an active background process is currently running, safely direct the user
+        straight to the active calendar snapshot results instead of an aggressive termination rerun.
         """
-        print("[AppController] Constraint or settings changed. Re-running generation pipeline...")
+        print("[AppController] Request received to evaluate schedule snapshot pipeline...")
             
         if not self.model.get_selected_programs():
             print("[AppController] No programs selected. Skipping generation.")
             self.collection_manager.clear_cache()
             return
             
-        # Clean engine refresh: cancel active generation process immediately if running
+        # UI Lock fall-through logic: if process is running, just show current view safely
         if self.engine_adapter.is_generation_active():
-            print("[AppController] Existing process is active. Enforcing active worker cancellation...")
-            if self.calendar_presenter:
-                self.calendar_presenter._cancel_active_worker_process()
+            print("[AppController] Existing generation process is active. UI Lock engaged. Routing user straight to current preview screen.")
+            self.app_window.switch_view("calendar")
+            self.app_window.after(100, self._load_snapshot_schedules)
+            return
 
+        print("[AppController] Engine idle. Initiating clean schedule generation pipeline...")
         self.collection_manager.clear_cache()
         self.app_window.switch_view("annual")
         

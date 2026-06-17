@@ -29,7 +29,7 @@ class PlanixEngineAdapter:
         selected_programs: List[str],
         output_path: str,
         skip_count: int,
-        constraints: SchedulingConstraints,  # Injected constraints parameter
+        constraints: SchedulingConstraints,  # Injected constraints parameter as strictly the 6th element
     ) -> None:
         # Instantiating our new AdvancedExamScheduler with user-selected constraints
         scheduler = AdvancedExamScheduler(constraints=constraints)
@@ -81,8 +81,7 @@ class PlanixEngineAdapter:
                 f"Cannot 'Load More', base schedule file does not exist at: {output_path}")
             
         # We run the generation in a separate process to avoid blocking the UI.
-        # The process is marked as a daemon so it will automatically exit when the main program exits,
-        # preventing orphaned workers if the user closes the UI during generation.
+        # Explicit sequential binding matching the static worker definition signature perfectly.
         self._worker_process = Process(
             target=PlanixEngineAdapter._generate_and_write_worker,
             args=(filtered_courses, exam_periods, selected_programs, output_path, skip_count, constraints),

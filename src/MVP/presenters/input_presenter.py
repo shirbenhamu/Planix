@@ -28,11 +28,55 @@ class InputPresenter:
             # Inject dynamic hook placeholder to support seamlessly whenever the save button is active
             self.view.on_save_constraints = self._handle_save_constraints
 
+    def sync_ui_lock_state(self) -> None:
+        """
+        Monitors engine execution state via controller adapter and toggles 
+        the View's constraint save button availability accordingly (UI Lock solution).
+        """
+        if self.controller and self.controller.engine_adapter:
+            is_active = self.controller.engine_adapter.is_generation_active()
+            
+            if is_active:
+                if hasattr(self.view, "disable_save_constraints"):
+                    self.view.disable_save_constraints()
+                elif hasattr(self.view, "set_save_button_state"):
+                    self.view.set_save_button_state(enabled=False)
+            else:
+                if hasattr(self.view, "enable_save_constraints"):
+                    self.view.enable_save_constraints()
+                elif hasattr(self.view, "set_save_button_state"):
+                    self.view.set_save_button_state(enabled=True)
+
+    def _safe_int_conversion(self, raw_value) -> int:
+        """
+        Helper method to secure integer parsing from text entry views.
+        Prevents critical ValueError crashes when fields are empty ("") or corrupted.
+        """
+        if raw_value is None:
+            return 0
+        
+        # Convert to string to safely run text stripping operations
+        clean_str = str(raw_value).strip()
+        if not clean_str:
+            return 0
+            
+        try:
+            return int(clean_str)
+        except ValueError:
+            print(f"[InputPresenter][Warning] Failed converting custom K-value text '{raw_value}'. Falling back to 0.")
+            return 0
+
     def _handle_save_constraints(self, ui_constraints_data: dict = None) -> None:
         """
         Acceptance Criteria Met: Input Presenter reads toggle and k-value state from the settings view.
         Maintains decoupling and long-lived model instance storage mapping.
         """
+        # Guard Clause: Prevent saving updates if the background engine process is currently active
+        if self.controller and self.controller.engine_adapter and self.controller.engine_adapter.is_generation_active():
+            print("[InputPresenter][Block] Request denied. Cannot mutate system configuration while execution is active.")
+            self.sync_ui_lock_state()
+            return
+
         # If the view doesn't explicitly pass a dictionary (legacy/mock integration step), 
         # extract safely from view property fields or fallback to functional default system state config.
         if ui_constraints_data is None:
@@ -49,27 +93,27 @@ class InputPresenter:
                     "max_elective_conflicts_k": getattr(self.view, "max_elective_conflicts_k", 0),
                     "span_mandatory_enabled": getattr(self.view, "span_mandatory_enabled", False),
                     "span_mandatory_k": getattr(self.view, "span_mandatory_k", 14),
-                    "max_exams_per_day_enabled": getattr(self.view, "max_exams_per_day_enabled", True), # default true constraint matching integration test
+                    "max_exams_per_day_enabled": getattr(self.view, "max_exams_per_day_enabled", True), 
                     "max_exams_per_day_k": getattr(self.view, "max_exams_per_day_k", 1),
                 }
 
         print(f"[InputPresenter] Save Action detected. Reading fields from view: {ui_constraints_data}")
         
-        # Mapping properties to the long-lived model state context layer
+        # Mapping properties securely using safe helper conversions to prevent input runtime exceptions
         self.model.constraints.min_days_mandatory_enabled = bool(ui_constraints_data.get("min_days_mandatory_enabled", False))
-        self.model.constraints.min_days_mandatory_k = int(ui_constraints_data.get("min_days_mandatory_k", 0))
+        self.model.constraints.min_days_mandatory_k = self._safe_int_conversion(ui_constraints_data.get("min_days_mandatory_k", 0))
         
         self.model.constraints.min_days_any_enabled = bool(ui_constraints_data.get("min_days_any_enabled", False))
-        self.model.constraints.min_days_any_k = int(ui_constraints_data.get("min_days_any_k", 0))
+        self.model.constraints.min_days_any_k = self._safe_int_conversion(ui_constraints_data.get("min_days_any_k", 0))
         
         self.model.constraints.max_elective_conflicts_enabled = bool(ui_constraints_data.get("max_elective_conflicts_enabled", False))
-        self.model.constraints.max_elective_conflicts_k = int(ui_constraints_data.get("max_elective_conflicts_k", 0))
+        self.model.constraints.max_elective_conflicts_k = self._safe_int_conversion(ui_constraints_data.get("max_elective_conflicts_k", 0))
         
         self.model.constraints.span_mandatory_enabled = bool(ui_constraints_data.get("span_mandatory_enabled", False))
-        self.model.constraints.span_mandatory_k = int(ui_constraints_data.get("span_mandatory_k", 0))
+        self.model.constraints.span_mandatory_k = self._safe_int_conversion(ui_constraints_data.get("span_mandatory_k", 0))
         
         self.model.constraints.max_exams_per_day_enabled = bool(ui_constraints_data.get("max_exams_per_day_enabled", False))
-        self.model.constraints.max_exams_per_day_k = int(ui_constraints_data.get("max_exams_per_day_k", 0))
+        self.model.constraints.max_exams_per_day_k = self._safe_int_conversion(ui_constraints_data.get("max_exams_per_day_k", 0))
 
         print("[InputPresenter] Model constraint layout updated successfully.")
 

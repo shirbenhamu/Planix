@@ -38,24 +38,6 @@ class CalendarPresenter:
         self.view.on_sync_clicked = self._handle_sync_action
         self.refresh_presenter_state()
 
-    def _cancel_active_worker_process(self) -> None:
-        """
-        Acceptance Criteria Met: Cal_pres triggers a clean engine refresh (cancel current + restart)
-        Terminates the active background execution process cleanly to prevent process leaks.
-        """
-        if self.controller and hasattr(self.controller, "engine_adapter"):
-            adapter = self.controller.engine_adapter
-            if adapter and hasattr(adapter, "_worker_process") and adapter._worker_process:
-                if adapter._worker_process.is_alive():
-                    print("[CalendarPresenter] Overlapping engine execution detected. Terminating process...")
-                    try:
-                        adapter._worker_process.terminate()
-                        adapter._worker_process.join()  # Prevent lingering zombie subprocesses
-                        print("[CalendarPresenter] Active worker process terminated successfully.")
-                    except Exception as e:
-                        print(f"[CalendarPresenter] Error terminating process worker: {e}")
-                adapter._worker_process = None
-
     def _handle_load_more(self) -> None:
         try:
             import os
@@ -92,6 +74,10 @@ class CalendarPresenter:
             return
         self.is_rendering = True
         try:
+            # UI Lock Hook: Synchronize InputView lock state whenever calendar layout refreshes
+            if self.controller and hasattr(self.controller, "input_presenter") and self.controller.input_presenter:
+                self.controller.input_presenter.sync_ui_lock_state()
+
             total_schedules = self.collection_manager.get_total_count()
             if total_schedules == 0:
                 self.view.show_empty_state()
@@ -343,6 +329,11 @@ class CalendarPresenter:
 
     def _handle_filter_click(self) -> None:
         try:
+            # Guard Clause: Block filtering actions if a background generation process is already active
+            if self._engine_is_active():
+                print("[CalendarPresenter][Block] Request denied. Background engine calculation is currently active.")
+                return
+
             selected_programs = []
             if hasattr(self.view, "get_selected_programs"):
                 raw_programs = self.view.get_selected_programs()
@@ -363,14 +354,18 @@ class CalendarPresenter:
                         self.model.set_selected_programs(cleaned_program_ids)
                     else:
                         self.model.selected_programs = cleaned_program_ids
-            self._cancel_active_worker_process()  # Cancel old pipeline branch
+            
             if hasattr(self, "controller") and self.controller is not None:
                 self.controller.regenerate_schedules_snapshot()
         except Exception as e:
             print(f"Error handling filter execution pipeline: {e}")
 
     def _handle_sync_action(self):
-        self._cancel_active_worker_process()  # Clean cancel old run before sync
+        # Guard Clause: Block manual sync dispatch synchronization if background run is active
+        if self._engine_is_active():
+            print("[CalendarPresenter][Block] Request denied. Generation pipeline is currently active.")
+            return
+
         self.collection_manager.clear_cache() 
         if self.controller:
             self.controller.regenerate_schedules_snapshot()
