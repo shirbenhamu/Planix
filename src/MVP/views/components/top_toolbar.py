@@ -4,7 +4,7 @@ import customtkinter as ctk
 from src.MVP.views.ui_utils import format_text
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
-    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_EXCLUDE, ICON_EXPORT
+    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_EXCLUDE, ICON_EXPORT, ICON_SETTINGS
 )
 
 ACCENT = ("#0077b6", "#3b8ed0")
@@ -34,6 +34,7 @@ class TopToolbar(ctk.CTkFrame):
         self.on_month_next = None
         self.on_load_more = None
         self.on_edit_dates = None
+        self.on_constraints_settings = None
 
         self.hamburger_btn = ctk.CTkLabel(self, text="☰", font=(
             "Arial", 22), cursor="hand2", text_color=theme.TEXT_ACCENT)
@@ -77,6 +78,15 @@ class TopToolbar(ctk.CTkFrame):
         )
         self.edit_dates_btn.pack(side="left", padx=4)
         self.tip_edit = Tooltip(self.edit_dates_btn, "עריכת תאריכים")
+
+        self.constraints_btn = ctk.CTkButton(
+            self, text=ICON_SETTINGS, font=ctk.CTkFont(family=theme.FONT_FAMILY, size=15, weight="bold"),
+            fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            text_color="white", height=28, width=40, corner_radius=6,
+            command=lambda: self.on_constraints_settings() if self.on_constraints_settings else None,
+        )
+        self.constraints_btn.pack(side="left", padx=4)
+        self.tip_constraints = Tooltip(self.constraints_btn, "הגדרות אילוצים")
 
         self.load_more_btn = ctk.CTkButton(
             self, text=ICON_LOAD_MORE, fg_color=ACCENT, hover_color=ACCENT_HOVER,
@@ -131,10 +141,12 @@ class TopToolbar(ctk.CTkFrame):
         if lang == "he":
             self.tip_edit.text = "עריכת תאריכים"
             self.tip_load_more.text = "טען מערכות נוספות"
+            self.tip_constraints.text = "הגדרות אילוצים"
             self.tip_exclude.text = "החרג יום נבחר"
             self.tip_export.text = "ייצוא לוח זמנים"
         else:
             self.tip_edit.text = "Edit Dates"
             self.tip_load_more.text = "Load More"
+            self.tip_constraints.text = "Constraints Settings"
             self.tip_exclude.text = "Exclude Date"
             self.tip_export.text = "Export Schedule"

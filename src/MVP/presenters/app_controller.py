@@ -44,12 +44,68 @@ class AppController:
         
         self.app_window.wire_sync_callback(self.calendar_presenter)
         self.calendar_presenter.controller = self
+        self._wire_constraints_settings_callbacks()
         
         self.app_window.monthly_view.on_range_update_clicked = self.calendar_presenter._handle_range_update
         self.app_window.input_view.on_range_update_clicked = self.calendar_presenter._handle_range_update
 
         self.app_window.on_navigation_requested = self._handle_navigation
         self._handle_navigation("input")
+
+    def _wire_constraints_settings_callbacks(self) -> None:
+        """Connects PLAN-418 settings buttons from all screens to the single presenter/model state."""
+        for view in (
+            getattr(self.app_window, "input_view", None),
+            getattr(self.app_window, "calendar_view", None),
+            getattr(self.app_window, "monthly_view", None),
+        ):
+            if view is not None and hasattr(view, "on_save_constraints"):
+                view.on_save_constraints = self._handle_constraints_settings_save
+
+        self._broadcast_constraints_state(self._constraints_data_from_model())
+        self._set_constraints_save_state(enabled=True)
+
+    def _constraints_data_from_model(self) -> dict:
+        constraints = self.model.constraints
+        return {
+            "min_days_mandatory_enabled": constraints.min_days_mandatory_enabled,
+            "min_days_mandatory_k": constraints.min_days_mandatory_k,
+            "min_days_any_enabled": constraints.min_days_any_enabled,
+            "min_days_any_k": constraints.min_days_any_k,
+            "max_elective_conflicts_enabled": constraints.max_elective_conflicts_enabled,
+            "max_elective_conflicts_k": constraints.max_elective_conflicts_k,
+            "span_mandatory_enabled": constraints.span_mandatory_enabled,
+            "span_mandatory_k": constraints.span_mandatory_k,
+            "max_exams_per_day_enabled": constraints.max_exams_per_day_enabled,
+            "max_exams_per_day_k": constraints.max_exams_per_day_k,
+        }
+
+    def _broadcast_constraints_state(self, constraints_data: dict) -> None:
+        for view in (
+            getattr(self.app_window, "input_view", None),
+            getattr(self.app_window, "calendar_view", None),
+            getattr(self.app_window, "monthly_view", None),
+        ):
+            if view is not None and hasattr(view, "set_constraints_data"):
+                view.set_constraints_data(constraints_data)
+
+    def _set_constraints_save_state(self, enabled: bool) -> None:
+        for view in (
+            getattr(self.app_window, "input_view", None),
+            getattr(self.app_window, "calendar_view", None),
+            getattr(self.app_window, "monthly_view", None),
+        ):
+            if view is not None and hasattr(view, "set_save_button_state"):
+                view.set_save_button_state(enabled)
+
+    def _handle_constraints_settings_save(self, constraints_data: dict) -> None:
+        if self.engine_adapter.is_generation_active():
+            self._set_constraints_save_state(enabled=False)
+            print("[AppController][Block] Constraints settings save denied while generation is active.")
+            return
+
+        self._broadcast_constraints_state(constraints_data)
+        self.input_presenter._handle_save_constraints(constraints_data)
 
     def _handle_navigation(self, target_view: str) -> None:
         if target_view == "calendar":
@@ -68,16 +124,19 @@ class AppController:
         if not self.model.get_selected_programs():
             print("[AppController] No programs selected. Skipping generation.")
             self.collection_manager.clear_cache()
+            self._set_constraints_save_state(enabled=True)
             return
             
         # UI Lock fall-through logic: if process is running, just show current view safely
         if self.engine_adapter.is_generation_active():
             print("[AppController] Existing generation process is active. UI Lock engaged. Routing user straight to current preview screen.")
+            self._set_constraints_save_state(enabled=False)
             self.app_window.switch_view("calendar")
             self.app_window.after(100, self._load_snapshot_schedules)
             return
 
         print("[AppController] Engine idle. Initiating clean schedule generation pipeline...")
+        self._set_constraints_save_state(enabled=False)
         self.collection_manager.clear_cache()
         self.app_window.switch_view("annual")
         
@@ -110,6 +169,7 @@ class AppController:
             if hasattr(self.model, "is_generating") and self.model.is_generating:
                 self.model.is_generating = False
             self.engine_adapter.clear_finished_worker()
+            self._set_constraints_save_state(enabled=True)
             self.calendar_presenter.refresh_presenter_state()
             print("[AppController] Engine idle. Snapshot mode disabled for full file access.")
 
@@ -119,6 +179,7 @@ class AppController:
             return
 
         print(f"[AppController] Activating 'Load More' pipeline. Skip target: {skip_count}")
+        self._set_constraints_save_state(enabled=False)
         if hasattr(self.model, "is_generating"):
             self.model.is_generating = True
         self.collection_manager.snapshot_mode = True
@@ -144,6 +205,7 @@ class AppController:
                 self.model.is_generating = False
 
             self.engine_adapter.clear_finished_worker()
+            self._set_constraints_save_state(enabled=True)
             self.calendar_presenter.refresh_presenter_state()
             print("[AppController] Load More background worker has finished execution.")
 

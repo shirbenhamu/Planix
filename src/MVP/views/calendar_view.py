@@ -10,6 +10,9 @@ from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views.components.ranking_bar import RankingBar
 from src.MVP.views.components.info_modal import show_metrics_info_popup
+from src.MVP.views.components.constraints_modal import (
+    show_constraints_popup, default_constraints_data, normalize_constraints_data
+)
 from src.MVP.views import theme
 
 class CalendarGridView(ctk.CTkFrame):
@@ -32,6 +35,9 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_date_selected, self.on_filter_clicked = None, None 
         self.get_exam_periods_callback = None
         self.on_load_more_clicked = None
+        self.on_save_constraints = None
+        self._constraints_state = default_constraints_data()
+        self._constraints_save_enabled = True
         self.day_headers, self.month_labels, self.grid_cells = [], [], {}  
         self.selected_cell_key = None 
         self.active_month_indices = []
@@ -52,6 +58,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.toolbar.on_page_jump = lambda p: self.on_page_jump(p) if self.on_page_jump else None
         self.toolbar.on_export = self._handle_export
         self.toolbar.on_edit_dates = self._open_dates_modal
+        self.toolbar.on_constraints_settings = self._open_constraints_modal
         self.toolbar.on_exclude = lambda: self.on_exclude_clicked(self.selected_cell_key) if self.selected_cell_key and self.on_exclude_clicked else None
         self.toolbar.on_filter = lambda: self.on_filter_clicked() if self.on_filter_clicked else None
         self.on_sync_clicked = None
@@ -123,6 +130,42 @@ class CalendarGridView(ctk.CTkFrame):
             on_save_callback=on_save
         )
     
+    def _open_constraints_modal(self):
+        show_constraints_popup(
+            parent=self,
+            current_lang=self.current_lang,
+            constraints_data=self._constraints_state,
+            on_save_callback=self._handle_constraints_save,
+            on_close_callback=self._persist_constraints_state,
+            save_enabled=self._constraints_save_enabled,
+        )
+
+    def _handle_constraints_save(self, constraints_data: dict):
+        self._persist_constraints_state(constraints_data)
+        if self.on_save_constraints:
+            self.on_save_constraints(self.get_constraints_data())
+        root = self.winfo_toplevel()
+        if hasattr(root, "show_toast"):
+            root.show_toast(format_text("constraints_saved", self.current_lang))
+
+    def _persist_constraints_state(self, constraints_data: dict):
+        self._constraints_state = normalize_constraints_data(constraints_data)
+
+    def get_constraints_data(self) -> dict:
+        return dict(self._constraints_state)
+
+    def set_constraints_data(self, constraints_data: dict) -> None:
+        self._constraints_state = normalize_constraints_data(constraints_data)
+
+    def set_save_button_state(self, enabled: bool) -> None:
+        self._constraints_save_enabled = bool(enabled)
+
+    def enable_save_constraints(self) -> None:
+        self.set_save_button_state(True)
+
+    def disable_save_constraints(self) -> None:
+        self.set_save_button_state(False)
+
     def set_monthly_view(self, monthly_view):
         self.monthly_view = monthly_view
 

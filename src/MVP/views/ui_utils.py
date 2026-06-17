@@ -137,6 +137,22 @@ TRANSLATIONS = {
         "he": "רענן: מושך לתצוגה לוחות חדשים שהמנוע ייצר וממיין אותם מחדש — בלי להריץ את המנוע מחדש. Sync: מריץ את המנוע מאפס (למשל אחרי שינוי תוכניות או תאריכים).",
         "en": "Refresh: pulls in newly generated schedules and re-ranks them — without re-running the engine. Sync: re-runs the engine from scratch (e.g. after changing programs or dates).",
     },
+
+    # --- Pruning constraints settings modal (PLAN-418) ---
+    "constraints_button": {"he": "אילוצים", "en": "Constraints"},
+    "constraints_tooltip": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling constraints settings"},
+    "constraints_title": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling Constraints"},
+    "constraints_header_name": {"he": "אילוץ", "en": "Constraint"},
+    "constraints_header_enabled": {"he": "פעיל", "en": "Enabled"},
+    "constraints_header_k": {"he": " k ערך ", "en": "k value"},
+    "constraint_min_days_mandatory": {"he": "מרווח מינימלי בין מבחני חובה באותה תוכנית ושנה", "en": "Minimum days between mandatory exams in the same program/year"},
+    "constraint_min_days_any": {"he": "מרווח מינימלי בין כל שתי בחינות באותה תוכנית ושנה", "en": "Minimum days between any two exams in the same program/year"},
+    "constraint_max_elective_conflicts": {"he": "מקסימום התנגשויות בין קורסי בחירה", "en": "Maximum elective-elective conflicts"},
+    "constraint_span_mandatory": {"he": "טווח מקסימלי בין מבחן חובה ראשון לאחרון", "en": "Maximum span from first to last mandatory exam"},
+    "constraint_max_exams_per_day": {"he": "מקסימום בחינות באותו יום", "en": "Maximum exams on the same day"},
+    "constraints_invalid": {"he": " חייב להיות מספר שלם ולא שלילי k ערך ", "en": "k must be a non-negative whole number"},
+    "constraints_locked": {"he": "לא ניתן לשמור אילוצים בזמן שהמנוע רץ", "en": "Constraints cannot be saved while the engine is running"},
+    "constraints_saved": {"he": "האילוצים נשמרו בהצלחה", "en": "Constraints saved successfully"},
 }
 
 def format_text(key: str, lang: str) -> str:

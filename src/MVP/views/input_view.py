@@ -7,11 +7,14 @@ from src.MVP.views.ui_utils import format_text
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.load_choice_modal import show_load_choice_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
+from src.MVP.views.components.constraints_modal import (
+    show_constraints_popup, default_constraints_data, normalize_constraints_data
+)
 
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
     create_card, create_icon_button, create_primary_action_button, 
-    create_secondary_button, add_card_hover, Tooltip, ICON_UPLOAD, ICON_TRASH
+    create_secondary_button, add_card_hover, Tooltip, ICON_UPLOAD, ICON_TRASH, ICON_SETTINGS
 )
 
 class _ProgramRow(ctk.CTkFrame):
@@ -89,11 +92,14 @@ class InputConfigurationView(ctk.CTkFrame):
         self.on_clear_courses: Callable[[], None] = None
         self.on_run_clicked: Callable[[], None] = None
         self.on_range_update_clicked: Callable[[list], None] = None
+        self.on_save_constraints: Callable[[dict], None] = None
         self.get_exam_periods_callback: Callable[[], list] = None
         
         self.checkboxes = []
         self._program_ids = []
         self.load_mode_var = ctk.StringVar(value="append")
+        self._constraints_state = default_constraints_data()
+        self._constraints_save_enabled = True
         
         self.has_courses = False
         self.has_dates = False
@@ -107,6 +113,22 @@ class InputConfigurationView(ctk.CTkFrame):
         
         self.hamburger_btn = ctk.CTkLabel(self.toolbar_frame, text="☰", font=("Arial", 22), cursor="hand2", text_color=theme.TEXT_MAIN)
         self.hamburger_btn.pack(side="left", padx=(theme.SPACING_SMALL, theme.SPACING_REGULAR))
+
+        self.btn_constraints = ctk.CTkButton(
+            self.toolbar_frame,
+            text=f"{ICON_SETTINGS} {format_text('constraints_button', self.current_lang)}",
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold"),
+            fg_color=theme.TRANSPARENT,
+            border_width=2,
+            border_color=theme.BORDER_ACTIVE,
+            hover_color=theme.BG_CARD_HOVER,
+            text_color=theme.TEXT_ACCENT,
+            height=36,
+            corner_radius=theme.RADIUS_BUTTON,
+            command=self._open_constraints_modal,
+        )
+        self.btn_constraints.pack(side="right", padx=(theme.SPACING_SMALL, theme.SPACING_REGULAR))
+        self.tip_constraints = Tooltip(self.btn_constraints, format_text("constraints_tooltip", self.current_lang))
 
         self.main_split = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
         self.main_split.pack(fill="both", expand=True, padx=theme.SPACING_LARGE, pady=theme.SPACING_REGULAR)
@@ -211,6 +233,40 @@ class InputConfigurationView(ctk.CTkFrame):
             exam_periods_data=periods_data or [],
             on_save_callback=on_save
         )
+
+    def _open_constraints_modal(self):
+        show_constraints_popup(
+            parent=self,
+            current_lang=self.current_lang,
+            constraints_data=self._constraints_state,
+            on_save_callback=self._handle_constraints_save,
+            on_close_callback=self._persist_constraints_state,
+            save_enabled=self._constraints_save_enabled,
+        )
+
+    def _handle_constraints_save(self, constraints_data: dict):
+        self._persist_constraints_state(constraints_data)
+        if self.on_save_constraints:
+            self.on_save_constraints(self.get_constraints_data())
+        self.mascot.show_speech(format_text("constraints_saved", self.current_lang), duration=2500)
+
+    def _persist_constraints_state(self, constraints_data: dict):
+        self._constraints_state = normalize_constraints_data(constraints_data)
+
+    def get_constraints_data(self) -> dict:
+        return dict(self._constraints_state)
+
+    def set_constraints_data(self, constraints_data: dict) -> None:
+        self._constraints_state = normalize_constraints_data(constraints_data)
+
+    def set_save_button_state(self, enabled: bool) -> None:
+        self._constraints_save_enabled = bool(enabled)
+
+    def enable_save_constraints(self) -> None:
+        self.set_save_button_state(True)
+
+    def disable_save_constraints(self) -> None:
+        self.set_save_button_state(False)
 
     def show_warning_dialog(self, message: str):
         self.mascot.show_speech(format_text("max_programs_err", self.current_lang), duration=3500)
@@ -401,6 +457,8 @@ class InputConfigurationView(ctk.CTkFrame):
         self.programs_title.configure(text=format_text("programs_title", lang))
         self.details_title.configure(text=format_text("details_title", lang))
         self.btn_run.configure(text=format_text("btn_run", lang))
+        self.btn_constraints.configure(text=f"{ICON_SETTINGS} {format_text('constraints_button', lang)}")
+        self.tip_constraints.text = format_text("constraints_tooltip", lang)
         
         if lang == "he":
             self.tip_courses.text = "העלאת קובץ קורסים"
