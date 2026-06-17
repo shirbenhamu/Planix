@@ -2,12 +2,12 @@ import os
 import time
 from src.parsers.parser_factory import ParserFactory
 from src.data_manager import DataManager
-from MVP.models.planix_model import PlanixModel
+from src.MVP.models.planix_model import PlanixModel
 from src.engine.engine_adapter import PlanixEngineAdapter
-from MVP.models.schedule_collection_manager import ScheduleCollectionManager
+from src.MVP.models.schedule_collection_manager import ScheduleCollectionManager
 
 def test_run():
-    print("=== Starting Engine Integration Test ===")
+    print("=== Starting Engine Integration Test with Advanced Constraints ===")
     
     parser = ParserFactory.create_parser("txt")
     manager = DataManager(parser)
@@ -24,12 +24,18 @@ def test_run():
     
     model = PlanixModel(data_manager=manager)
     model.set_selected_programs(["83101", "83102"])
+    
+    # Enable advanced constraints on the model to test the injection path to the process worker
+    print("[Test] Activating advanced constraint: max_exams_per_day_k = 1")
+    model.constraints.max_exams_per_day_enabled = True
+    model.constraints.max_exams_per_day_k = 1
+    
     adapter = PlanixEngineAdapter()
     
-    print(f"Launching engine asynchronously, writing to: {output_path}")
+    print(f"Launching advanced engine asynchronously via Process, writing to: {output_path}")
     adapter.generate_from_model(model, output_path)
     
-    print("Waiting 3 seconds to let the engine generate initial schedules...")
+    print("Waiting 3 seconds to let the background process generate initial schedules...")
     time.sleep(3)
 
     if os.path.exists(output_path):
@@ -49,7 +55,6 @@ def test_run():
         first_schedule = collection_manager.get_current_schedule()
         print(f"Successfully parsed first schedule! It contains {len(first_schedule.exams)} scheduled exams.")
         
-    
         exam = first_schedule.exams[0]
         print(f"--> Verified Exam: Course {exam.course.course_id} on Date {exam.exam_date}")
     else:
