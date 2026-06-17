@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from typing import Callable, Dict, Optional
 
@@ -100,11 +99,16 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         self._row_refs = []
         self._vars: Dict[str, tk.Variable] = {}
         self._state = normalize_constraints_data(constraints_data)
+        self._drag_start_x = 0
+        self._drag_start_y = 0
 
+        # Match the application's custom modal style instead of showing the
+        # native Windows title bar/frame.
+        self.overrideredirect(True)
         self.title(format_text("constraints_title", current_lang))
-        self.configure(fg_color=theme.BG_MAIN)
-        self.geometry("620x560")
-        self.minsize(560, 500)
+        self.configure(fg_color=theme.BG_CARD)
+        self.geometry("760x620")
+        self.minsize(640, 540)
         self.transient(parent)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self._close_without_saving)
@@ -116,24 +120,45 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        outer = ctk.CTkFrame(
+            self,
+            fg_color=theme.BG_CARD,
+            border_width=2,
+            border_color=theme.TEXT_ACCENT,
+            corner_radius=theme.RADIUS_CARD,
+        )
+        outer.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        outer.grid_columnconfigure(0, weight=1)
+        outer.grid_rowconfigure(1, weight=1)
+        self.outer_frame = outer
+
+        title_bar = ctk.CTkFrame(outer, fg_color=theme.TRANSPARENT)
+        title_bar.grid(row=0, column=0, sticky="ew", padx=26, pady=(24, 10))
+        title_bar.grid_columnconfigure(0, weight=1)
+        title_bar.bind("<ButtonPress-1>", self._start_drag)
+        title_bar.bind("<B1-Motion>", self._on_drag)
 
         title = ctk.CTkLabel(
-            self,
+            title_bar,
             text=format_text("constraints_title", self.current_lang),
-            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=22, weight="bold"),
-            text_color=theme.TEXT_MAIN,
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=24, weight="bold"),
+            text_color=theme.TEXT_ACCENT,
         )
-        title.grid(row=0, column=0, sticky="ew", padx=24, pady=(22, 8))
+        title.grid(row=0, column=0, sticky="ew")
+        title.bind("<ButtonPress-1>", self._start_drag)
+        title.bind("<B1-Motion>", self._on_drag)
+
 
         body = ctk.CTkScrollableFrame(
-            self,
+            outer,
             fg_color=theme.BG_CARD,
             border_width=1,
             border_color=theme.BORDER_DEFAULT,
             corner_radius=theme.RADIUS_CARD,
         )
-        body.grid(row=1, column=0, sticky="nsew", padx=24, pady=12)
+        body.grid(row=1, column=0, sticky="nsew", padx=30, pady=(6, 18))
         body.grid_columnconfigure(0, weight=1)
         body.grid_columnconfigure(1, weight=0)
         body.grid_columnconfigure(2, weight=0)
@@ -145,19 +170,19 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
             font=ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold"),
             text_color=theme.TEXT_MUTED,
             anchor=header_anchor,
-        ).grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 8))
+        ).grid(row=0, column=0, sticky="ew", padx=14, pady=(16, 8))
         ctk.CTkLabel(
             body,
             text=format_text("constraints_header_enabled", self.current_lang),
             font=ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold"),
             text_color=theme.TEXT_MUTED,
-        ).grid(row=0, column=1, padx=12, pady=(10, 8))
+        ).grid(row=0, column=1, padx=14, pady=(16, 8))
         ctk.CTkLabel(
             body,
             text=format_text("constraints_header_k", self.current_lang),
             font=ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold"),
             text_color=theme.TEXT_MUTED,
-        ).grid(row=0, column=2, padx=12, pady=(10, 8))
+        ).grid(row=0, column=2, padx=14, pady=(16, 8))
 
         vcmd = (self.register(_is_non_negative_int_candidate), "%P")
         for row_idx, field in enumerate(CONSTRAINT_FIELDS, start=1):
@@ -176,9 +201,9 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 text_color=theme.TEXT_MAIN,
                 anchor=header_anchor,
                 justify="right" if self.current_lang == "he" else "left",
-                wraplength=330,
+                wraplength=420,
             )
-            label.grid(row=row_idx, column=0, sticky="ew", padx=12, pady=10)
+            label.grid(row=row_idx, column=0, sticky="ew", padx=14, pady=11)
 
             switch = ctk.CTkSwitch(
                 body,
@@ -188,14 +213,15 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 fg_color=theme.BORDER_DEFAULT,
                 progress_color=theme.TEXT_ACCENT,
                 button_color=theme.BG_CARD,
+                button_hover_color=theme.TEXT_ACCENT,
                 command=lambda key=enabled_key: self._refresh_entry_states(),
             )
-            switch.grid(row=row_idx, column=1, padx=12, pady=10)
+            switch.grid(row=row_idx, column=1, padx=14, pady=11)
 
             entry = ctk.CTkEntry(
                 body,
-                width=80,
-                height=34,
+                width=90,
+                height=38,
                 justify="center",
                 textvariable=k_var,
                 validate="key",
@@ -203,8 +229,9 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 fg_color=theme.BG_MAIN,
                 border_color=theme.BORDER_DEFAULT,
                 text_color=theme.TEXT_MAIN,
+                font=ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold"),
             )
-            entry.grid(row=row_idx, column=2, padx=12, pady=10)
+            entry.grid(row=row_idx, column=2, padx=14, pady=11)
 
             self._row_refs.append({
                 "field": field,
@@ -213,8 +240,8 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 "entry": entry,
             })
 
-        footer = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
-        footer.grid(row=2, column=0, sticky="ew", padx=24, pady=(6, 22))
+        footer = ctk.CTkFrame(outer, fg_color=theme.TRANSPARENT)
+        footer.grid(row=2, column=0, sticky="ew", padx=30, pady=(0, 24))
 
         self.error_label = ctk.CTkLabel(
             footer,
@@ -239,7 +266,7 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
             fg_color=theme.SUCCESS,
             hover_color=theme.SUCCESS_HOVER,
             text_color="white",
-            height=40,
+            height=42,
             corner_radius=theme.RADIUS_BUTTON,
             command=self._save_and_close,
         )
@@ -267,7 +294,7 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 entry.configure(
                     state="normal",
                     fg_color=theme.BG_MAIN,
-                    border_color=theme.BORDER_ACTIVE,
+                    border_color=theme.TEXT_ACCENT,
                     text_color=theme.TEXT_MAIN,
                 )
                 label.configure(text_color=theme.TEXT_MAIN)
@@ -315,6 +342,15 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         if self.on_close_callback:
             self.on_close_callback(self._collect_data())
         self.destroy()
+
+    def _start_drag(self, event) -> None:
+        self._drag_start_x = event.x_root - self.winfo_x()
+        self._drag_start_y = event.y_root - self.winfo_y()
+
+    def _on_drag(self, event) -> None:
+        x = event.x_root - self._drag_start_x
+        y = event.y_root - self._drag_start_y
+        self.geometry(f"+{x}+{y}")
 
     def _center_on_parent(self) -> None:
         try:

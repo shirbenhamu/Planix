@@ -88,6 +88,7 @@ TRANSLATIONS = {
     "sort_none": {"he": "— ללא —", "en": "— None —"},
     "refresh_btn": {"he": "רענן", "en": "Refresh"},
     "end_of_results": {"he": "סוף התוצאות", "en": "End of results"},
+    "metrics_panel_title": {"he": "מדדי המערכת הנוכחית", "en": "Current schedule metrics"},
 
     # Sort-metric labels (dropdown) for the five section-3 metrics
     "metric_avg_gap_all": {"he": "ממוצע ימים בין בחינות", "en": "Avg days between exams"},
@@ -144,13 +145,13 @@ TRANSLATIONS = {
     "constraints_title": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling Constraints"},
     "constraints_header_name": {"he": "אילוץ", "en": "Constraint"},
     "constraints_header_enabled": {"he": "פעיל", "en": "Enabled"},
-    "constraints_header_k": {"he": " k ערך ", "en": "k value"},
+    "constraints_header_k": {"he": "k ערך ", "en": "k value"},
     "constraint_min_days_mandatory": {"he": "מרווח מינימלי בין מבחני חובה באותה תוכנית ושנה", "en": "Minimum days between mandatory exams in the same program/year"},
     "constraint_min_days_any": {"he": "מרווח מינימלי בין כל שתי בחינות באותה תוכנית ושנה", "en": "Minimum days between any two exams in the same program/year"},
     "constraint_max_elective_conflicts": {"he": "מקסימום התנגשויות בין קורסי בחירה", "en": "Maximum elective-elective conflicts"},
     "constraint_span_mandatory": {"he": "טווח מקסימלי בין מבחן חובה ראשון לאחרון", "en": "Maximum span from first to last mandatory exam"},
     "constraint_max_exams_per_day": {"he": "מקסימום בחינות באותו יום", "en": "Maximum exams on the same day"},
-    "constraints_invalid": {"he": " חייב להיות מספר שלם ולא שלילי k ערך ", "en": "k must be a non-negative whole number"},
+    "constraints_invalid": {"he": "חייב להיות מספר שלם ולא שלילי k ערך ", "en": "k must be a non-negative whole number"},
     "constraints_locked": {"he": "לא ניתן לשמור אילוצים בזמן שהמנוע רץ", "en": "Constraints cannot be saved while the engine is running"},
     "constraints_saved": {"he": "האילוצים נשמרו בהצלחה", "en": "Constraints saved successfully"},
 }
