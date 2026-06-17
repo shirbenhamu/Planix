@@ -6,6 +6,7 @@ from datetime import date
 from typing import Dict, List, Optional, Set
 
 from src.data_manager import DataManager
+from src.engine.scheduling_constraints import SchedulingConstraints  # Imported constraints
 from src.MVP.models.course import Course
 from src.MVP.models.exam_period import ExcludedDate, ExamPeriod
 
@@ -38,6 +39,7 @@ class PlanixModel:
     selected_programs: List[str] = field(default_factory=list)
     available_programs: Dict[str, str] = field(default_factory=dict)
     max_selected_programs: int = 5
+    constraints: SchedulingConstraints = field(default_factory=SchedulingConstraints)  # Injected constraints field
     _is_generating: bool = field(default=False, init=False, repr=False)
     _generation_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _user_excluded_dates: Set[date] = field(default_factory=set, init=False, repr=False)
@@ -252,7 +254,6 @@ class PlanixModel:
         try:
             exam_periods = self.data_manager.get_exam_periods() or []
             for period in exam_periods:
-                # Preserve original exclusions (Friday/Saturday) and add user exclusions as ExcludedDate objects
                 original_exclusions = [
                     ex for ex in period.excluded_dates
                     if isinstance(ex, ExcludedDate)
@@ -268,61 +269,33 @@ class PlanixModel:
             print(f"Error syncing excluded dates to data manager: {e}")
 
     def _periods_overlap(self, period1: ExamPeriod, period2: ExamPeriod) -> bool:
-        """
-        Check if two exam periods overlap in terms of date ranges and semester/moed.
-        Two periods overlap if:
-        1. They have the same semester AND moed
-        2. Their date ranges overlap (max(start1, start2) <= min(end1, end2))
-        """
-        # Different semester or moed means no conflict
         if period1.semester != period2.semester or period1.moed != period2.moed:
             return False
-        
-        # Check if date ranges overlap
-        # Overlap exists if the later start date is <= the earlier end date
         overlap_start = max(period1.start_date, period2.start_date)
         overlap_end = min(period1.end_date, period2.end_date)
-        
         return overlap_start <= overlap_end
 
     def merge_exam_periods_from_file(self, new_periods: List[ExamPeriod], mode: str = "replace") -> None:
-        """
-        Merge new exam periods from a loaded file into the DataManager, respecting the mode.
-        
-        Args:
-            new_periods: The exam periods parsed from the file
-            mode: "replace" to overwrite existing periods, "append" to add non-overlapping periods
-        """
         if not self.data_manager:
             return
         
         if mode == "replace":
-            # Simple replacement
             self.data_manager.exam_periods = new_periods
             print(f"[PlanixModel] Replaced exam periods. New count: {len(new_periods)}")
-        else:  # mode == "append"
-            # Merge new periods with existing ones, avoiding overlaps
+        else:
             existing_periods = self.data_manager.get_exam_periods() or []
-            
             for period in new_periods:
-                # Check if this period overlaps with any existing period
                 has_overlap = any(self._periods_overlap(period, ex) for ex in existing_periods)
-                
                 if has_overlap:
-                    print(f"[PlanixModel] Skipping overlapping exam period: {period.semester} {period.moed} ({period.start_date} to {period.end_date})")
+                    print(f"[PlanixModel] Skipping overlapping exam period: {period.semester} {period.moed}")
                 elif period not in existing_periods:
-                    # Add only if it's not a duplicate
                     existing_periods.append(period)
-                else:
-                    print(f"[PlanixModel] Skipping duplicate exam period: {period.semester} {period.moed}")
-            
             self.data_manager.exam_periods = existing_periods
             print(f"[PlanixModel] Merged exam periods. Final count: {len(existing_periods)}")
 
     def get_user_excluded_dates(self) -> List[date]:
         return sorted(self._user_excluded_dates)
 
-    #  This method validates that the model's data is properly configured and that the selected programs are valid before schedule generation can proceed.
     def validate_scheduling_constraints(self) -> None:
         if self.data_manager is None:
             raise ValueError("Data manager is not configured.")
@@ -340,9 +313,7 @@ class PlanixModel:
             raise ValueError("No selected programs are configured.")
 
         if len(self.selected_programs) > self.max_selected_programs:
-            raise ValueError(
-                f"Cannot select more than {self.max_selected_programs} programs."
-            )
+            raise ValueError(f"Cannot select more than {self.max_selected_programs} programs.")
 
         if not self.available_programs:
             self.build_available_programs()
@@ -353,15 +324,11 @@ class PlanixModel:
             if program_id not in self.available_programs
         ]
         if missing_programs:
-            raise ValueError(
-                "Selected programs are not available in the loaded course data: "
-                + ", ".join(missing_programs)
-            )
+            raise ValueError("Selected programs are not available in data: " + ", ".join(missing_programs))
 
         for excluded_date in self._user_excluded_dates:
             self._validate_date_value(excluded_date)
 
-    #  This method generates a structured representation of the courses organized by the selected program, which can be used for UI display or further processing.
     def get_program_course_hierarchy(self, program_id: str) -> dict:
         normalized_program_id = self._normalize_program_id(program_id)
         program_name = PROGRAM_MAPPING.get(normalized_program_id, normalized_program_id)
@@ -370,12 +337,10 @@ class PlanixModel:
 
         for course in self.data_manager.get_courses():
             matched_program_info = None
-
             for info in getattr(course, "program_info", []):
                 if getattr(info, "program_id", None) == normalized_program_id:
                     matched_program_info = info
                     break
-
             if matched_program_info is None:
                 continue
 
@@ -413,8 +378,6 @@ class PlanixModel:
             return self.data_manager.get_exam_periods() or []
         return []
 
-    # This method enforces the current state of user-excluded dates to the DataManager's exam periods, ensuring that any changes made
-    # by the user to the excluded dates are reflected in the underlying data structure that will be used during schedule generation.
     def enforce_state_to_data_manager(self) -> None:
         if not self.data_manager:
             return
@@ -423,8 +386,6 @@ class PlanixModel:
         if not existing_periods:
             return
         
-        # Update the exam periods in the DataManager to reflect the current user-excluded dates,
-        # while preserving any original exclusions (like Fridays/Saturdays) that are not user-driven.
         for period in existing_periods:
             original_exclusions = []
             for ex in period.excluded_dates:
@@ -437,12 +398,10 @@ class PlanixModel:
                 for dt in sorted(self._user_excluded_dates)
                 if period.start_date <= dt <= period.end_date
             ]
-            # Combine original exclusions with user exclusions to form the new list of excluded dates for the period
             period.excluded_dates = original_exclusions + user_exclusions
 
         print(f"[PlanixModel] State enforced successfully. Synced user exclusions to DataManager.")
 
     def clear_user_exclusions(self) -> None:
-        """Clears all manual user date exclusions."""
         self._user_excluded_dates.clear()
         self._sync_excluded_dates_to_data_manager()
