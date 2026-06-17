@@ -119,38 +119,33 @@ def test_metrics_panel_source_uses_theme_constants_for_layout_colors_and_fonts()
     assert "theme.SPACING_REGULAR" in source
 
 
-def test_calendar_view_updates_ranking_bar_metrics_panel_and_monthly_view():
+def test_calendar_view_updates_compact_ranking_bar_and_monthly_view():
     view = object.__new__(CalendarGridView)
     view.ranking_bar = MagicMock()
-    view.metrics_panel = MagicMock()
     view.monthly_view = MagicMock()
 
     metrics = (5.0, 3.5, 0.0, 9.0, 2.0)
     view.update_metrics_display(metrics)
 
     view.ranking_bar.update_metrics.assert_called_once_with(metrics)
-    view.metrics_panel.update_metrics.assert_called_once_with(metrics)
     view.monthly_view.update_metrics_display.assert_called_once_with(metrics)
 
 
-def test_monthly_view_updates_both_compact_and_panel_metric_displays():
+def test_monthly_view_updates_compact_metric_display_only():
     view = object.__new__(MonthlyGridView)
     view.ranking_bar = MagicMock()
-    view.metrics_panel = MagicMock()
 
     metrics = (5.0, 3.5, 0.0, 9.0, 2.0)
     view.update_metrics_display(metrics)
 
     view.ranking_bar.update_metrics.assert_called_once_with(metrics)
-    view.metrics_panel.update_metrics.assert_called_once_with(metrics)
 
 
-def test_calendar_and_monthly_language_update_refreshes_metrics_panel():
+def test_calendar_and_monthly_language_update_refreshes_compact_ranking_bar():
     calendar_view = object.__new__(CalendarGridView)
     calendar_view.current_lang = "en"
     calendar_view.toolbar = MagicMock()
     calendar_view.ranking_bar = MagicMock()
-    calendar_view.metrics_panel = MagicMock()
     calendar_view.empty_robot = MagicMock()
     calendar_view._current_page = 1
     calendar_view._total_pages = 1
@@ -162,13 +157,12 @@ def test_calendar_and_monthly_language_update_refreshes_metrics_panel():
     calendar_view.update_pagination = MagicMock()
     calendar_view.update_language("he")
 
-    calendar_view.metrics_panel.set_language.assert_called_once_with("he")
+    calendar_view.ranking_bar.set_language.assert_called_once_with("he")
 
     monthly_view = object.__new__(MonthlyGridView)
     monthly_view.current_lang = "en"
     monthly_view.toolbar = MagicMock()
     monthly_view.ranking_bar = MagicMock()
-    monthly_view.metrics_panel = MagicMock()
     monthly_view.empty_robot = MagicMock()
     monthly_view._current_page = 1
     monthly_view._total_pages = 1
@@ -178,4 +172,4 @@ def test_calendar_and_monthly_language_update_refreshes_metrics_panel():
     monthly_view.update_pagination = MagicMock()
     monthly_view.update_language("he")
 
-    monthly_view.metrics_panel.set_language.assert_called_once_with("he")
+    monthly_view.ranking_bar.set_language.assert_called_once_with("he")

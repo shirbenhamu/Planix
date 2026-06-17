@@ -53,6 +53,7 @@ class RankingBar(ctk.CTkFrame):
         self.on_sort_changed = None   # (sort_keys: list[str], ascending: bool) -> None
         self.on_refresh = None        # () -> None
         self.on_info = None           # () -> None  (open the help modal)
+        self.on_metrics_details = None  # (metrics) -> None  (open current metrics modal)
 
         # Selection state, stored as metric keys so it survives language changes.
         self._sort_keys = ["avg_gap_all"]
@@ -128,6 +129,17 @@ class RankingBar(ctk.CTkFrame):
             text_color=theme.TEXT_ACCENT, command=self._on_info_click)
         self._info_tooltip = Tooltip(self.info_btn, "")
 
+        # Small details button: the compact metric line stays in the bar, while
+        # full label+value details open only on demand. This replaces the large
+        # always-visible metrics panel below the ranking bar.
+        self.metrics_details_btn = ctk.CTkButton(
+            self, width=72, height=30, corner_radius=8,
+            font=self._font, fg_color=theme.BG_CARD_HOVER,
+            hover_color=theme.BORDER_ACTIVE, text_color=theme.TEXT_ACCENT,
+            command=self._on_metrics_details_click,
+        )
+        self._metrics_details_tooltip = Tooltip(self.metrics_details_btn, "")
+
         self.metrics_label = ctk.CTkLabel(
             self, font=self._font_metrics, text_color=theme.TEXT_MUTED)
 
@@ -137,6 +149,7 @@ class RankingBar(ctk.CTkFrame):
             self.direction_menu,
             self.refresh_btn,
             self.info_btn,
+            self.metrics_details_btn,
         ]
 
     # --- language / labels --------------------------------------------------
@@ -146,6 +159,8 @@ class RankingBar(ctk.CTkFrame):
         self.lbl_sort.configure(text=self._rtl(self._t("sort_by")))
         self.refresh_btn.configure(text=f"↻ {self._t('refresh_btn')}")
         self._info_tooltip.text = self._t("info_btn_tooltip")
+        self.metrics_details_btn.configure(text=self._rtl(self._t("metrics_values_button")))
+        self._metrics_details_tooltip.text = self._t("metrics_values_tooltip")
         self._sort_tooltip.text = self._t("sort_selector_tooltip")
 
         # Compatibility maps used by the old direct unit tests and any legacy code.
@@ -246,6 +261,10 @@ class RankingBar(ctk.CTkFrame):
     def _on_info_click(self) -> None:
         if self.on_info:
             self.on_info()
+
+    def _on_metrics_details_click(self) -> None:
+        if self.on_metrics_details:
+            self.on_metrics_details(self._last_metrics)
 
     def _fire(self) -> None:
         if not self.on_sort_changed:

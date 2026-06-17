@@ -8,8 +8,7 @@ from src.MVP.views.components.top_toolbar import TopToolbar
 from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views.components.ranking_bar import RankingBar
-from src.MVP.views.components.metrics_panel import MetricsPanel
-from src.MVP.views.components.info_modal import show_metrics_info_popup
+from src.MVP.views.components.info_modal import show_metrics_info_popup, show_metrics_values_popup
 from src.MVP.views.components.constraints_modal import (
     show_constraints_popup, default_constraints_data, normalize_constraints_data
 )
@@ -66,10 +65,9 @@ class MonthlyGridView(ctk.CTkFrame):
         self.ranking_bar.on_refresh = lambda: (
             self.on_refresh_clicked() if self.on_refresh_clicked else None)
         self.ranking_bar.on_info = lambda: show_metrics_info_popup(self, self.current_lang)
-
-        # Keep monthly results visually consistent with the annual calendar.
-        self.metrics_panel = MetricsPanel(self, lang=self.current_lang)
-        self.metrics_panel.pack(fill="x", padx=20, pady=(0, 10))
+        self.ranking_bar.on_metrics_details = lambda metrics: show_metrics_values_popup(
+            self, self.current_lang, metrics
+        )
 
         self.grid_frame = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
         self._setup_empty_state()
@@ -353,23 +351,17 @@ class MonthlyGridView(ctk.CTkFrame):
         """Live metrics readout for the active schedule (PLAN-408)."""
         if hasattr(self, "ranking_bar"):
             self.ranking_bar.update_metrics(metrics)
-        if hasattr(self, "metrics_panel"):
-            self.metrics_panel.update_metrics(metrics)
 
     def show_no_more_results(self):
         """End-of-results boundary indicator for the refresh-feed (PLAN-415)."""
         if hasattr(self, "ranking_bar"):
             self.ranking_bar.show_no_more_results()
-        if hasattr(self, "metrics_panel"):
-            self.metrics_panel.show_no_more_results()
 
     def update_language(self, lang: str):
         self.current_lang = lang
         self.toolbar.update_language(lang)
         if hasattr(self, "ranking_bar"):
             self.ranking_bar.set_language(lang)
-        if hasattr(self, "metrics_panel"):
-            self.metrics_panel.set_language(lang)
         if hasattr(self, "empty_robot"):
             self.empty_robot.set_speech(format_text("empty_state", lang))
         self.update_pagination(self._current_page, self._total_pages)
