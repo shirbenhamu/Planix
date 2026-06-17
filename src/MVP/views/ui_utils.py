@@ -89,6 +89,10 @@ TRANSLATIONS = {
     "refresh_btn": {"he": "רענן", "en": "Refresh"},
     "end_of_results": {"he": "סוף התוצאות", "en": "End of results"},
     "metrics_panel_title": {"he": "מדדי המערכת הנוכחית", "en": "Current schedule metrics"},
+    "sort_selector_tooltip": {"he": "בחירת מדדי מיון וסדר עדיפות", "en": "Choose sort metrics and priority order"},
+    "sort_selector_title": {"he": "בחירת סדר מיון", "en": "Sort Criteria Priority"},
+    "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון. סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי. ניתן לגרור שורות או להשתמש בחצים.", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
+    "sort_selector_empty_error": {"he": "יש לבחור לפחות מדד מיון אחד", "en": "Select at least one sort metric"},
 
     # Sort-metric labels (dropdown) for the five section-3 metrics
     "metric_avg_gap_all": {"he": "ממוצע ימים בין בחינות", "en": "Avg days between exams"},
@@ -145,7 +149,7 @@ TRANSLATIONS = {
     "constraints_title": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling Constraints"},
     "constraints_header_name": {"he": "אילוץ", "en": "Constraint"},
     "constraints_header_enabled": {"he": "פעיל", "en": "Enabled"},
-    "constraints_header_k": {"he": "k ערך ", "en": "k value"},
+    "constraints_header_k": {"he": " k ערך ", "en": "k value"},
     "constraint_min_days_mandatory": {"he": "מרווח מינימלי בין מבחני חובה באותה תוכנית ושנה", "en": "Minimum days between mandatory exams in the same program/year"},
     "constraint_min_days_any": {"he": "מרווח מינימלי בין כל שתי בחינות באותה תוכנית ושנה", "en": "Minimum days between any two exams in the same program/year"},
     "constraint_max_elective_conflicts": {"he": "מקסימום התנגשויות בין קורסי בחירה", "en": "Maximum elective-elective conflicts"},
