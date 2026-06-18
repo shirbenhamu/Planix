@@ -178,9 +178,9 @@ class AdvancedExamScheduler(ExamScheduler):
         """Required placeholder to satisfy signature contracts. Logic is calculated dynamically above."""
         return True
 
-    # 2.4: Span between first→last mandatory exams in same (program, year) >= k
+    # 2.4: Span between first→last mandatory exams in same (program, year) <= k
     def _check_span_mandatory(self, course: Course, exam_date: date) -> bool:
-        """2.4: Span between first→last mandatory exams in same (program, year) >= k"""
+        """2.4: Maximum span between first→last mandatory exams in same (program, year) <= k"""
         k = self.constraints.span_mandatory_k
         for info in course.program_info:
             if info.requirement != "Elective":
@@ -191,7 +191,7 @@ class AdvancedExamScheduler(ExamScheduler):
                     continue
                 all_dates = existing_dates + [exam_date]
                 current_span = (max(all_dates) - min(all_dates)).days + 1
-                if current_span < k:
+                if current_span > k:
                     return False
         return True
 

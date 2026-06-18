@@ -1,4 +1,3 @@
-# src/MVP/views/components/ui_components.py
 
 import customtkinter as ctk
 import sys
@@ -13,6 +12,7 @@ ICON_EDIT = "\uF4CB"       # pencil
 ICON_FILTER = "\uF3DE"     # filter
 ICON_LOAD_MORE = "\uF130"  # arrow-clockwise
 ICON_EXCLUDE = "\uF831"    # x-circle
+ICON_SETTINGS = "⚙"        # settings / constraints
 
 class Tooltip:
     """A clean, elegant tooltip that floats above elements on mouse hover"""

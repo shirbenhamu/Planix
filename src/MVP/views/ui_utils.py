@@ -88,6 +88,14 @@ TRANSLATIONS = {
     "sort_none": {"he": "— ללא —", "en": "— None —"},
     "refresh_btn": {"he": "רענן", "en": "Refresh"},
     "end_of_results": {"he": "סוף התוצאות", "en": "End of results"},
+    "metrics_panel_title": {"he": "מדדי המערכת הנוכחית", "en": "Current schedule metrics"},
+    "metrics_values_button": {"he": "מדדים", "en": "Metrics"},
+    "metrics_values_tooltip": {"he": "פתח חלונית עם חמשת המדדים המלאים", "en": "Open the full five-metric details popup"},
+    "metrics_values_empty": {"he": "אין עדיין מדדים להצגה", "en": "No metrics to display yet"},
+    "sort_selector_tooltip": {"he": "בחירת מדדי מיון וסדר עדיפות", "en": "Choose sort metrics and priority order"},
+    "sort_selector_title": {"he": "בחירת סדר מיון", "en": "Sort Criteria Priority"},
+    "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון. סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי. ניתן לגרור שורות או להשתמש בחצים.", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
+    "sort_selector_empty_error": {"he": "יש לבחור לפחות מדד מיון אחד", "en": "Select at least one sort metric"},
 
     # Sort-metric labels (dropdown) for the five section-3 metrics
     "metric_avg_gap_all": {"he": "ממוצע ימים בין בחינות", "en": "Avg days between exams"},
@@ -137,6 +145,22 @@ TRANSLATIONS = {
         "he": "רענן: מושך לתצוגה לוחות חדשים שהמנוע ייצר וממיין אותם מחדש — בלי להריץ את המנוע מחדש. Sync: מריץ את המנוע מאפס (למשל אחרי שינוי תוכניות או תאריכים).",
         "en": "Refresh: pulls in newly generated schedules and re-ranks them — without re-running the engine. Sync: re-runs the engine from scratch (e.g. after changing programs or dates).",
     },
+
+    # --- Pruning constraints settings modal (PLAN-418) ---
+    "constraints_button": {"he": "אילוצים", "en": "Constraints"},
+    "constraints_tooltip": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling constraints settings"},
+    "constraints_title": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling Constraints"},
+    "constraints_header_name": {"he": "אילוץ", "en": "Constraint"},
+    "constraints_header_enabled": {"he": "פעיל", "en": "Enabled"},
+    "constraints_header_k": {"he": "K ערך ", "en": "k value"},
+    "constraint_min_days_mandatory": {"he": "מרווח מינימלי בין מבחני חובה באותה תוכנית ושנה", "en": "Minimum days between mandatory exams in the same program/year"},
+    "constraint_min_days_any": {"he": "מרווח מינימלי בין כל שתי בחינות באותה תוכנית ושנה", "en": "Minimum days between any two exams in the same program/year"},
+    "constraint_max_elective_conflicts": {"he": "מקסימום התנגשויות בין קורסי בחירה", "en": "Maximum elective-elective conflicts"},
+    "constraint_span_mandatory": {"he": "טווח מקסימלי בין מבחן חובה ראשון לאחרון", "en": "Maximum span from first to last mandatory exam"},
+    "constraint_max_exams_per_day": {"he": "מקסימום בחינות באותו יום", "en": "Maximum exams on the same day"},
+    "constraints_invalid": {"he": "חייב להיות מספר שלם ולא שלילי k ערך ", "en": "k must be a non-negative whole number"},
+    "constraints_locked": {"he": "לא ניתן לשמור אילוצים בזמן שהמנוע רץ", "en": "Constraints cannot be saved while the engine is running"},
+    "constraints_saved": {"he": "האילוצים נשמרו בהצלחה", "en": "Constraints saved successfully"},
 }
 
 def format_text(key: str, lang: str) -> str:

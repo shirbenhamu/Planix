@@ -9,6 +9,7 @@ import customtkinter as ctk
 from src.MVP.views import theme
 from src.MVP.views.ui_utils import TRANSLATIONS, format_text
 from src.MVP.views.components.ranking_bar import METRIC_DISPLAY_ORDER
+from src.metrics.metrics_calculator import METRIC_KEYS
 
 
 def show_metrics_info_popup(parent, current_lang: str):
@@ -82,5 +83,109 @@ def show_metrics_info_popup(parent, current_lang: str):
     ctk.CTkButton(
         parent.info_box, text=format_text("close", current_lang),
         command=_close, width=120, fg_color=theme.TEXT_ACCENT,
+        hover_color=theme.BORDER_ACTIVE,
+    ).pack(pady=(4, 16))
+
+
+def show_metrics_values_popup(parent, current_lang: str, metrics):
+    """Small on-demand popup with the current schedule's five metric values."""
+
+    if hasattr(parent, "metrics_values_box") and parent.metrics_values_box.winfo_exists():
+        parent.metrics_values_box.destroy()
+
+    rtl = current_lang == "he"
+    justify = "right" if rtl else "left"
+    anchor = "e" if rtl else "w"
+
+    def t(key):
+        text = TRANSLATIONS.get(key, {}).get(current_lang, key)
+        return f"\u200F{text}\u200F" if rtl else text
+
+    def value_text(value):
+        if value is None:
+            return "—"
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return "—"
+        if numeric == float("inf"):
+            return "∞"
+        if numeric.is_integer():
+            return str(int(numeric))
+        return f"{numeric:.1f}"
+
+    if isinstance(metrics, dict):
+        metrics_by_key = metrics
+    elif metrics:
+        metrics_by_key = {
+            key: value for key, value in zip(METRIC_KEYS, metrics)
+        }
+    else:
+        metrics_by_key = {}
+
+    f_title = ctk.CTkFont(family=theme.FONT_FAMILY, size=18, weight="bold")
+    f_label = ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold")
+    f_value = ctk.CTkFont(family=theme.FONT_FAMILY, size=15, weight="bold")
+
+    parent.metrics_values_box = ctk.CTkFrame(
+        parent,
+        fg_color=theme.BG_CARD,
+        border_width=2,
+        border_color=theme.BORDER_ACTIVE,
+        corner_radius=15,
+        width=420,
+    )
+    parent.metrics_values_box.place(relx=0.5, rely=0.32, anchor="center")
+    parent.metrics_values_box.lift()
+
+    ctk.CTkLabel(
+        parent.metrics_values_box,
+        text=t("metrics_panel_title"),
+        font=f_title,
+        text_color=theme.TEXT_ACCENT,
+        justify="center",
+    ).pack(pady=(18, 12), padx=18, fill="x")
+
+    body = ctk.CTkFrame(parent.metrics_values_box, fg_color=theme.TRANSPARENT)
+    body.pack(fill="x", padx=22, pady=(0, 10))
+    body.grid_columnconfigure(0, weight=1)
+    body.grid_columnconfigure(1, weight=0)
+
+    if not metrics_by_key:
+        ctk.CTkLabel(
+            body,
+            text=t("metrics_values_empty"),
+            font=f_label,
+            text_color=theme.TEXT_MUTED,
+            justify="center",
+        ).grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=14)
+    else:
+        for row_index, key in enumerate(METRIC_DISPLAY_ORDER):
+            ctk.CTkLabel(
+                body,
+                text=t(f"metric_{key}"),
+                font=f_label,
+                text_color=theme.TEXT_MAIN,
+                justify=justify,
+                anchor=anchor,
+                wraplength=290,
+            ).grid(row=row_index, column=0, sticky="ew", padx=(8, 16), pady=7)
+            ctk.CTkLabel(
+                body,
+                text=value_text(metrics_by_key.get(key)),
+                font=f_value,
+                text_color=theme.TEXT_ACCENT,
+                width=70,
+            ).grid(row=row_index, column=1, sticky="e", padx=8, pady=7)
+
+    def _close():
+        parent.metrics_values_box.destroy()
+
+    ctk.CTkButton(
+        parent.metrics_values_box,
+        text=format_text("close", current_lang),
+        command=_close,
+        width=120,
+        fg_color=theme.TEXT_ACCENT,
         hover_color=theme.BORDER_ACTIVE,
     ).pack(pady=(4, 16))
