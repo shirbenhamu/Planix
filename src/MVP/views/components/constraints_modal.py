@@ -1,5 +1,5 @@
 import tkinter as tk
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Union
 
 import customtkinter as ctk
 
@@ -47,15 +47,15 @@ CONSTRAINT_FIELDS = [
 ]
 
 
-def default_constraints_data() -> Dict[str, int | bool]:
-    data: Dict[str, int | bool] = {}
+def default_constraints_data() -> Dict[str, Union[int, bool]]:
+    data: Dict[str, Union[int, bool]] = {}
     for field in CONSTRAINT_FIELDS:
         data[field["enabled"]] = field["default_enabled"]
         data[field["k"]] = field["default_k"]
     return data
 
 
-def normalize_constraints_data(data: Optional[dict]) -> Dict[str, int | bool]:
+def normalize_constraints_data(data: Optional[dict]) -> Dict[str, Union[int, bool]]:
     normalized = default_constraints_data()
     if not data:
         return normalized
@@ -307,8 +307,8 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 )
                 label.configure(text_color=theme.TEXT_MUTED)
 
-    def _collect_data(self) -> Dict[str, int | bool]:
-        data: Dict[str, int | bool] = {}
+    def _collect_data(self) -> Dict[str, Union[int, bool]]:
+        data: Dict[str, Union[int, bool]] = {}
         for field in CONSTRAINT_FIELDS:
             enabled_key = field["enabled"]
             k_key = field["k"]
