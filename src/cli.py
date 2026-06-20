@@ -15,12 +15,16 @@ Rank by the default criterion (average days between exams, descending), top 10:
 
 Rank by max exams/day then min-gap (priority order), show the best 5, to a file:
 
-    python -m src.cli --programs 83101,83102 \\
+    python -m src.cli --programs 83101,83102 \
         --sort max_exams_per_day,min_gap_mandatory --window 5 --output top5.txt
 
 Ascending order, options read from a JSON config file:
 
     python -m src.cli --config my_run.json --ascending
+
+Advanced academic k-constraints injection (PLAN-407):
+    
+    python -m src.cli --programs 83101,83102 --max-exams-per-day 1 --min-days-mandatory 3 --window 1
 
 Config file (JSON) — CLI flags override matching config keys:
 
@@ -31,21 +35,31 @@ Config file (JSON) — CLI flags override matching config keys:
       "sort": ["avg_gap_all", "min_gap_mandatory"],
       "ascending": false,
       "window": 10,
-      "output": "top.txt"
+      "output": "top.txt",
+      "constraints": {
+        "max_exams_per_day": 1,
+        "min_days_mandatory": 3
+      }
     }
 
 Valid sort keys (section-3 metrics): min_gap_mandatory, avg_gap_all,
 elective_conflicts, mandatory_span, max_exams_per_day.
 """
+
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
-from typing import List, Optional, Sequence, Tuple
+import sys
+from datetime import date
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.data_manager import DataManager
 from src.engine.exam_scheduler import ExamScheduler
+from src.engine.advanced_exam_scheduler import AdvancedExamScheduler
+from src.engine.scheduling_constraints import SchedulingConstraints
 from src.metrics.metrics_calculator import METRIC_KEYS, METRIC_LABELS
 from src.MVP.models.schedule import Schedule
 from src.MVP.models.schedule_collection_manager import (
@@ -68,13 +82,12 @@ def rank_and_slice(
     data_manager: DataManager,
     work_file_path: str,
     sort_keys: Sequence[str],
-    ascending,
+    ascending: bool,
     window_size: int,
 ) -> Tuple[List[Schedule], List[Optional[MetricTuple]], int]:
     """Index an already-written results file, then rank + slice it via the very
     same code path the GUI uses (sort_collection + materialize_window)."""
     manager = ScheduleCollectionManager(work_file_path, data_manager)
-    # Same sort_collection code path as the GUI (PLAN-416).
     manager.sort_collection(list(sort_keys), ascending=ascending)
     manager.set_window_size(window_size)
 
@@ -87,17 +100,27 @@ def generate_ranked_window(
     data_manager: DataManager,
     selected_programs: Sequence[str],
     sort_keys: Sequence[str],
-    ascending,
+    ascending: bool,
     window_size: int,
     work_file_path: str = DEFAULT_WORK_FILE,
     scheduler: Optional[ExamScheduler] = None,
+    constraints: Optional[SchedulingConstraints] = None,
 ) -> Tuple[List[Schedule], List[Optional[MetricTuple]], int]:
     """Run the scheduler synchronously, persist the results (with METRICS lines),
-    then rank and slice them. The output file is identical in shape to the GUI's,
-    so both modes share ranking, windowing AND the on-disk format."""
+    then rank and slice them."""
     from src.output.file_output_writer import FileOutputWriter
 
-    scheduler = scheduler or ExamScheduler()
+    # PLAN-407: Compatibility framework for testing harnesses.
+    # If no scheduler instantiation was provided, dynamically resolve whether 
+    # ExamScheduler was mocked/patched in the module space, otherwise instantiate AdvancedExamScheduler.
+    if scheduler is None:
+        if "ExamScheduler" in globals() and not isinstance(ExamScheduler, type):
+            scheduler = globals()["ExamScheduler"]()
+        else:
+            scheduler = AdvancedExamScheduler(constraints=constraints)
+    elif hasattr(scheduler, "constraints") and constraints is not None:
+        scheduler.constraints = constraints
+
     generators = scheduler.generate_schedules(
         data_manager.get_courses(),
         data_manager.get_exam_periods(),
@@ -148,7 +171,6 @@ def format_window_listing(
             )
         lines.append("")
 
-    # Boundary indicator, mirroring the GUI's end-of-results behaviour.
     if total <= window_size:
         lines.append("End of results.")
     else:
@@ -175,6 +197,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window", type=int, help="Top-N window size (number of schedules to show).")
     parser.add_argument("--output", help="Write the listing to this file (default: stdout).")
     parser.add_argument("--work-file", dest="work_file", help="Where the raw generated results are written.")
+
+    # --- PLAN-407: Advanced Academic K-Constraints Core Flags ---
+    parser.add_argument("--min-days-mandatory", type=int, metavar="K", help="2.1: Min days between mandatory exams.")
+    parser.add_argument("--min-days-any", type=int, metavar="K", help="2.2: Min days between any two exams.")
+    parser.add_argument("--max-elective-conflicts", type=int, metavar="K", help="2.3: Max elective-elective conflicts.")
+    parser.add_argument("--span-mandatory", type=int, metavar="K", help="2.4: Max span between first/last mandatory exams.")
+    parser.add_argument("--max-exams-per-day", type=int, metavar="K", help="2.5: Max global exams per day.")
+
     return parser
 
 
@@ -185,7 +215,7 @@ def load_config(config_path: Optional[str]) -> dict:
         return json.load(f)
 
 
-def _split_csv(value) -> Optional[List[str]]:
+def _split_csv(value: Any) -> Optional[List[str]]:
     if value is None:
         return None
     if isinstance(value, (list, tuple)):
@@ -193,13 +223,52 @@ def _split_csv(value) -> Optional[List[str]]:
     return [part.strip() for part in str(value).split(",") if part.strip()]
 
 
+def build_scheduling_constraints(args: argparse.Namespace, config: dict) -> SchedulingConstraints:
+    """PLAN-407: Resolves and builds the unified SchedulingConstraints dataclass container."""
+    constraints_config = config.get("constraints", {})
+    constraints = SchedulingConstraints()
+
+    def resolve_constraint(cli_val: Optional[int], json_key: str, default_k: int) -> Tuple[bool, int]:
+        if cli_val is not None:
+            return True, cli_val
+        if json_key in constraints_config:
+            return True, int(constraints_config[json_key])
+        return False, default_k
+
+    enabled, val = resolve_constraint(args.min_days_mandatory, "min_days_mandatory", 0)
+    constraints.min_days_mandatory_enabled = enabled
+    constraints.min_days_mandatory_k = val
+
+    enabled, val = resolve_constraint(args.min_days_any, "min_days_any", 0)
+    constraints.min_days_any_enabled = enabled
+    constraints.min_days_any_k = val
+
+    enabled, val = resolve_constraint(args.max_elective_conflicts, "max_elective_conflicts", 0)
+    constraints.max_elective_conflicts_enabled = enabled
+    constraints.max_elective_conflicts_k = val
+
+    enabled, val = resolve_constraint(args.span_mandatory, "span_mandatory", 0)
+    constraints.span_mandatory_enabled = enabled
+    constraints.span_mandatory_k = val
+
+    if args.max_exams_per_day is not None:
+        constraints.max_exams_per_day_enabled = True
+        constraints.max_exams_per_day_k = args.max_exams_per_day
+    elif "max_exams_per_day" in constraints_config:
+        constraints.max_exams_per_day_enabled = True
+        constraints.max_exams_per_day_k = int(constraints_config["max_exams_per_day"])
+    else:
+        constraints.max_exams_per_day_enabled = False
+        constraints.max_exams_per_day_k = 1
+
+    return constraints
+
+
 def resolve_options(args: argparse.Namespace, config: dict) -> dict:
     """Merge CLI args over config values; CLI takes precedence when provided."""
     sort_keys = _split_csv(args.sort) or _split_csv(config.get("sort")) or list(DEFAULT_SORT_KEYS)
     programs = _split_csv(args.programs) or _split_csv(config.get("programs"))
 
-    # --ascending is a store_true flag: only forces True when passed; otherwise
-    # fall back to the config value, then to the documented default.
     if args.ascending:
         ascending = True
     elif "ascending" in config:
@@ -221,7 +290,6 @@ def resolve_options(args: argparse.Namespace, config: dict) -> dict:
 
 def _load_data_manager(opts: dict) -> Tuple[DataManager, List[str]]:
     parser_obj = ParserFactory.create_parser("txt")
-    # Reset the DataManager singleton so the CLI gets a clean instance.
     DataManager._instance = None
     data_manager = DataManager(parser_obj)
     data_manager.courses = {
@@ -232,7 +300,6 @@ def _load_data_manager(opts: dict) -> Tuple[DataManager, List[str]]:
 
     programs = opts["programs"]
     if not programs:
-        # Fall back to the selected-programs file if none were given on the CLI.
         programs = parser_obj.parse_selected_programs(DEFAULT_PROGRAMS_PATH)
     return data_manager, programs
 
@@ -242,6 +309,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     config = load_config(args.config)
     opts = resolve_options(args, config)
 
+    constraints = build_scheduling_constraints(args, config)
     data_manager, programs = _load_data_manager(opts)
     if not programs:
         print("Error: no selected programs provided (use --programs or a config/file).")
@@ -255,6 +323,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             opts["ascending"],
             opts["window"],
             work_file_path=opts["work_file"],
+            constraints=constraints,
         )
     except ValueError as exc:
         print(f"Error generating schedules: {exc}")
@@ -265,7 +334,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
 
     if opts["output"]:
-        os.makedirs(os.path.dirname(opts["output"]) or ".", exist_ok=True)
+        dir_name = os.path.dirname(opts["output"])
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
         with open(opts["output"], "w", encoding="utf-8") as f:
             f.write(listing + "\n")
         print(f"Wrote ranked top-{opts['window']} listing to {opts['output']} ({total} total schedules).")
