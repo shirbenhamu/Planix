@@ -1,8 +1,13 @@
 # src/MVP/views/components/info_modal.py
 """
-Help modal explaining the ranking features (PLAN-400): the five section-3
-metrics, how sorting works, and Refresh vs. Sync. Fully bilingual (he/en) and
-theme-driven, so it follows the app's day/night appearance automatically.
+Help modals for the ranking features (PLAN-400):
+  * show_metrics_info_popup  — explains how sorting works and what each of the
+    five section-3 metrics measures (bold name + plain description + a hint on
+    whether higher or lower is better).
+  * show_metrics_values_popup — the current schedule's five metric values.
+
+Both are fully bilingual (he/en) and theme-driven, so they follow the app's
+day/night appearance automatically.
 """
 import customtkinter as ctk
 
@@ -11,24 +16,33 @@ from src.MVP.views.ui_utils import TRANSLATIONS, format_text
 from src.MVP.views.components.ranking_bar import METRIC_DISPLAY_ORDER
 from src.metrics.metrics_calculator import METRIC_KEYS
 
+# Metrics where a HIGHER value is the better outcome (the rest: lower is better).
+_PREF_HIGHER = {"avg_gap_all", "min_gap_mandatory", "mandatory_span"}
+
 
 def show_metrics_info_popup(parent, current_lang: str):
     # Tear down any previous instance so re-opening (or a language switch) is clean.
     if hasattr(parent, "info_box") and parent.info_box.winfo_exists():
         parent.info_box.destroy()
-    parent._info_open = True  # let the view rebuild on a language switch if it wants
+    parent._info_open = True
 
     rtl = current_lang == "he"
     justify = "right" if rtl else "left"
     anchor = "e" if rtl else "w"
 
-    def t(key):
-        text = TRANSLATIONS.get(key, {}).get(current_lang, key)
+    def tr(key):
+        return TRANSLATIONS.get(key, {}).get(current_lang, key)
+
+    def shape(text):
+        # Wrap Hebrew lines in RTL marks so mixed text/punctuation reads correctly.
         return f"\u200F{text}\u200F" if rtl else text
 
     f_title = ctk.CTkFont(family=theme.FONT_FAMILY, size=18, weight="bold")
     f_section = ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold")
+    f_item = ctk.CTkFont(family=theme.FONT_FAMILY, size=13, weight="bold")
     f_body = ctk.CTkFont(family=theme.FONT_FAMILY, size=12)
+    f_hint = ctk.CTkFont(family=theme.FONT_FAMILY, size=11, slant="italic")
+    WRAP = 460
 
     parent.info_box = ctk.CTkFrame(
         parent, fg_color=theme.BG_CARD, border_width=2,
@@ -37,10 +51,8 @@ def show_metrics_info_popup(parent, current_lang: str):
     parent.info_box.place(relx=0.5, rely=0.5, anchor="center")
     parent.info_box.lift()
 
-    WRAP = 460
-
     ctk.CTkLabel(
-        parent.info_box, text=t("info_title"), font=f_title,
+        parent.info_box, text=tr("info_title"), font=f_title,
         text_color=theme.TEXT_ACCENT, wraplength=WRAP, justify="center",
     ).pack(pady=(18, 10), padx=20)
 
@@ -50,31 +62,40 @@ def show_metrics_info_popup(parent, current_lang: str):
 
     def section(title_key):
         ctk.CTkLabel(
-            body, text=t(title_key), font=f_section, text_color=theme.TEXT_ACCENT,
+            body, text=shape(tr(title_key)), font=f_section, text_color=theme.TEXT_ACCENT,
             wraplength=WRAP, justify=justify, anchor=anchor,
-        ).pack(pady=(12, 2), padx=6, fill="x")
+        ).pack(pady=(16, 4), padx=6, fill="x")
 
     def paragraph(text):
         ctk.CTkLabel(
-            body, text=text, font=f_body, text_color=theme.TEXT_MAIN,
+            body, text=shape(text), font=f_body, text_color=theme.TEXT_MAIN,
             wraplength=WRAP, justify=justify, anchor=anchor,
-        ).pack(pady=2, padx=6, fill="x")
+        ).pack(pady=(0, 6), padx=6, fill="x")
 
-    # Sorting
+    def metric_item(key):
+        # Bold name, then a plain description, then a small better-direction hint.
+        ctk.CTkLabel(
+            body, text=shape(tr(f"metric_{key}")), font=f_item,
+            text_color=theme.TEXT_MAIN, wraplength=WRAP, justify=justify, anchor=anchor,
+        ).pack(pady=(10, 0), padx=6, fill="x")
+        ctk.CTkLabel(
+            body, text=shape(tr(f"info_metric_{key}")), font=f_body,
+            text_color=theme.TEXT_MUTED, wraplength=WRAP, justify=justify, anchor=anchor,
+        ).pack(padx=6, fill="x")
+        pref_key = "info_pref_higher" if key in _PREF_HIGHER else "info_pref_lower"
+        ctk.CTkLabel(
+            body, text=shape(tr(pref_key)), font=f_hint,
+            text_color=theme.TEXT_ACCENT, wraplength=WRAP, justify=justify, anchor=anchor,
+        ).pack(pady=(0, 2), padx=6, fill="x")
+
+    # How sorting works.
     section("info_sort_title")
-    paragraph(t("info_sort_desc"))
+    paragraph(tr("info_sort_desc"))
 
-    # The five metrics — name (bold) + description, in the display order.
+    # The five metrics, in dropdown display order.
     section("info_metrics_title")
     for key in METRIC_DISPLAY_ORDER:
-        name = TRANSLATIONS[f"metric_{key}"][current_lang]
-        desc = TRANSLATIONS[f"info_metric_{key}"][current_lang]
-        line = f"{name} — {desc}"
-        paragraph(f"\u200F{line}\u200F" if rtl else line)
-
-    # Refresh vs. Sync
-    section("info_refresh_title")
-    paragraph(t("info_refresh_desc"))
+        metric_item(key)
 
     def _close():
         parent._info_open = False

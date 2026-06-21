@@ -31,9 +31,6 @@ class CalendarPresenter:
         if hasattr(self.view, "on_sort_changed"):
             self.view.on_sort_changed = self._handle_sort_changed
 
-        if hasattr(self.view, "on_refresh_clicked"):
-            self.view.on_refresh_clicked = self._handle_refresh
-
         self.view.get_exam_periods_callback = lambda: list(self.model.get_exam_periods() or [])
         self.view.on_sync_clicked = self._handle_sync_action
         self.refresh_presenter_state()
@@ -225,10 +222,6 @@ class CalendarPresenter:
         except (ValueError, IndexError):
             metrics = None
         self.view.update_metrics_display(metrics)
-
-    def _handle_refresh(self) -> None:
-        self.collection_manager.apply_sort_and_refresh()
-        self.refresh_presenter_state()
 
     def auto_refresh_feed(self) -> bool:
         self.collection_manager.apply_sort_and_refresh()

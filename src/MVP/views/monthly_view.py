@@ -55,15 +55,12 @@ class MonthlyGridView(ctk.CTkFrame):
         self.toolbar.on_edit_dates = self._open_dates_modal
         self.toolbar.on_constraints_settings = self._open_constraints_modal
 
-        # --- Ranking bar (PLAN-411..415): same sort/refresh/metrics as annual ---
+        # --- Ranking bar (PLAN-411..414): same sort + metrics as annual ---
         self.on_sort_changed = None      # wired (via app_window) to the presenter
-        self.on_refresh_clicked = None
         self.ranking_bar = RankingBar(self, lang=self.current_lang)
         self.ranking_bar.pack(fill="x", padx=20, pady=(0, 10))
         self.ranking_bar.on_sort_changed = lambda keys, asc: (
             self.on_sort_changed(keys, asc) if self.on_sort_changed else None)
-        self.ranking_bar.on_refresh = lambda: (
-            self.on_refresh_clicked() if self.on_refresh_clicked else None)
         self.ranking_bar.on_info = lambda: show_metrics_info_popup(self, self.current_lang)
         self.ranking_bar.on_metrics_details = lambda metrics: show_metrics_values_popup(
             self, self.current_lang, metrics
@@ -357,11 +354,20 @@ class MonthlyGridView(ctk.CTkFrame):
         if hasattr(self, "ranking_bar"):
             self.ranking_bar.show_no_more_results()
 
+    def _relocalize_open_ranking_popups(self, lang: str):
+        """Rebuild any open info / metrics-values popup in the new language so it
+        switches live while the user is looking at it."""
+        if getattr(self, "info_box", None) is not None and self.info_box.winfo_exists():
+            show_metrics_info_popup(self, lang)
+        if getattr(self, "metrics_values_box", None) is not None and self.metrics_values_box.winfo_exists():
+            show_metrics_values_popup(self, lang, getattr(self.ranking_bar, "_last_metrics", None))
+
     def update_language(self, lang: str):
         self.current_lang = lang
         self.toolbar.update_language(lang)
         if hasattr(self, "ranking_bar"):
             self.ranking_bar.set_language(lang)
+        self._relocalize_open_ranking_popups(lang)
         if hasattr(self, "empty_robot"):
             self.empty_robot.set_speech(format_text("empty_state", lang))
         self.update_pagination(self._current_page, self._total_pages)
