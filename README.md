@@ -128,3 +128,12 @@ python -m src.cli --config my_run.json --ascending
 Valid sort keys (section-3 metrics): `min_gap_mandatory`, `avg_gap_all`,
 `elective_conflicts`, `mandatory_span`, `max_exams_per_day`. CLI flags override
 matching config keys.
+
+
+### Advanced K-Constraints Configuration (PLAN-407)
+The file-based mode now fully supports dynamic academic constraints injection during schedule generation, ensuring both CLI and GUI modes share identical constraint logic and output matrices.
+
+#### Enforcing Constraints via CLI:
+To run a scheduling matrix enforcing a maximum of 1 exam per day and at least 3 days between mandatory exams directly from the command line:
+```bash
+python -m src.cli --programs 83101,83102 --max-exams-per-day 1 --min-days-mandatory 3 --window 1
