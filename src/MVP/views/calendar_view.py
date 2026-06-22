@@ -64,6 +64,14 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_sync_clicked = None
         self.toolbar.on_sync_clicked = lambda: self._fire_sync()
 
+        # Manual drag & drop (PLAN-554): callbacks set by the presenter, plus the
+        # Undo button and the in-progress drag state.
+        self.on_exam_dropped = None      # (course_id, src_cell_key, dst_cell_key)
+        self.on_undo_clicked = None
+        self.on_drag_validate = None     # (course_id, src, dst) -> bool, for live feedback
+        self.toolbar.on_undo = lambda: self.on_undo_clicked() if self.on_undo_clicked else None
+        self._drag = None
+
         # --- Ranking bar (PLAN-411..414): sort + live metrics ---
         self.on_sort_changed = None      # set by the presenter -> _handle_sort_changed
         self.ranking_bar = RankingBar(self, lang=self.current_lang)
@@ -344,13 +352,27 @@ class CalendarGridView(ctk.CTkFrame):
                     # Create new card
                     card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
                     card.pack(fill="x", expand=False, padx=1, pady=2)
-                    card.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
 
                     lbl = ctk.CTkLabel(card, text=f"{exam.get('course_id', '')}", font=self.f_card, text_color="white", justify="center")
                     lbl.pack(padx=2, pady=2)
-                    lbl.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
+
+                    # Drag & drop bindings (PLAN-560). Bound once; handlers read the
+                    # live (course_id, cell_key) stored on the card below, so pooled
+                    # reuse never carries a stale exam.
+                    for widget in (card, lbl):
+                        self._bind_drag_handlers(widget, card)
+                        # A "move" cursor on hover signals the card is draggable.
+                        try:
+                            widget.configure(cursor="hand2")
+                        except Exception:
+                            pass
 
                     pool["exam_cards"].append(card)
+
+                # Stash the current drag identity on the card (create AND reuse path).
+                card._drag_course_id = exam.get("course_id", "")
+                card._drag_exam = exam
+                card._drag_cell_key = cell_key
             
             # Hide excess cards using pack_forget (keep them in memory for reuse)
             for i in range(len(exams), len(pool["exam_cards"])):
@@ -439,6 +461,108 @@ class CalendarGridView(ctk.CTkFrame):
     def _handle_export(self):
         file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")], title="Save")
         if file_path and self.on_export_clicked: self.on_export_clicked(file_path)
+
+    # ===== Manual drag & drop of exam cards (PLAN-560/561/563) ===============
+
+    _DRAG_THRESHOLD_PX = 6  # movement beyond this turns a click into a drag
+
+    def set_undo_enabled(self, enabled: bool):
+        if hasattr(self, "toolbar"):
+            self.toolbar.set_undo_enabled(enabled)
+        monthly = getattr(self, "monthly_view", None)
+        if monthly is not None and hasattr(monthly, "toolbar"):
+            monthly.toolbar.set_undo_enabled(enabled)
+
+    def _bind_drag_handlers(self, widget, card):
+        widget.bind("<ButtonPress-1>", lambda e, c=card: self._on_drag_press(e, c))
+        widget.bind("<B1-Motion>", self._on_drag_motion)
+        widget.bind("<ButtonRelease-1>", self._on_drag_release)
+
+    def _on_drag_press(self, event, card):
+        self._drag = {
+            "card": card,
+            "course_id": getattr(card, "_drag_course_id", ""),
+            "exam": getattr(card, "_drag_exam", {}),
+            "src_cell": getattr(card, "_drag_cell_key", None),
+            "x0": event.x_root,
+            "y0": event.y_root,
+            "moved": False,
+            "highlight": None,
+        }
+
+    def _on_drag_motion(self, event):
+        if not self._drag:
+            return
+        if not self._drag["moved"]:
+            dx = abs(event.x_root - self._drag["x0"])
+            dy = abs(event.y_root - self._drag["y0"])
+            if dx + dy <= self._DRAG_THRESHOLD_PX:
+                return
+            self._drag["moved"] = True
+            try:
+                self.configure(cursor="fleur")
+            except Exception:
+                pass
+        # Live feedback: green target if the drop is valid, red if not.
+        target = self._cell_key_at(event.x_root, event.y_root)
+        valid = bool(
+            target and target != self._drag["src_cell"] and self.on_drag_validate
+            and self.on_drag_validate(self._drag["course_id"], self._drag["src_cell"], target)
+        )
+        self._highlight_drop_target(target, valid)
+
+    def _on_drag_release(self, event):
+        drag = self._drag
+        self._drag = None
+        if not drag:
+            return
+        try:
+            self.configure(cursor="")
+        except Exception:
+            pass
+        self._highlight_drop_target(None)
+
+        if not drag["moved"]:
+            # A plain click — keep the existing behavior: show the exam details.
+            if drag["exam"]:
+                show_exam_popup(self, drag["exam"], self.current_lang)
+            return
+
+        target_cell = self._cell_key_at(event.x_root, event.y_root)
+        src_cell = drag["src_cell"]
+        if target_cell and src_cell and target_cell != src_cell and self.on_exam_dropped:
+            self.on_exam_dropped(drag["course_id"], src_cell, target_cell)
+        # else: dropped on nothing / same cell -> presenter not called; the card
+        # stays where it is (snap back is implicit, no error shown).
+
+    def _highlight_drop_target(self, cell_key, valid=False):
+        prev = self._drag.get("highlight") if self._drag else None
+        prev_valid = self._drag.get("highlight_valid") if self._drag else None
+        if prev == cell_key and prev_valid == valid:
+            return  # nothing changed; avoid needless reconfigure/flicker
+        if prev and prev in self.grid_cells and prev != self.selected_cell_key:
+            self.grid_cells[prev].configure(border_color=theme.BORDER_DEFAULT, border_width=1)
+        new_highlight = None
+        if cell_key and cell_key in self.grid_cells and self._cell_day_number.get(cell_key) is not None:
+            color = theme.SUCCESS if valid else theme.DANGER
+            self.grid_cells[cell_key].configure(border_color=color, border_width=2)
+            new_highlight = cell_key
+        if self._drag:
+            self._drag["highlight"] = new_highlight
+            self._drag["highlight_valid"] = valid
+
+    def _cell_key_at(self, x_root, y_root):
+        """Return the grid cell_key under the given screen coordinates (or None).
+        Matches by widget path so it works through CTk's nested frames."""
+        target = self.winfo_containing(x_root, y_root)
+        if target is None:
+            return None
+        target_path = str(target)
+        for cell_key, cell in self.grid_cells.items():
+            cell_path = str(cell)
+            if target_path == cell_path or target_path.startswith(cell_path + "."):
+                return cell_key
+        return None
 
     def _handle_cell_click(self, cell_key):
         if self._cell_day_number.get(cell_key) is None:

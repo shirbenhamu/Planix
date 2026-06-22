@@ -35,6 +35,7 @@ class TopToolbar(ctk.CTkFrame):
         self.on_load_more = None
         self.on_edit_dates = None
         self.on_constraints_settings = None
+        self.on_undo = None
 
         self.hamburger_btn = ctk.CTkLabel(self, text="☰", font=(
             "Arial", 22), cursor="hand2", text_color=theme.TEXT_ACCENT)
@@ -104,6 +105,16 @@ class TopToolbar(ctk.CTkFrame):
         self.exclude_btn.pack(side="left", padx=4)
         self.tip_exclude = Tooltip(self.exclude_btn, "החרג יום נבחר")
 
+        # Undo manual drag & drop changes (PLAN-563). Disabled until an edit exists.
+        self.undo_btn = ctk.CTkButton(
+            self, text="↩", font=ctk.CTkFont(family=theme.FONT_FAMILY, size=16, weight="bold"),
+            fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color="white",
+            height=28, width=35, corner_radius=6, state="disabled",
+            command=lambda: self.on_undo() if self.on_undo else None,
+        )
+        self.undo_btn.pack(side="left", padx=4)
+        self.tip_undo = Tooltip(self.undo_btn, "בטל שינויים ידניים")
+
         # Elegant, branded download button on the right side
         self.export_btn = ctk.CTkButton(
             self, text=ICON_EXPORT, fg_color=theme.SUCCESS, hover_color=theme.SUCCESS_HOVER,
@@ -130,6 +141,9 @@ class TopToolbar(ctk.CTkFrame):
         if self.on_sync_clicked:
             self.on_sync_clicked()
 
+    def set_undo_enabled(self, enabled: bool):
+        self.undo_btn.configure(state="normal" if enabled else "disabled")
+
     def set_pagination(self, current: int, total: int):
         self.page_entry.delete(0, "end")
         self.page_entry.insert(0, str(current))
@@ -143,10 +157,12 @@ class TopToolbar(ctk.CTkFrame):
             self.tip_load_more.text = "טען מערכות נוספות"
             self.tip_constraints.text = "הגדרות אילוצים"
             self.tip_exclude.text = "החרג יום נבחר"
+            self.tip_undo.text = "בטל שינויים ידניים"
             self.tip_export.text = "ייצוא לוח זמנים"
         else:
             self.tip_edit.text = "Edit Dates"
             self.tip_load_more.text = "Load More"
             self.tip_constraints.text = "Constraints Settings"
             self.tip_exclude.text = "Exclude Date"
+            self.tip_undo.text = "Undo manual changes"
             self.tip_export.text = "Export Schedule"
