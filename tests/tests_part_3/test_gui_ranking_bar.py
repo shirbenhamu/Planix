@@ -17,7 +17,6 @@ def _bar(lang="he", primary="avg_gap_all", secondary=None, ascending=False):
     bar = object.__new__(RankingBar)
     bar.current_lang = lang
     bar.on_sort_changed = None
-    bar.on_refresh = None
     bar._primary_key = primary
     bar._secondary_key = secondary
     bar._ascending = ascending
@@ -87,13 +86,6 @@ def test_on_direction_toggles_ascending():
     bar._on_direction(bar._dir_asc)
     assert bar._ascending is True
     bar.on_sort_changed.assert_called_once_with(["avg_gap_all"], True)
-
-
-def test_on_refresh_calls_handler():
-    bar = _bar()
-    bar.on_refresh = MagicMock()
-    bar._on_refresh()
-    bar.on_refresh.assert_called_once()
 
 
 def test_on_info_click_calls_handler():
@@ -174,7 +166,7 @@ def test_info_help_translations_exist(lang):
     for key in (
         "info_btn_tooltip", "metrics_values_button", "metrics_values_tooltip",
         "metrics_values_empty", "info_title", "info_sort_title", "info_sort_desc",
-        "info_metrics_title", "info_refresh_title", "info_refresh_desc",
+        "info_metrics_title", "info_pref_higher", "info_pref_lower",
     ):
         assert TRANSLATIONS[key][lang], f"missing {key}/{lang}"
 

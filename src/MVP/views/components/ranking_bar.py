@@ -51,7 +51,6 @@ class RankingBar(ctk.CTkFrame):
 
         # Public callbacks (wired by the embedding view / presenter).
         self.on_sort_changed = None   # (sort_keys: list[str], ascending: bool) -> None
-        self.on_refresh = None        # () -> None
         self.on_info = None           # () -> None  (open the help modal)
         self.on_metrics_details = None  # (metrics) -> None  (open current metrics modal)
 
@@ -116,10 +115,6 @@ class RankingBar(ctk.CTkFrame):
 
         self.direction_menu = ctk.CTkOptionMenu(
             self, values=[""], width=110, command=self._on_direction, **menu_style)
-        self.refresh_btn = ctk.CTkButton(
-            self, font=self._font, width=110, height=30, corner_radius=8,
-            fg_color=theme.SUCCESS, hover_color=theme.SUCCESS_HOVER, text_color="white",
-            command=self._on_refresh)
 
         # Round "i" help button — opens the metrics/sorting explanation modal.
         self.info_btn = ctk.CTkButton(
@@ -147,7 +142,6 @@ class RankingBar(ctk.CTkFrame):
             self.lbl_sort,
             self.sort_selector_btn,
             self.direction_menu,
-            self.refresh_btn,
             self.info_btn,
             self.metrics_details_btn,
         ]
@@ -157,7 +151,6 @@ class RankingBar(ctk.CTkFrame):
         self.current_lang = lang
 
         self.lbl_sort.configure(text=self._rtl(self._t("sort_by")))
-        self.refresh_btn.configure(text=f"↻ {self._t('refresh_btn')}")
         self._info_tooltip.text = self._t("info_btn_tooltip")
         self.metrics_details_btn.configure(text=self._rtl(self._t("metrics_values_button")))
         self._metrics_details_tooltip.text = self._t("metrics_values_tooltip")
@@ -253,10 +246,6 @@ class RankingBar(ctk.CTkFrame):
     def _on_direction(self, label: str) -> None:
         self._ascending = label == self._dir_asc
         self._fire()
-
-    def _on_refresh(self) -> None:
-        if self.on_refresh:
-            self.on_refresh()
 
     def _on_info_click(self) -> None:
         if self.on_info:

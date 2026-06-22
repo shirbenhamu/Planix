@@ -150,15 +150,10 @@ def _presenter(tmp_path, gaps, engine_active=False):
     return presenter, view, manager
 
 
-# --- PLAN-502 manual refresh button -----------------------------------------
-def test_manual_refresh_button_wired_and_no_engine(tmp_path):
+# --- refresh-feed via auto-refresh: re-ranks without re-running the engine ---
+def test_auto_refresh_feed_does_not_invoke_engine(tmp_path):
     presenter, view, manager = _presenter(tmp_path, [3, 5, 9])
-    assert presenter.view.on_refresh_clicked == presenter._handle_refresh
-
-    view.render_count = 0
-    presenter._handle_refresh()
-    # The window was redrawn; the engine was never invoked.
-    assert view.render_count >= 1
+    presenter.auto_refresh_feed()
     presenter.controller.regenerate_schedules_snapshot.assert_not_called()
     presenter.controller.engine_adapter.generate_from_model.assert_not_called()
 

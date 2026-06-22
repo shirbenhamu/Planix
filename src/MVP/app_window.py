@@ -192,10 +192,6 @@ class AppWindow(ctk.CTk):
             lambda keys, asc: self.calendar_view.on_sort_changed(keys, asc)
             if self.calendar_view.on_sort_changed else None
         )
-        self.monthly_view.on_refresh_clicked = (
-            lambda: self.calendar_view.on_refresh_clicked()
-            if self.calendar_view.on_refresh_clicked else None
-        )
 
         self.monthly_view.on_cell_clicked = (
             lambda key: self.calendar_view._handle_cell_click(key)

@@ -81,12 +81,11 @@ TRANSLATIONS = {
     "eval_OTHER": {"he": "אחר", "en": "Other"},
 
     # --- Ranking bar: sort + windowing controls (PLAN-411..415) ---
-    "sort_by": {"he": "מיון לפי:", "en": "Sort by:"},
-    "sort_then": {"he": "ואז:", "en": "then:"},
+    "sort_by": {"he": "מיון לפי", "en": "Sort by"},
+    "sort_then": {"he": "ואז", "en": "then"},
     "sort_dir_desc": {"he": "יורד", "en": "Desc"},
     "sort_dir_asc": {"he": "עולה", "en": "Asc"},
     "sort_none": {"he": "— ללא —", "en": "— None —"},
-    "refresh_btn": {"he": "רענן", "en": "Refresh"},
     "end_of_results": {"he": "סוף התוצאות", "en": "End of results"},
     "metrics_panel_title": {"he": "מדדי המערכת הנוכחית", "en": "Current schedule metrics"},
     "metrics_values_button": {"he": "מדדים", "en": "Metrics"},
@@ -116,34 +115,31 @@ TRANSLATIONS = {
     "info_title": {"he": "דירוג ומדדים — הסבר", "en": "Ranking & Metrics — Help"},
     "info_sort_title": {"he": "מיון", "en": "Sorting"},
     "info_sort_desc": {
-        "he": "המיון משנה רק את סדר ההצגה של הלוחות — הוא אף פעם לא מוסיף או מסיר לוחות. בוחרים מדד ראשי, מדד משני לשובר־שוויון, וכיוון (יורד/עולה). השינוי מיידי ואינו מריץ את המנוע מחדש.",
-        "en": "Sorting only changes the display order of the schedules — it never adds or removes any. Pick a primary metric, an optional secondary tie-breaker, and a direction (descending/ascending). It applies instantly and does not re-run the engine.",
+        "he": "המיון קובע רק את סדר הצגת הלוחות. הוא לא מוסיף ולא מסיר לוחות. בוחרים מדד ראשי, מדד משני לשובר שוויון, וכיוון: ״יורד״ מציג ערכים גבוהים תחילה, ״עולה״ מציג ערכים נמוכים תחילה. השינוי מיידי ואינו מריץ מחדש את המנוע.",
+        "en": "Sorting only sets the order in which schedules are shown. It never adds or removes any. Choose a primary metric, an optional secondary tie-breaker, and a direction: ‘Desc’ shows the highest values first, ‘Asc’ shows the lowest first. It applies instantly and does not re-run the engine.",
     },
     "info_metrics_title": {"he": "חמשת המדדים", "en": "The five metrics"},
+    "info_pref_higher": {"he": "מומלץ ערך גבוה", "en": "Higher is better"},
+    "info_pref_lower": {"he": "מומלץ ערך נמוך", "en": "Lower is better"},
     "info_metric_avg_gap_all": {
-        "he": "ממוצע מספר הימים בין כל זוג בחינות (חובה או בחירה) באותה תוכנית ושנה. ערך גבוה = הבחינות מפוזרות יותר.",
-        "en": "Average number of days between every pair of exams (mandatory or elective) in the same program and year. Higher = exams are more spread out.",
+        "he": "ממוצע מספר הימים בין כל זוג בחינות (חובה או בחירה) באותה תוכנית ובאותה שנה.",
+        "en": "The average number of days between every pair of exams (mandatory or elective) in the same program and year.",
     },
     "info_metric_min_gap_mandatory": {
-        "he": "המרווח הקטן ביותר (בימים) בין שתי בחינות חובה באותה תוכנית ושנה. ערך גבוה = אין שתי בחינות חובה צמודות.",
-        "en": "The smallest gap (in days) between two mandatory exams in the same program and year. Higher = no two mandatory exams are crammed together.",
+        "he": "מספר הימים הקטן ביותר שמפריד בין שתי בחינות חובה כלשהן באותה תוכנית ובאותה שנה.",
+        "en": "The fewest days separating any two mandatory exams in the same program and year.",
     },
     "info_metric_elective_conflicts": {
-        "he": "כמה זוגות קורסי בחירה באותה תוכנית נופלים באותו יום. ערך נמוך = פחות חפיפות בקורסי בחירה.",
-        "en": "How many pairs of elective courses in the same program fall on the same day. Lower = fewer elective clashes.",
+        "he": "מספר זוגות קורסי הבחירה באותה תוכנית שנקבעו לאותו יום.",
+        "en": "The number of elective-course pairs in the same program scheduled on the same day.",
     },
     "info_metric_mandatory_span": {
-        "he": "מספר הימים בין בחינת החובה הראשונה לאחרונה באותה תוכנית ושנה.",
-        "en": "The number of days between the first and last mandatory exam in the same program and year.",
+        "he": "מספר הימים מבחינת החובה הראשונה ועד בחינת החובה האחרונה באותה תוכנית ובאותה שנה.",
+        "en": "The number of days from the first mandatory exam to the last, in the same program and year.",
     },
     "info_metric_max_exams_per_day": {
-        "he": "מספר הבחינות המקסימלי המשובצות באותו יום בלוח.",
-        "en": "The maximum number of exams scheduled on any single day in the schedule.",
-    },
-    "info_refresh_title": {"he": "רענן מול Sync", "en": "Refresh vs. Sync"},
-    "info_refresh_desc": {
-        "he": "רענן: מושך לתצוגה לוחות חדשים שהמנוע ייצר וממיין אותם מחדש — בלי להריץ את המנוע מחדש. Sync: מריץ את המנוע מאפס (למשל אחרי שינוי תוכניות או תאריכים).",
-        "en": "Refresh: pulls in newly generated schedules and re-ranks them — without re-running the engine. Sync: re-runs the engine from scratch (e.g. after changing programs or dates).",
+        "he": "מספר הבחינות הגדול ביותר שנקבעו לאותו יום בלוח.",
+        "en": "The largest number of exams scheduled on any single day.",
     },
 
     # --- Pruning constraints settings modal (PLAN-418) ---
