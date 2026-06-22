@@ -3,6 +3,7 @@
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
+from src.manual_edit.manual_edit_session import ManualEditSession
 
 
 class CalendarPresenter:
@@ -15,6 +16,13 @@ class CalendarPresenter:
         self.active_months: List[int] = []
         self.cell_to_date_mapping: Dict[str, date] = {}
         self.is_rendering = False
+
+        # Manual drag & drop (PLAN-554): a per-board edit session holds the
+        # original + currently-edited board. It is keyed to the on-disk board's
+        # signature, so it rebuilds (edits reset) whenever the displayed schedule
+        # changes — navigation, sort, regenerate — but survives a move/undo redraw.
+        self._edit_session: Optional[ManualEditSession] = None
+        self._session_base_sig = None
 
         # UI Event Binding
         self.view.on_next_clicked = self._handle_next_schedule
@@ -30,6 +38,15 @@ class CalendarPresenter:
 
         if hasattr(self.view, "on_sort_changed"):
             self.view.on_sort_changed = self._handle_sort_changed
+
+        # Manual drag & drop callbacks (PLAN-560 / PLAN-563).
+        if hasattr(self.view, "on_exam_dropped"):
+            self.view.on_exam_dropped = self._handle_exam_dropped
+        if hasattr(self.view, "on_undo_clicked"):
+            self.view.on_undo_clicked = self._handle_undo
+        # Live drop-validity preview for green/red feedback while dragging.
+        if hasattr(self.view, "on_drag_validate"):
+            self.view.on_drag_validate = self._validate_drop
 
         self.view.get_exam_periods_callback = lambda: list(self.model.get_exam_periods() or [])
         self.view.on_sync_clicked = self._handle_sync_action
@@ -84,15 +101,76 @@ class CalendarPresenter:
             self.view.update_pagination(current_page=current_idx + 1, total_pages=total_schedules)
 
             try:
-                active_schedule = self.collection_manager.get_current_schedule()
+                active_schedule = self._active_board()
                 self._setup_calendar_grid_dimensions(active_schedule)
                 self._render_active_schedule(active_schedule)
                 self._update_metrics_display()
+                self._sync_undo_state()
             except Exception as e:
                 print(f"Error refreshing calendar state: {e}")
                 self.view.show_empty_state()
         finally:
             self.is_rendering = False
+
+    # ===== Manual drag & drop (PLAN-554) =====================================
+
+    @staticmethod
+    def _board_signature(schedule: Schedule):
+        return tuple(sorted(
+            (exam.course.course_id, exam.exam_date) for exam in (schedule.exams or [])
+        ))
+
+    def _active_board(self) -> Schedule:
+        """The board to display: the manual-edit session's current (possibly
+        edited) board. The session is (re)built whenever the underlying on-disk
+        board changes, so manual edits reset on paging/sort (PLAN-558)."""
+        base = self.collection_manager.get_current_schedule()
+        base_sig = self._board_signature(base)
+        if self._edit_session is None or self._session_base_sig != base_sig:
+            self._edit_session = ManualEditSession(
+                base,
+                exam_periods=self.model.get_exam_periods(),
+                constraints=getattr(self.model, "constraints", None),
+            )
+            self._session_base_sig = base_sig
+        return self._edit_session.current_board()
+
+    def _handle_exam_dropped(self, course_id: str, source_cell_key: str, target_cell_key: str) -> None:
+        """A card was dragged from source cell to target cell. Apply the move if
+        valid; otherwise the board is left unchanged so the card snaps back
+        (PLAN-560 / PLAN-561). No error dialog is shown."""
+        old_date = self.cell_to_date_mapping.get(source_cell_key)
+        new_date = self.cell_to_date_mapping.get(target_cell_key)
+        if old_date is None or new_date is None:
+            self.refresh_presenter_state()  # redraw -> snap back
+            return
+
+        self._active_board()  # ensure a session exists for the current board
+        result = self._edit_session.move_exam(course_id, old_date, new_date)
+        if not result.success:
+            print(f"[CalendarPresenter] Move rejected ({result.reason}); snapping back.")
+        self.refresh_presenter_state()
+
+    def _validate_drop(self, course_id: str, source_cell_key: str, target_cell_key: str) -> bool:
+        """Non-committing check used for live drag feedback (green/red target)."""
+        old_date = self.cell_to_date_mapping.get(source_cell_key)
+        new_date = self.cell_to_date_mapping.get(target_cell_key)
+        if old_date is None or new_date is None:
+            return False
+        self._active_board()  # ensure a session exists
+        return self._edit_session.can_move(course_id, old_date, new_date).success
+
+    def _handle_undo(self) -> None:
+        """Revert all manual changes for the current board (PLAN-563)."""
+        if self._edit_session is not None:
+            self._edit_session.undo()
+        self.refresh_presenter_state()
+
+    def _sync_undo_state(self) -> None:
+        """Enable the Undo button only while the current board has manual edits."""
+        if hasattr(self.view, "set_undo_enabled"):
+            has_changes = self._edit_session is not None and self._edit_session.has_changes()
+            self.view.set_undo_enabled(has_changes)
 
     def _setup_calendar_grid_dimensions(self, schedule: Schedule) -> None:
         unique_months: List[int] = []
@@ -310,7 +388,9 @@ class CalendarPresenter:
 
     def _handle_export(self, destination_file_path: str) -> None:
         try:
-            active_schedule = self.collection_manager.get_current_schedule()
+            # Export the currently displayed board including manual edits, not the
+            # original on-disk one (PLAN-562).
+            active_schedule = self._active_board()
             with open(destination_file_path, "w", encoding="utf-8") as out_file:
                 out_file.write("--- EXPORTED EXAM SCHEDULE SYSTEM OPTION ---\n")
                 for exam in active_schedule.exams:

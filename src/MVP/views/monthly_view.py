@@ -55,6 +55,13 @@ class MonthlyGridView(ctk.CTkFrame):
         self.toolbar.on_edit_dates = self._open_dates_modal
         self.toolbar.on_constraints_settings = self._open_constraints_modal
 
+        # Manual drag & drop (PLAN-554), wired via app_window to the same presenter
+        # handlers as the annual view. Source/target use the annual-style
+        # original_key so the presenter's cell->date mapping applies unchanged.
+        self.on_exam_dropped = None
+        self.on_drag_validate = None
+        self._drag = None
+
         # --- Ranking bar (PLAN-411..414): same sort + metrics as annual ---
         self.on_sort_changed = None      # wired (via app_window) to the presenter
         self.ranking_bar = RankingBar(self, lang=self.current_lang)
@@ -312,9 +319,109 @@ class MonthlyGridView(ctk.CTkFrame):
                         l.configure(wraplength=w)
                 card.bind("<Configure>", _wrap_all)
 
+                # The card carries its live drag identity (course + source cell).
+                card._drag_course_id = exam.get("course_id", "")
+                card._drag_exam = exam
+                card._drag_origkey = original_key
+
                 for widget in [card] + card_lines:
-                    widget.bind("<Button-1>", lambda e, ex=exam: show_exam_popup(self, ex, self.current_lang))
+                    self._bind_drag_handlers(widget, card)
                     widget.bind("<Button-3>", lambda e, k=original_key: self._handle_cell_click(k))
+                    try:
+                        widget.configure(cursor="hand2")
+                    except Exception:
+                        pass
+
+    # ===== Manual drag & drop (PLAN-560/561) =================================
+
+    _DRAG_THRESHOLD_PX = 6
+
+    def _bind_drag_handlers(self, widget, card):
+        widget.bind("<ButtonPress-1>", lambda e, c=card: self._on_drag_press(e, c))
+        widget.bind("<B1-Motion>", self._on_drag_motion)
+        widget.bind("<ButtonRelease-1>", self._on_drag_release)
+
+    def _on_drag_press(self, event, card):
+        self._drag = {
+            "course_id": getattr(card, "_drag_course_id", ""),
+            "exam": getattr(card, "_drag_exam", {}),
+            "src": getattr(card, "_drag_origkey", None),
+            "x0": event.x_root, "y0": event.y_root, "moved": False,
+            "highlight": None, "highlight_valid": None,
+        }
+
+    def _on_drag_motion(self, event):
+        if not self._drag:
+            return
+        if not self._drag["moved"]:
+            if abs(event.x_root - self._drag["x0"]) + abs(event.y_root - self._drag["y0"]) <= self._DRAG_THRESHOLD_PX:
+                return
+            self._drag["moved"] = True
+            try:
+                self.configure(cursor="fleur")
+            except Exception:
+                pass
+        target = self._cell_original_key_at(event.x_root, event.y_root)
+        valid = bool(
+            target and target != self._drag["src"] and self.on_drag_validate
+            and self.on_drag_validate(self._drag["course_id"], self._drag["src"], target)
+        )
+        self._highlight_drop_target(target, valid)
+
+    def _on_drag_release(self, event):
+        drag = self._drag
+        self._drag = None
+        if not drag:
+            return
+        try:
+            self.configure(cursor="")
+        except Exception:
+            pass
+        self._highlight_drop_target(None, drag=drag)
+
+        if not drag["moved"]:
+            if drag["exam"]:
+                show_exam_popup(self, drag["exam"], self.current_lang)
+            return
+
+        target = self._cell_original_key_at(event.x_root, event.y_root)
+        if target and drag["src"] and target != drag["src"] and self.on_exam_dropped:
+            self.on_exam_dropped(drag["course_id"], drag["src"], target)
+
+    def _highlight_drop_target(self, original_key, valid=False, drag=None):
+        state = drag if drag is not None else self._drag
+        if state is None:
+            return
+        prev = state.get("highlight")
+        if prev == original_key and state.get("highlight_valid") == valid:
+            return
+        if prev and prev in self.original_to_target_map:
+            t = self.original_to_target_map[prev]
+            if t in self.grid_cells and prev != self.selected_original_key:
+                self.grid_cells[t].configure(border_color=theme.BORDER_DEFAULT, border_width=1)
+        new_hl = None
+        if original_key and original_key in self.original_to_target_map:
+            t = self.original_to_target_map[original_key]
+            if t in self.grid_cells:
+                self.grid_cells[t].configure(
+                    border_color=theme.SUCCESS if valid else theme.DANGER, border_width=2)
+                new_hl = original_key
+        state["highlight"] = new_hl
+        state["highlight_valid"] = valid
+
+    def _cell_original_key_at(self, x_root, y_root):
+        target = self.winfo_containing(x_root, y_root)
+        if target is None:
+            return None
+        target_path = str(target)
+        for target_key, cell in self.grid_cells.items():
+            cell_path = str(cell)
+            if target_path == cell_path or target_path.startswith(cell_path + "."):
+                content = self._last_cell_content.get(target_key)
+                if content and content.get("original_key"):
+                    return content["original_key"]
+                return None
+        return None
 
     def _prev_month(self):
         if self.current_month_index > 0:
