@@ -131,3 +131,28 @@ def test_export_reflects_manual_edits(tmp_path):
     text = out.read_text(encoding="utf-8")
     assert "12-02-2026" in text       # the moved date
     assert "03-02-2026" not in text   # not the original date
+
+
+# --- PLAN-554: the five metrics track the edited board ----------------------
+def test_metrics_recompute_after_move_and_revert_on_undo():
+    # Two mandatory exams in the same cohort. Metric 3.1 (min gap mandatory) is the
+    # day-distance between them; dragging them closer must shrink it live, and undo
+    # must restore the precomputed on-disk metrics.
+    presenter, _, manager = _build_presenter([
+        (_course("11111"), date(2026, 2, 3)),
+        (_course("22222"), date(2026, 2, 20)),
+    ])
+    manager.get_current_metrics.return_value = ("ORIGINAL",)
+
+    # No edits yet -> reuse the precomputed on-disk metrics verbatim.
+    assert presenter._current_metrics() == ("ORIGINAL",)
+
+    presenter.cell_to_date_mapping = {"src": date(2026, 2, 3), "dst": date(2026, 2, 18)}
+    presenter._handle_exam_dropped("11111", "src", "dst")  # gap 17 -> 2 days
+
+    edited = presenter._current_metrics()
+    assert edited != ("ORIGINAL",)          # recomputed from the edited board
+    assert edited[0] == 2                    # min_gap_mandatory now reflects 18th vs 20th
+
+    presenter._handle_undo()
+    assert presenter._current_metrics() == ("ORIGINAL",)  # back to the on-disk metrics

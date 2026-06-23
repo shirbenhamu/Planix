@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 from src.manual_edit.manual_edit_session import ManualEditSession
+from src.metrics.metrics_calculator import MetricsCalculator
 
 
 class CalendarPresenter:
@@ -295,11 +296,26 @@ class CalendarPresenter:
     def _update_metrics_display(self) -> None:
         if not hasattr(self.view, "update_metrics_display"):
             return
+        self.view.update_metrics_display(self._current_metrics())
+
+    def _current_metrics(self):
+        """The five metrics describing the board ON SCREEN.
+
+        While the board carries manual edits the precomputed on-disk metrics are
+        stale, so we recompute them from the edited board (PLAN-554) — the five
+        indicators then always match what the user sees, and Undo/paging restore
+        the original metrics for free (the active board becomes the original
+        again). With no edits we reuse the precomputed tuple: identical values,
+        no recalculation."""
+        if self._edit_session is not None and self._edit_session.has_changes():
+            try:
+                return tuple(MetricsCalculator().calculate(self._active_board()))
+            except Exception:
+                return None
         try:
-            metrics = self.collection_manager.get_current_metrics()
+            return self.collection_manager.get_current_metrics()
         except (ValueError, IndexError):
-            metrics = None
-        self.view.update_metrics_display(metrics)
+            return None
 
     def auto_refresh_feed(self) -> bool:
         self.collection_manager.apply_sort_and_refresh()
