@@ -157,6 +157,12 @@ TRANSLATIONS = {
     "constraints_invalid": {"he": "חייב להיות מספר שלם ולא שלילי k ערך ", "en": "k must be a non-negative whole number"},
     "constraints_locked": {"he": "לא ניתן לשמור אילוצים בזמן שהמנוע רץ", "en": "Constraints cannot be saved while the engine is running"},
     "constraints_saved": {"he": "האילוצים נשמרו בהצלחה", "en": "Constraints saved successfully"},
+
+    # --- Religious Holiday Exclusions (PLAN-555)
+    "religion_section_title": {"he": "החרגת ימי חג ומועד דתיים", "en": "Religious Holiday Exclusions"},
+    "religion_jewish": {"he": "יהדות", "en": "Jewish"},
+    "religion_christian": {"he": "נצרות", "en": "Christian"},
+    "religion_muslim": {"he": "אסלאם", "en": "Muslim"},
 }
 
 def format_text(key: str, lang: str) -> str:
