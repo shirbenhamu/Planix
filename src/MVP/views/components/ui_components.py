@@ -42,7 +42,7 @@ class Tooltip:
     def schedule(self):
         self.unschedule()
         try:
-            self.id = self.widget.after(400, self.show)
+            self.id = self.widget.after(theme.TOOLTIP_DELAY_MS, self.show)
         except Exception:
             pass
 
@@ -63,8 +63,8 @@ class Tooltip:
             return
             
         try:
-            x = self.widget.winfo_rootx() + 10
-            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+            x = self.widget.winfo_rootx() + theme.SPACING_COMPACT
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + theme.SPACING_TINY
             
             self.tip_window = ctk.CTkToplevel(self.widget)
             self.tip_window.wm_overrideredirect(True)
@@ -75,13 +75,13 @@ class Tooltip:
                 
             label = ctk.CTkLabel(
                 self.tip_window, text=self.text, 
-                fg_color=("#2c3e50", "#1a252f"), text_color="white",
-                corner_radius=6, padx=8, pady=4,
-                font=ctk.CTkFont(family=theme.FONT_FAMILY, size=12, weight="bold")
+                fg_color=theme.TOOLTIP_BG, text_color=theme.TEXT_ON_ACCENT,
+                corner_radius=theme.RADIUS_SMALL, padx=theme.SPACING_SMALL, pady=theme.SPACING_TINY,
+                font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_SMALL, weight=theme.FONT_WEIGHT_BOLD)
             )
             label.pack()
             # Safety mechanism: auto-close the tooltip after 3 seconds
-            self.hide_id = self.widget.after(3000, self.hide)
+            self.hide_id = self.widget.after(theme.TOOLTIP_AUTO_HIDE_MS, self.hide)
         except Exception:
             self.hide()
 
@@ -105,13 +105,13 @@ class ToastNotification(ctk.CTkFrame):
     """Floating Toast component shown at the bottom of the screen without blocking the UI"""
     def __init__(self, master, message, level="success", **kwargs):
         bg = theme.TEXT_ACCENT if level == "success" else theme.DANGER
-        super().__init__(master, fg_color=bg, corner_radius=8, border_width=0, **kwargs)
+        super().__init__(master, fg_color=bg, corner_radius=theme.RADIUS_BUTTON, border_width=theme.BORDER_WIDTH_NONE, **kwargs)
         
         lbl = ctk.CTkLabel(
-            self, text=message, text_color="white", 
-            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=12, weight="bold")
+            self, text=message, text_color=theme.TEXT_ON_ACCENT, 
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_SMALL, weight=theme.FONT_WEIGHT_BOLD)
         )
-        lbl.pack(padx=14, pady=6)
+        lbl.pack(padx=theme.SPACING_REGULAR, pady=theme.RADIUS_SMALL)
 
 
 def create_card(parent, **kwargs):
@@ -119,7 +119,7 @@ def create_card(parent, **kwargs):
     return ctk.CTkFrame(
         parent,
         fg_color=theme.BG_CARD,
-        border_width=1,
+        border_width=theme.BORDER_WIDTH_DEFAULT,
         border_color=theme.BORDER_DEFAULT,
         corner_radius=theme.RADIUS_CARD,
         **kwargs
@@ -148,12 +148,12 @@ def create_icon_button(parent, text, command, **kwargs):
     return ctk.CTkButton(
         parent,
         text=text,
-        font=ctk.CTkFont(family="bootstrap-icons", size=24),
+        font=ctk.CTkFont(family=theme.FONT_BOOTSTRAP_ICONS, size=theme.FONT_SIZE_MODAL_TITLE),
         fg_color=theme.TRANSPARENT,
         text_color=theme.TEXT_ACCENT,
         hover_color=theme.BG_CARD_HOVER,
-        width=60, 
-        height=60, 
+        width=theme.CONTROL_WIDTH_SYNC, 
+        height=theme.CONTROL_HEIGHT_ICON_LARGE, 
         corner_radius=theme.RADIUS_BUTTON,
         command=command,
         **kwargs
@@ -164,11 +164,11 @@ def create_primary_action_button(parent, text, command, **kwargs):
     return ctk.CTkButton(
         parent,
         text=text,
-        font=ctk.CTkFont(family=theme.FONT_FAMILY, size=28, weight="bold"),
+        font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_HERO, weight=theme.FONT_WEIGHT_BOLD),
         fg_color=theme.SUCCESS,
         hover_color=theme.SUCCESS_HOVER,
-        text_color="white",
-        height=64,
+        text_color=theme.TEXT_ON_ACCENT,
+        height=theme.CONTROL_HEIGHT_HERO,
         corner_radius=theme.RADIUS_BUTTON,
         command=command,
         **kwargs
@@ -179,13 +179,13 @@ def create_secondary_button(parent, text, command, **kwargs):
     return ctk.CTkButton(
         parent,
         text=text,
-        font=ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold"),
+        font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_BUTTON, weight=theme.FONT_WEIGHT_BOLD),
         fg_color=theme.TRANSPARENT,
-        border_width=2,
+        border_width=theme.BORDER_WIDTH_ACTIVE,
         border_color=theme.BORDER_ACTIVE,
         hover_color=theme.BG_CARD_HOVER,
         text_color=theme.TEXT_ACCENT,
-        height=40,
+        height=theme.CONTROL_HEIGHT_BUTTON,
         corner_radius=theme.RADIUS_BUTTON,
         command=command,
         **kwargs

@@ -7,20 +7,17 @@ from src.MVP.views.components.ui_components import (
     Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_REFRESH_FEED, ICON_EXCLUDE, ICON_EXPORT, ICON_SETTINGS
 )
 
-ACCENT = ("#0077b6", "#3b8ed0")
-ACCENT_HOVER = ("#005f8a", "#2f7ab0")
-
 
 class TopToolbar(ctk.CTkFrame):
     def __init__(self, master, is_monthly=False, **kwargs):
-        super().__init__(master, fg_color="transparent", **kwargs)
+        super().__init__(master, fg_color=theme.TRANSPARENT, **kwargs)
         self.current_lang = "he"
         self.is_monthly = is_monthly
 
         f_title = ctk.CTkFont(family=theme.FONT_FAMILY,
-                              size=18 if is_monthly else 16, weight="bold")
-        f_btn = ctk.CTkFont(family=theme.FONT_FAMILY, size=14, weight="bold")
-        f_icon = ctk.CTkFont(family="bootstrap-icons", size=15)
+                              size=theme.FONT_SIZE_TITLE if is_monthly else theme.FONT_SIZE_HEADER, weight=theme.FONT_WEIGHT_BOLD)
+        f_btn = ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_BUTTON, weight=theme.FONT_WEIGHT_BOLD)
+        f_icon = ctk.CTkFont(family=theme.FONT_BOOTSTRAP_ICONS, size=theme.FONT_SIZE_ICON)
 
         # Callbacks
         self.on_hamburger = None
@@ -38,107 +35,106 @@ class TopToolbar(ctk.CTkFrame):
         self.on_constraints_settings = None
         self.on_undo = None
 
-        self.hamburger_btn = ctk.CTkLabel(self, text="☰", font=(
-            "Arial", 22), cursor="hand2", text_color=theme.TEXT_ACCENT)
-        self.hamburger_btn.pack(side="left", padx=(5, 10))
+        self.hamburger_btn = ctk.CTkLabel(self, text="☰", font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_SECTION, weight=theme.FONT_WEIGHT_BOLD), cursor="hand2", text_color=theme.TEXT_ACCENT)
+        self.hamburger_btn.pack(side="left", padx=(theme.RADIUS_SMALL, theme.SPACING_COMPACT))
         self.hamburger_btn.bind(
             "<Enter>", lambda e: self.on_hamburger() if self.on_hamburger else None)
 
         if self.is_monthly:
-            self.month_nav = ctk.CTkFrame(self, fg_color="transparent")
-            self.month_nav.pack(side="left", padx=20)
-            ctk.CTkButton(self.month_nav, text="<", font=f_btn, width=30, height=26, command=lambda: self.on_month_prev(
-            ) if self.on_month_prev else None).pack(side="left", padx=2)
+            self.month_nav = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
+            self.month_nav.pack(side="left", padx=theme.SPACING_MEDIUM)
+            ctk.CTkButton(self.month_nav, text="<", font=f_btn, width=theme.CONTROL_WIDTH_NAV, height=theme.CONTROL_HEIGHT_TINY, command=lambda: self.on_month_prev(
+            ) if self.on_month_prev else None).pack(side="left", padx=theme.SPACING_XS)
             self.month_year_lbl = ctk.CTkLabel(
-                self.month_nav, text="", font=f_title, width=120, text_color=theme.TEXT_MAIN)
-            self.month_year_lbl.pack(side="left", padx=5)
-            ctk.CTkButton(self.month_nav, text=">", font=f_btn, width=30, height=26, command=lambda: self.on_month_next(
-            ) if self.on_month_next else None).pack(side="left", padx=2)
+                self.month_nav, text="", font=f_title, width=theme.CONTROL_WIDTH_MONTH_LABEL, text_color=theme.TEXT_MAIN)
+            self.month_year_lbl.pack(side="left", padx=theme.RADIUS_SMALL)
+            ctk.CTkButton(self.month_nav, text=">", font=f_btn, width=theme.CONTROL_WIDTH_NAV, height=theme.CONTROL_HEIGHT_TINY, command=lambda: self.on_month_next(
+            ) if self.on_month_next else None).pack(side="left", padx=theme.SPACING_XS)
 
-        self.nav_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.nav_frame.pack(side="left", padx=15)
-        ctk.CTkButton(self.nav_frame, text="<", font=f_btn, width=30, height=26,
-                      command=lambda: self.on_prev() if self.on_prev else None).pack(side="left", padx=2)
+        self.nav_frame = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
+        self.nav_frame.pack(side="left", padx=theme.FONT_SIZE_ICON)
+        ctk.CTkButton(self.nav_frame, text="<", font=f_btn, width=theme.CONTROL_WIDTH_NAV, height=theme.CONTROL_HEIGHT_TINY,
+                      command=lambda: self.on_prev() if self.on_prev else None).pack(side="left", padx=theme.SPACING_XS)
 
-        self.page_entry = ctk.CTkEntry(self.nav_frame, width=45, height=26, justify="center", font=f_btn,
+        self.page_entry = ctk.CTkEntry(self.nav_frame, width=theme.CONTROL_WIDTH_PAGE_ENTRY, height=theme.CONTROL_HEIGHT_TINY, justify="center", font=f_btn,
                                        fg_color=theme.BG_CARD, border_color=theme.BORDER_DEFAULT, text_color=theme.TEXT_MAIN)
-        self.page_entry.pack(side="left", padx=2)
+        self.page_entry.pack(side="left", padx=theme.SPACING_XS)
         self.page_entry.bind("<Return>", lambda e: self.on_page_jump(
             int(self.page_entry.get())) if self.on_page_jump else None)
 
         self.out_of_lbl = ctk.CTkLabel(
-            self.nav_frame, text="", font=f_btn, width=80, anchor="w", text_color=theme.TEXT_MUTED)
-        self.out_of_lbl.pack(side="left", padx=2)
-        ctk.CTkButton(self.nav_frame, text=">", font=f_btn, width=30, height=26,
-                      command=lambda: self.on_next() if self.on_next else None).pack(side="left", padx=2)
+            self.nav_frame, text="", font=f_btn, width=theme.CONTROL_WIDTH_PAGE_LABEL, anchor="w", text_color=theme.TEXT_MUTED)
+        self.out_of_lbl.pack(side="left", padx=theme.SPACING_XS)
+        ctk.CTkButton(self.nav_frame, text=">", font=f_btn, width=theme.CONTROL_WIDTH_NAV, height=theme.CONTROL_HEIGHT_TINY,
+                      command=lambda: self.on_next() if self.on_next else None).pack(side="left", padx=theme.SPACING_XS)
 
         self.refresh_feed_btn = ctk.CTkButton(
             self.nav_frame,
             text=f"{ICON_REFRESH_FEED}  רענן",
             font=f_icon,
-            width=78,
-            height=26,
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            text_color="white",
-            corner_radius=6,
+            width=theme.CONTROL_WIDTH_REFRESH,
+            height=theme.CONTROL_HEIGHT_TINY,
+            fg_color=theme.TEXT_ACCENT,
+            hover_color=theme.ACCENT_HOVER,
+            text_color=theme.TEXT_ON_ACCENT,
+            corner_radius=theme.RADIUS_SMALL,
             command=lambda: self.on_refresh_feed() if self.on_refresh_feed else None,
         )
-        self.refresh_feed_btn.pack(side="left", padx=(8, 2))
+        self.refresh_feed_btn.pack(side="left", padx=(theme.SPACING_SMALL, theme.SPACING_XS))
         self.tip_refresh_feed = Tooltip(self.refresh_feed_btn, "רענן את חלון התוצאות לפי המיון הפעיל")
 
         # --- Action buttons based on the new icon font ---
         self.edit_dates_btn = ctk.CTkButton(
-            self, text=f" {ICON_EDIT} ", font=f_icon, fg_color=ACCENT, hover_color=ACCENT_HOVER,
-            text_color="white", height=28, width=35,
+            self, text=f" {ICON_EDIT} ", font=f_icon, fg_color=theme.TEXT_ACCENT, hover_color=theme.ACCENT_HOVER,
+            text_color=theme.TEXT_ON_ACCENT, height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON_SMALL,
             command=lambda: self.on_edit_dates() if self.on_edit_dates else None,
         )
-        self.edit_dates_btn.pack(side="left", padx=4)
+        self.edit_dates_btn.pack(side="left", padx=theme.SPACING_TINY)
         self.tip_edit = Tooltip(self.edit_dates_btn, "עריכת תאריכים")
 
         self.constraints_btn = ctk.CTkButton(
-            self, text=ICON_SETTINGS, font=ctk.CTkFont(family=theme.FONT_FAMILY, size=15, weight="bold"),
-            fg_color=ACCENT, hover_color=ACCENT_HOVER,
-            text_color="white", height=28, width=40, corner_radius=6,
+            self, text=ICON_SETTINGS, font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_ICON, weight=theme.FONT_WEIGHT_BOLD),
+            fg_color=theme.TEXT_ACCENT, hover_color=theme.ACCENT_HOVER,
+            text_color=theme.TEXT_ON_ACCENT, height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON, corner_radius=theme.RADIUS_SMALL,
             command=lambda: self.on_constraints_settings() if self.on_constraints_settings else None,
         )
-        self.constraints_btn.pack(side="left", padx=4)
+        self.constraints_btn.pack(side="left", padx=theme.SPACING_TINY)
         self.tip_constraints = Tooltip(self.constraints_btn, "הגדרות אילוצים")
 
         self.load_more_btn = ctk.CTkButton(
-            self, text=ICON_LOAD_MORE, fg_color=ACCENT, hover_color=ACCENT_HOVER,
-            font=f_icon, height=28, width=40, text_color="white", corner_radius=6,
+            self, text=ICON_LOAD_MORE, fg_color=theme.TEXT_ACCENT, hover_color=theme.ACCENT_HOVER,
+            font=f_icon, height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON, text_color=theme.TEXT_ON_ACCENT, corner_radius=theme.RADIUS_SMALL,
             command=lambda: self.on_load_more() if self.on_load_more else None
         )
-        self.load_more_btn.pack(side="left", padx=4)
+        self.load_more_btn.pack(side="left", padx=theme.SPACING_TINY)
         self.tip_load_more = Tooltip(self.load_more_btn, "טען מערכות נוספות")
 
         self.exclude_btn = ctk.CTkButton(
             self, text=f" {ICON_EXCLUDE} ", font=f_icon, fg_color=theme.DANGER, hover_color=theme.DANGER_HOVER,
-            text_color="white", height=28, width=35,
+            text_color=theme.TEXT_ON_ACCENT, height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON_SMALL,
             command=lambda: self.on_exclude() if self.on_exclude else None,
         )
-        self.exclude_btn.pack(side="left", padx=4)
+        self.exclude_btn.pack(side="left", padx=theme.SPACING_TINY)
         self.tip_exclude = Tooltip(self.exclude_btn, "החרג יום נבחר")
 
         # Undo manual drag & drop changes (PLAN-563). Disabled until an edit exists.
         self.undo_btn = ctk.CTkButton(
-            self, text="↩", font=ctk.CTkFont(family=theme.FONT_FAMILY, size=16, weight="bold"),
-            fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color="white",
-            height=28, width=35, corner_radius=6, state="disabled",
+            self, text="↩", font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_HEADER, weight=theme.FONT_WEIGHT_BOLD),
+            fg_color=theme.TEXT_ACCENT, hover_color=theme.ACCENT_HOVER, text_color=theme.TEXT_ON_ACCENT,
+            height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON_SMALL, corner_radius=theme.RADIUS_SMALL, state="disabled",
             command=lambda: self.on_undo() if self.on_undo else None,
         )
-        self.undo_btn.pack(side="left", padx=4)
+        self.undo_btn.pack(side="left", padx=theme.SPACING_TINY)
         self.tip_undo = Tooltip(self.undo_btn, "בטל שינויים ידניים")
 
         # Elegant, branded download button on the right side
         self.export_btn = ctk.CTkButton(
             self, text=ICON_EXPORT, fg_color=theme.SUCCESS, hover_color=theme.SUCCESS_HOVER,
-            font=ctk.CTkFont(family="bootstrap-icons", size=16), height=28, width=40,
-            text_color="white", corner_radius=6,
+            font=ctk.CTkFont(family=theme.FONT_BOOTSTRAP_ICONS, size=theme.FONT_SIZE_HEADER), height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON,
+            text_color=theme.TEXT_ON_ACCENT, corner_radius=theme.RADIUS_SMALL,
             command=lambda: self.on_export() if self.on_export else None,
         )
-        self.export_btn.pack(side="right", padx=5)
+        self.export_btn.pack(side="right", padx=theme.RADIUS_SMALL)
         self.tip_export = Tooltip(self.export_btn, "ייצוא לוח זמנים")
 
         self.on_sync_clicked = None 
@@ -147,11 +143,11 @@ class TopToolbar(ctk.CTkFrame):
         btn_run = ctk.CTkButton(
             self, 
             text="Sync", 
-            width=60,
+            width=theme.CONTROL_WIDTH_SYNC,
             fg_color=theme.SUCCESS, 
             command=self._on_sync_btn_click
         )
-        btn_run.pack(side="right", padx=10)
+        btn_run.pack(side="right", padx=theme.SPACING_COMPACT)
 
     def _on_sync_btn_click(self):
         if self.on_sync_clicked:
