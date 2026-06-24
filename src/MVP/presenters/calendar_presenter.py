@@ -37,6 +37,12 @@ class CalendarPresenter:
         if hasattr(self.view, "on_load_more_clicked"):
             self.view.on_load_more_clicked = self._handle_load_more
 
+        if hasattr(self.view, "on_refresh_feed_clicked"):
+            self.view.on_refresh_feed_clicked = self.refresh_feed
+        # Backward-compatible hook used by earlier PLAN-415 tests/prototypes.
+        if hasattr(self.view, "on_refresh_clicked"):
+            self.view.on_refresh_clicked = self.refresh_feed
+
         if hasattr(self.view, "on_sort_changed"):
             self.view.on_sort_changed = self._handle_sort_changed
 
@@ -283,13 +289,30 @@ class CalendarPresenter:
         if self.collection_manager.get_total_count() == 0:
             self.refresh_presenter_state()
             return
+
+        # Predictive refresh-feed (PLAN-421): while the engine is still writing,
+        # the user is restricted to the current top-N window. Pressing Next from
+        # the last item in that window refreshes the feed first, then advances to
+        # the next window if one is available. Once the engine is idle this guard
+        # is skipped, so normal navigation can move through the full sorted result
+        # set without any future auto-refreshes.
+        if self._engine_is_active() and self._is_next_outside_active_window():
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
+            if self.collection_manager.advance_window():
+                self.refresh_presenter_state()
+            else:
+                self.refresh_pagination_only()
+            return
+
         if self.collection_manager.next_schedule():
             self.refresh_presenter_state()
             return
         if self._engine_is_active():
-            self.collection_manager.apply_sort_and_refresh()
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
             if self.collection_manager.next_schedule():
                 self.refresh_presenter_state()
+            else:
+                self.refresh_pagination_only()
         else:
             self._show_end_of_results()
 
@@ -317,13 +340,34 @@ class CalendarPresenter:
         except (ValueError, IndexError):
             return None
 
+    def refresh_feed(self, reset_to_top: bool = True) -> bool:
+        """Refresh the result feed without touching the engine.
+
+        Manual toolbar refresh jumps back to the currently best top-N window under
+        the active sort. Internal/predictive refresh can pass reset_to_top=False
+        to keep the user's current rank while ingesting newly written blocks.
+        Returns whether generation is still active after the refresh.
+        """
+        self.collection_manager.apply_sort_and_refresh(reset_to_top=reset_to_top)
+        self.refresh_presenter_state()
+        return self._engine_is_active()
+
     def auto_refresh_feed(self) -> bool:
-        self.collection_manager.apply_sort_and_refresh()
+        self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
         if self._engine_is_active():
             self.refresh_pagination_only()
             return True
         self.refresh_presenter_state()
         return False
+
+    def _is_next_outside_active_window(self) -> bool:
+        try:
+            current_idx = self.collection_manager.get_current_index()
+            window_start = self.collection_manager.get_window_start()
+            window_size = self.collection_manager.get_window_size()
+        except Exception:
+            return False
+        return current_idx + 1 >= window_start + window_size
 
     def _engine_is_active(self) -> bool:
         controller = getattr(self, "controller", None)

@@ -30,6 +30,7 @@ class MonthlyGridView(ctk.CTkFrame):
         self.on_range_update_clicked = None
         self.get_exam_periods_callback = None 
         self.on_load_more_clicked = None
+        self.on_refresh_feed_clicked = None
         self.on_save_constraints = None
         self._constraints_state = default_constraints_data()
         self._constraints_save_enabled = True
@@ -49,6 +50,7 @@ class MonthlyGridView(ctk.CTkFrame):
         self.toolbar = TopToolbar(self, is_monthly=True)
         self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
         self.toolbar.on_load_more = lambda: self.on_load_more_clicked() if self.on_load_more_clicked else None
+        self.toolbar.on_refresh_feed = lambda: self.on_refresh_feed_clicked() if self.on_refresh_feed_clicked else None
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
         self.toolbar.on_month_prev = self._prev_month
         self.toolbar.on_month_next = self._next_month

@@ -108,6 +108,7 @@ def test_has_more_after_window_and_advance(tmp_path):
 class _FakeView:
     def __init__(self):
         self.on_sort_changed = None
+        self.on_refresh_feed_clicked = None
         self.on_refresh_clicked = None
         self.no_more_shown = 0
         self.render_count = 0
@@ -149,6 +150,63 @@ def _presenter(tmp_path, gaps, engine_active=False):
     presenter.controller = controller
     return presenter, view, manager
 
+
+
+# --- PLAN-421 Trigger Logic: toolbar refresh -> Presenter.refresh_feed --------
+def test_refresh_feed_button_hook_refreshes_top_window_without_engine(tmp_path):
+    presenter, view, manager = _presenter(tmp_path, [3, 5, 9])
+    manager.set_window_size(2)
+    manager.sort_collection(["min_gap_mandatory"])
+    manager.jump_to_schedule(1)
+    view.render_count = 0
+
+    manager.apply_sort_and_refresh = MagicMock(wraps=manager.apply_sort_and_refresh)
+    view.on_refresh_feed_clicked()
+
+    manager.apply_sort_and_refresh.assert_called_once_with(reset_to_top=True)
+    assert manager.get_current_index() == 0
+    assert manager.get_window_start() == 0
+    assert view.render_count >= 1
+    presenter.controller.regenerate_schedules_snapshot.assert_not_called()
+    presenter.controller.engine_adapter.generate_from_model.assert_not_called()
+
+
+def test_refresh_feed_button_hook_supports_legacy_callback_name(tmp_path):
+    presenter, view, manager = _presenter(tmp_path, [3, 5, 9])
+
+    assert view.on_refresh_clicked.__self__ is presenter
+    assert view.on_refresh_clicked.__name__ == "refresh_feed"
+
+
+# --- PLAN-421 Predictive Auto-Refresh: crossing active window boundary --------
+def test_next_crossing_active_window_refreshes_then_advances_to_next_batch(tmp_path):
+    presenter, view, manager = _presenter(tmp_path, [2, 3, 4, 5, 6, 7], engine_active=True)
+    manager.set_window_size(5)
+    manager.sort_collection(["min_gap_mandatory"])
+    manager.jump_to_schedule(4)
+    view.render_count = 0
+
+    manager.apply_sort_and_refresh = MagicMock(wraps=manager.apply_sort_and_refresh)
+    presenter._handle_next_schedule()
+
+    manager.apply_sort_and_refresh.assert_called_once_with(reset_to_top=False)
+    assert manager.get_window_start() == 5
+    assert manager.get_current_index() == 5
+    assert view.render_count >= 1
+
+
+# --- PLAN-421 Completion Logic: engine idle lifts the top-N boundary ----------
+def test_next_crossing_window_boundary_when_engine_idle_does_not_auto_refresh(tmp_path):
+    presenter, view, manager = _presenter(tmp_path, [2, 3, 4, 5, 6, 7], engine_active=False)
+    manager.set_window_size(5)
+    manager.sort_collection(["min_gap_mandatory"])
+    manager.jump_to_schedule(4)
+
+    manager.apply_sort_and_refresh = MagicMock(wraps=manager.apply_sort_and_refresh)
+    presenter._handle_next_schedule()
+
+    manager.apply_sort_and_refresh.assert_not_called()
+    assert manager.get_current_index() == 5
 
 # --- refresh-feed via auto-refresh: re-ranks without re-running the engine ---
 def test_auto_refresh_feed_does_not_invoke_engine(tmp_path):

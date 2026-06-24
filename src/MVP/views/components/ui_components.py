@@ -11,6 +11,7 @@ ICON_EXPORT = "\uF1C3"     # box-arrow-down
 ICON_EDIT = "\uF4CB"       # pencil
 ICON_FILTER = "\uF3DE"     # filter
 ICON_LOAD_MORE = "\uF130"  # arrow-clockwise
+ICON_REFRESH_FEED = "\uF130"  # arrow-clockwise / refresh current sorted feed
 ICON_EXCLUDE = "\uF831"    # x-circle
 ICON_SETTINGS = "⚙"        # settings / constraints
 
