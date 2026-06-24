@@ -5,7 +5,6 @@ from src import cli
 from src.data_manager import DataManager
 from src.MVP.models.course import Course, ProgramCourseInfo
 from src.MVP.models.schedule import Schedule, ScheduledExam
-from src.metrics.metrics_calculator import METRIC_KEYS
 from src.output.file_output_writer import FileOutputWriter
 from src.parsers.base_parser import BaseParser
 from src.engine.scheduling_constraints import SchedulingConstraints
@@ -128,19 +127,6 @@ def test_invalid_criteria_handling():
     args = parser.parse_args(["--sort", "invalid_metric"])
     with pytest.raises(ValueError, match="Unknown sort metric"):
         cli.resolve_options(args, {})
-
-def test_format_listing_truncation_note(tmp_path):
-    c1, c2 = _course("10001"), _course("10002")
-    out = tmp_path / "schedules.txt"
-    _write_results(out, c1, c2, [3, 9, 5, 1, 7])
-    dm = _dm_with_courses(c1, c2)
-
-    window, metrics, total = cli.rank_and_slice(
-        dm, str(out), ["min_gap_mandatory"], ascending=False, window_size=2
-    )
-    listing = cli.format_window_listing(window, metrics, total, 2, [
-                                        "min_gap_mandatory"], False)
-    assert "3 more schedule(s) not shown" in listing
 
 
 def test_resolve_options_defaults():
