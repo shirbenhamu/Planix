@@ -1,9 +1,11 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.MVP.views import theme
 from src.MVP.views.ui_utils import TRANSLATIONS, format_text
+from src.MVP.views.components.top_toolbar import TopToolbar
 from src.MVP.views.calendar_view import CalendarGridView
 from src.MVP.views.monthly_view import MonthlyGridView
 from src.MVP.app_window import AppWindow
@@ -36,6 +38,31 @@ def test_format_text_returns_key_when_translation_is_missing():
 def test_translations_include_load_more_for_hebrew_and_english():
     assert TRANSLATIONS["load_more"]["he"] == "טען עוד"
     assert TRANSLATIONS["load_more"]["en"] == "Load More"
+
+
+def test_translations_include_refresh_feed_for_hebrew_and_english():
+    assert TRANSLATIONS["refresh_feed"]["he"] == "רענן תצוגה"
+    assert TRANSLATIONS["refresh_feed"]["en"] == "Refresh Feed"
+    assert TRANSLATIONS["refresh_feed_tooltip"]["he"]
+    assert TRANSLATIONS["refresh_feed_tooltip"]["en"]
+
+
+def test_top_toolbar_language_updates_refresh_feed_label_and_tooltip():
+    toolbar = object.__new__(TopToolbar)
+    toolbar.refresh_feed_btn = MagicMock()
+    toolbar.tip_refresh_feed = SimpleNamespace(text="")
+    toolbar.tip_edit = SimpleNamespace(text="")
+    toolbar.tip_load_more = SimpleNamespace(text="")
+    toolbar.tip_constraints = SimpleNamespace(text="")
+    toolbar.tip_exclude = SimpleNamespace(text="")
+    toolbar.tip_undo = SimpleNamespace(text="")
+    toolbar.tip_export = SimpleNamespace(text="")
+
+    TopToolbar.update_language(toolbar, "en")
+
+    assert toolbar.current_lang == "en"
+    toolbar.refresh_feed_btn.configure.assert_called_with(text="\uf130  Refresh")
+    assert toolbar.tip_refresh_feed.text == TRANSLATIONS["refresh_feed_tooltip"]["en"]
 
 
 def test_theme_core_values_are_defined():

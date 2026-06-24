@@ -12,6 +12,8 @@ TRANSLATIONS = {
     "schedule_lbl": {"he": "מערכת", "en": "Schedule"},
     "out_of_lbl": {"he": "מתוך", "en": "out of"},
     "load_more": {"he": "טען עוד", "en": "Load More"},
+    "refresh_feed": {"he": "רענן תצוגה", "en": "Refresh Feed"},
+    "refresh_feed_tooltip": {"he": "רענן את חלון התוצאות לפי המיון הפעיל", "en": "Refresh the result window using the active sort"},
     "empty_state": {"he": "יש לטעון נתונים", "en": "Please load data"},
     "computing": {"he": "מחשב שיבוצים...", "en": "Computing schedules..."},
     "no_results": {"he": "לא נמצאו מערכות מתאימות", "en": "No matching schedules found"},

@@ -1,10 +1,10 @@
 # src/MVP/views/components/top_toolbar.py
 
 import customtkinter as ctk
-from src.MVP.views.ui_utils import format_text
+from src.MVP.views.ui_utils import TRANSLATIONS
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
-    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_EXCLUDE, ICON_EXPORT, ICON_SETTINGS
+    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_REFRESH_FEED, ICON_EXCLUDE, ICON_EXPORT, ICON_SETTINGS
 )
 
 ACCENT = ("#0077b6", "#3b8ed0")
@@ -33,6 +33,7 @@ class TopToolbar(ctk.CTkFrame):
         self.on_month_prev = None
         self.on_month_next = None
         self.on_load_more = None
+        self.on_refresh_feed = None
         self.on_edit_dates = None
         self.on_constraints_settings = None
         self.on_undo = None
@@ -70,6 +71,21 @@ class TopToolbar(ctk.CTkFrame):
         self.out_of_lbl.pack(side="left", padx=2)
         ctk.CTkButton(self.nav_frame, text=">", font=f_btn, width=30, height=26,
                       command=lambda: self.on_next() if self.on_next else None).pack(side="left", padx=2)
+
+        self.refresh_feed_btn = ctk.CTkButton(
+            self.nav_frame,
+            text=f"{ICON_REFRESH_FEED}  רענן",
+            font=f_icon,
+            width=78,
+            height=26,
+            fg_color=ACCENT,
+            hover_color=ACCENT_HOVER,
+            text_color="white",
+            corner_radius=6,
+            command=lambda: self.on_refresh_feed() if self.on_refresh_feed else None,
+        )
+        self.refresh_feed_btn.pack(side="left", padx=(8, 2))
+        self.tip_refresh_feed = Tooltip(self.refresh_feed_btn, "רענן את חלון התוצאות לפי המיון הפעיל")
 
         # --- Action buttons based on the new icon font ---
         self.edit_dates_btn = ctk.CTkButton(
@@ -154,6 +170,8 @@ class TopToolbar(ctk.CTkFrame):
         # Update the tooltips according to the UI language
         if lang == "he":
             self.tip_edit.text = "עריכת תאריכים"
+            self.refresh_feed_btn.configure(text=f"{ICON_REFRESH_FEED}  רענן")
+            self.tip_refresh_feed.text = TRANSLATIONS["refresh_feed_tooltip"]["he"]
             self.tip_load_more.text = "טען מערכות נוספות"
             self.tip_constraints.text = "הגדרות אילוצים"
             self.tip_exclude.text = "החרג יום נבחר"
@@ -161,6 +179,8 @@ class TopToolbar(ctk.CTkFrame):
             self.tip_export.text = "ייצוא לוח זמנים"
         else:
             self.tip_edit.text = "Edit Dates"
+            self.refresh_feed_btn.configure(text=f"{ICON_REFRESH_FEED}  Refresh")
+            self.tip_refresh_feed.text = TRANSLATIONS["refresh_feed_tooltip"]["en"]
             self.tip_load_more.text = "Load More"
             self.tip_constraints.text = "Constraints Settings"
             self.tip_exclude.text = "Exclude Date"
