@@ -8,13 +8,6 @@ from src.engine.scheduling_constraints import SchedulingConstraints
 """
 Tests verifying that the engine enforces the SRS section-2 threshold
 constraints (2.1-2.5) while generating an exam schedule.
-
-NOTE on the conflict_matrix: an elective-elective conflict is defined
-structurally as "two distinct elective courses in the same program on the same
-date" (identical to metric 3.3 in MetricsCalculator). It is NOT read from an
-external matrix, so the matrix passed below is intentionally empty and only
-satisfies the _can_add_exam_to_schedule signature. If your engine instead reads
-conflicts from a populated matrix, seed it here for the 2.3 tests.
 """
 
 # --- Core Fixtures and Mocks for Testing ---
@@ -53,7 +46,7 @@ def mock_context():
     elective_z = Course(course_id="66666", course_name="Chemistry 1",
                         instructor="Dr. Curie", evaluation_method="Exam", program_info=[elective_83109])
 
-    # Intentionally empty: conflicts are derived structurally (see module docstring).
+    # Intentionally empty: conflicts are derived structurally
     conflict_matrix = set()
 
     return {
@@ -390,15 +383,6 @@ def test_constraint_max_elective_invalid_k_raises_error():
 
 
 # --- Constraint 2.4: Date Range (Span) of mandatory exams ---
-#
-# !!! SPEC DISCREPANCY -- READ BEFORE TRUSTING THESE TESTS !!!
-# SRS 2.4 reads "...לא יהיה קטן מ k", i.e. the first-to-last span must be
-# >= k (a MINIMUM spread), and metric 3.4 sorts span descending ("higher is
-# better"), which corroborates that reading. The tests below assert the OPPOSITE
-# (span <= k, a maximum), matching the current engine. Direction was left as-is
-# on purpose: flipping it here would silently break the suite while the real
-# fix, if needed, belongs in the engine. Decide which side is correct, then make
-# the engine and these tests agree.
 
 def test_constraint_span_mandatory_flag_off(scheduler, mock_context):
     """Flag Off: an exam outside the span window is accepted when 2.4 is disabled."""
