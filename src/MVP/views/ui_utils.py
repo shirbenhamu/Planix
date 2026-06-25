@@ -15,7 +15,7 @@ TRANSLATIONS = {
     "refresh_feed": {"he": "רענן תצוגה", "en": "Refresh Feed"},
     "refresh_feed_tooltip": {"he": "רענן את חלון התוצאות לפי המיון הפעיל", "en": "Refresh the result window using the active sort"},
     "empty_state": {"he": "יש לטעון נתונים", "en": "Please load data"},
-    "computing": {"he": "מחשב שיבוצים...", "en": "Computing schedules..."},
+    "computing": {"he": "מחשב שיבוצים", "en": "Computing schedules..."},
     "no_results": {"he": "לא נמצאו מערכות מתאימות", "en": "No matching schedules found"},
     
     # --- Loading-indicator & robot translations ---
@@ -62,7 +62,7 @@ TRANSLATIONS = {
     "edit_dates": {"he": "עריכת תאריכים", "en": "Edit Dates"},
     "add_excluded_date": {"he": "הוספת תאריך מוחרג:", "en": "Add Excluded Date:"},
     "save": {"he": "שמור", "en": "Save"},
-    "date_format": {"he": "dd/mm/yyyy", "en": "dd/mm/yyyy"},
+    "date_format": {"he": "יום/חודש/שנה", "en": "dd/mm/yyyy"},
     "no_dates_loaded": {"he": "אנא העלה קובץ תאריכים תחילה", "en": "Please load a dates file first"},
     "semester": {"he": "סמסטר", "en": "Semester"},
     "moed": {"he": "מועד", "en": "Moed"},
@@ -95,7 +95,7 @@ TRANSLATIONS = {
     "metrics_values_empty": {"he": "אין עדיין מדדים להצגה", "en": "No metrics to display yet"},
     "sort_selector_tooltip": {"he": "בחירת מדדי מיון וסדר עדיפות", "en": "Choose sort metrics and priority order"},
     "sort_selector_title": {"he": "בחירת סדר מיון", "en": "Sort Criteria Priority"},
-    "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון. סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי. ניתן לגרור שורות או להשתמש בחצים.", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
+    "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי ניתן לגרור שורות או להשתמש בחצים", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
     "sort_selector_empty_error": {"he": "יש לבחור לפחות מדד מיון אחד", "en": "Select at least one sort metric"},
 
     # Sort-metric labels (dropdown) for the five section-3 metrics
@@ -114,34 +114,116 @@ TRANSLATIONS = {
 
     # --- Info / help screen for the ranking features ---
     "info_btn_tooltip": {"he": "הסבר על המיון והמדדים", "en": "About sorting & metrics"},
-    "info_title": {"he": "דירוג ומדדים — הסבר", "en": "Ranking & Metrics — Help"},
+    "info_title": {"he": "דירוג ומדדים - הסבר", "en": "Ranking & Metrics — Help"},
     "info_sort_title": {"he": "מיון", "en": "Sorting"},
     "info_sort_desc": {
-        "he": "המיון קובע רק את סדר הצגת הלוחות. הוא לא מוסיף ולא מסיר לוחות. בוחרים מדד ראשי, מדד משני לשובר שוויון, וכיוון: ״יורד״ מציג ערכים גבוהים תחילה, ״עולה״ מציג ערכים נמוכים תחילה. השינוי מיידי ואינו מריץ מחדש את המנוע.",
-        "en": "Sorting only sets the order in which schedules are shown. It never adds or removes any. Choose a primary metric, an optional secondary tie-breaker, and a direction: ‘Desc’ shows the highest values first, ‘Asc’ shows the lowest first. It applies instantly and does not re-run the engine.",
+        "he": "המיון קובע רק את סדר הצגת הלוחות הוא לא מוסיף ולא מסיר לוחות בוחרים אילו מדדים ישתתפו במיון ומסדרים אותם לפי עדיפות: המדד הראשון הוא הראשי, והבאים אחריו שוברים שוויון הכיוון ״יורד״ מציג ערכים גבוהים תחילה, ו״עולה״ מציג ערכים נמוכים תחילה השינוי מיידי ואינו מריץ מחדש את המנוע",
+        "en": "Sorting only sets the order in which schedules are shown. It never adds or removes schedules. Choose which metrics participate in sorting and arrange them by priority: the first metric is primary, and later metrics break ties. ‘Desc’ shows higher values first, and ‘Asc’ shows lower values first. The change applies immediately and does not re-run the engine.",
     },
     "info_metrics_title": {"he": "חמשת המדדים", "en": "The five metrics"},
     "info_pref_higher": {"he": "מומלץ ערך גבוה", "en": "Higher is better"},
     "info_pref_lower": {"he": "מומלץ ערך נמוך", "en": "Lower is better"},
     "info_metric_avg_gap_all": {
-        "he": "ממוצע מספר הימים בין כל זוג בחינות (חובה או בחירה) באותה תוכנית ובאותה שנה.",
+        "he": "ממוצע מספר הימים בין כל זוג בחינות (חובה או בחירה) באותה תוכנית ובאותה שנה",
         "en": "The average number of days between every pair of exams (mandatory or elective) in the same program and year.",
     },
     "info_metric_min_gap_mandatory": {
-        "he": "מספר הימים הקטן ביותר שמפריד בין שתי בחינות חובה כלשהן באותה תוכנית ובאותה שנה.",
+        "he": "מספר הימים הקטן ביותר שמפריד בין שתי בחינות חובה כלשהן באותה תוכנית ובאותה שנה",
         "en": "The fewest days separating any two mandatory exams in the same program and year.",
     },
     "info_metric_elective_conflicts": {
-        "he": "מספר זוגות קורסי הבחירה באותה תוכנית שנקבעו לאותו יום.",
+        "he": "מספר זוגות קורסי הבחירה באותה תוכנית שנקבעו לאותו יום",
         "en": "The number of elective-course pairs in the same program scheduled on the same day.",
     },
     "info_metric_mandatory_span": {
-        "he": "מספר הימים מבחינת החובה הראשונה ועד בחינת החובה האחרונה באותה תוכנית ובאותה שנה.",
+        "he": "מספר הימים מבחינת החובה הראשונה ועד בחינת החובה האחרונה באותה תוכנית ובאותה שנה",
         "en": "The number of days from the first mandatory exam to the last, in the same program and year.",
     },
     "info_metric_max_exams_per_day": {
-        "he": "מספר הבחינות הגדול ביותר שנקבעו לאותו יום בלוח.",
+        "he": "מספר הבחינות הגדול ביותר שנקבעו לאותו יום בלוח",
         "en": "The largest number of exams scheduled on any single day.",
+    },
+
+    # --- Information popup: constraints and calendar controls (PLAN-582) ---
+    "info_constraints_title": {"he": "אילוצי שיבוץ", "en": "Scheduling constraints"},
+    "info_constraints_desc": {
+        "he": "כפתור האילוצים פותח מסך הגדרות שמאפשר להפעיל או לכבות אילוצים חדשים ולהגדיר ערך מספרי לכל אילוץ שינוי אילוצים משפיע על הרצת המנוע הבאה, ולכן לא ניתן לשמור אילוצים בזמן שהמנוע עדיין רץ",
+        "en": "The Constraints button opens a settings screen for enabling or disabling the new constraints and setting a k value for each one. Constraint changes affect the next engine run, so they cannot be saved while generation is still active.",
+    },
+    "info_constraint_min_days_mandatory": {
+        "he": "כאשר האילוץ פעיל, המנוע מנסה לשמור לפחות את מספר הימים שהוגדר בין שתי בחינות חובה באותה תוכנית ובאותה שנה",
+        "en": "When enabled, the engine tries to keep at least k days between two mandatory exams in the same program and year.",
+    },
+    "info_constraint_min_days_any": {
+        "he": "כאשר האילוץ פעיל, המנוע מנסה לשמור לפחות את מספר הימים שהוגדר בין כל שתי בחינות באותה תוכנית ובאותה שנה, גם חובה וגם בחירה",
+        "en": "When enabled, the engine tries to keep at least k days between any two exams in the same program and year, both mandatory and elective.",
+    },
+    "info_constraint_max_elective_conflicts": {
+        "he": "כאשר האילוץ פעיל, המנוע מגביל את מספר ההתנגשויות המותרות בין קורסי בחירה לערך שהוגדר לכל היותר",
+        "en": "When enabled, the engine limits the allowed number of elective-course conflicts to at most k.",
+    },
+    "info_constraint_span_mandatory": {
+        "he": "כאשר האילוץ פעיל, המנוע מנסה להגביל את הטווח בין בחינת החובה הראשונה לאחרונה למספר הימים שהוגדר לכל היותר",
+        "en": "When enabled, the engine tries to limit the span from the first mandatory exam to the last mandatory exam to at most k days.",
+    },
+    "info_constraint_max_exams_per_day": {
+        "he": "כאשר האילוץ פעיל, המנוע מגביל את מספר הבחינות שניתן לשבץ באותו יום לערך שהוגדר לכל היותר",
+        "en": "When enabled, the engine limits the number of exams scheduled on the same day to at most k.",
+    },
+    "info_calendar_buttons_title": {"he": "כפתורי מסך הלוח", "en": "Calendar view buttons"},
+    "info_calendar_buttons_desc": {
+        "he": "הכפתורים במסך הלוח מנהלים ניווט, מיון, עריכה ופעולות תצוגה כל פעולה עוברת דרך שכבת התיווך ואינה פונה ישירות למנוע או לאינדקס התוצאות",
+        "en": "The calendar-view buttons control navigation, sorting, editing, and display actions. Each action goes through the Presenter and does not access the engine or result index directly.",
+    },
+    "info_button_navigation_title": {"he": "ניווט בין מערכות", "en": "Schedule navigation"},
+    "info_button_navigation_desc": {
+        "he": "כפתורי הקודם/הבא ושדה מספר העמוד מאפשרים לעבור בין המערכות שנוצרו בזמן שהמנוע רץ, הניווט מוגבל לחלון התוצאות הזמין; לאחר סיום הריצה ניתן לנווט בכל התוצאות",
+        "en": "The previous/next buttons and page field move between generated schedules. While the engine is running, navigation is limited to the available result window; after completion, the full sorted result set can be browsed.",
+    },
+    "info_button_sort_selector_title": {"he": "בחירת מיון", "en": "Sort selector"},
+    "info_button_sort_selector_desc": {
+        "he": "כפתור בחירת המיון מאפשר לבחור כמה מדדים ולסדר אותם לפי עדיפות המיון משנה רק את סדר ההצגה ואינו מריץ מחדש את המנוע",
+        "en": "The sort selector lets you choose multiple metrics and order them by priority. Sorting changes only the display order and does not re-run the engine.",
+    },
+    "info_button_metrics_title": {"he": "מדדים", "en": "Metrics"},
+    "info_button_metrics_desc": {
+        "he": "כפתור המדדים מציג את חמשת ערכי המדדים של המערכת הנוכחית לאחר עריכה ידנית, המדדים מחושבים מחדש לפי הלוח שמוצג בפועל",
+        "en": "The Metrics button shows the five metric values for the current schedule. After a manual edit, the metrics are recalculated from the currently displayed calendar.",
+    },
+    "info_button_refresh_feed_title": {"he": "רענון תוצאות", "en": "Refresh feed"},
+    "info_button_refresh_feed_desc": {
+        "he": "כפתור רענון התוצאות טוען מחדש את חלון התוצאות הזמין לפי המיון הפעיל הוא לא יוצר מערכות חדשות ולא מריץ מחדש את המנוע",
+        "en": "The refresh-feed button reloads the available result window using the active sorting criteria. It does not create new schedules and does not re-run the engine.",
+    },
+    "info_button_load_more_title": {"he": "טען עוד", "en": "Load more"},
+    "info_button_load_more_desc": {
+        "he": "כפתור טען עוד מבקש מהמערכת להמשיך ליצור מערכות נוספות מעבר למה שכבר נוצר, תוך שימוש בספירת דילוגים כדי לא להתחיל מהתחלה",
+        "en": "The Load More button asks the engine to generate additional schedules beyond the existing results, using a skip count so generation does not restart from the beginning.",
+    },
+    "info_button_constraints_title": {"he": "אילוצים", "en": "Constraints"},
+    "info_button_constraints_desc": {
+        "he": "כפתור האילוצים פותח את חלון הגדרות האילוצים ניתן להפעיל אילוץ, לכבות אותו, ולשנות את הערך המספרי שלו לפני הרצת החישוב",
+        "en": "The Constraints button opens the constraint settings window. You can enable a constraint, disable it, and change its k value before running generation.",
+    },
+    "info_button_edit_dates_title": {"he": "עריכת תאריכים", "en": "Edit dates"},
+    "info_button_edit_dates_desc": {
+        "he": "כפתור עריכת התאריכים מאפשר לעדכן ידנית את טווחי מועדי הבחינות המשמשים להצגת ולחישוב המערכות",
+        "en": "The Edit Dates button lets you manually update the exam-period date ranges used for displaying and generating schedules.",
+    },
+    "info_button_exclude_title": {"he": "החרגת יום", "en": "Exclude date"},
+    "info_button_exclude_desc": {
+        "he": "כפתור ההחרגה מסמן יום שלא אמור לשמש לשיבוץ בחינות, בהתאם לפעולת המשתמש על הלוח",
+        "en": "The Exclude Date button marks a day that should not be used for exam scheduling, according to the user's calendar action.",
+    },
+    "info_button_undo_title": {"he": "ביטול עריכה ידנית", "en": "Undo manual edit"},
+    "info_button_undo_desc": {
+        "he": "כפתור הביטול מחזיר את הלוח למצב האחרון לפני שינוי ידני, למשל לאחר גרירה או שינוי תאריך ידני",
+        "en": "The Undo button restores the calendar to the previous state before a manual change, such as a drag-and-drop or manual date edit.",
+    },
+    "info_button_export_title": {"he": "ייצוא", "en": "Export"},
+    "info_button_export_desc": {
+        "he": "כפתור הייצוא שומר או מייצא את הלוח הנוכחי כדי שניתן יהיה להשתמש בו מחוץ למסך התוצאות",
+        "en": "The Export button saves or exports the current schedule so it can be used outside the results screen.",
     },
 
     # --- Pruning constraints settings modal (PLAN-418) ---
@@ -150,13 +232,13 @@ TRANSLATIONS = {
     "constraints_title": {"he": "הגדרות אילוצי שיבוץ", "en": "Scheduling Constraints"},
     "constraints_header_name": {"he": "אילוץ", "en": "Constraint"},
     "constraints_header_enabled": {"he": "פעיל", "en": "Enabled"},
-    "constraints_header_k": {"he": "K ערך ", "en": "k value"},
+    "constraints_header_k": {"he": "ערך מספרי", "en": "k value"},
     "constraint_min_days_mandatory": {"he": "מרווח מינימלי בין מבחני חובה באותה תוכנית ושנה", "en": "Minimum days between mandatory exams in the same program/year"},
     "constraint_min_days_any": {"he": "מרווח מינימלי בין כל שתי בחינות באותה תוכנית ושנה", "en": "Minimum days between any two exams in the same program/year"},
     "constraint_max_elective_conflicts": {"he": "מקסימום התנגשויות בין קורסי בחירה", "en": "Maximum elective-elective conflicts"},
     "constraint_span_mandatory": {"he": "טווח מקסימלי בין מבחן חובה ראשון לאחרון", "en": "Maximum span from first to last mandatory exam"},
     "constraint_max_exams_per_day": {"he": "מקסימום בחינות באותו יום", "en": "Maximum exams on the same day"},
-    "constraints_invalid": {"he": "חייב להיות מספר שלם ולא שלילי k ערך ", "en": "k must be a non-negative whole number"},
+    "constraints_invalid": {"he": "הערך חייב להיות מספר שלם ולא שלילי", "en": "k must be a non-negative whole number"},
     "constraints_locked": {"he": "לא ניתן לשמור אילוצים בזמן שהמנוע רץ", "en": "Constraints cannot be saved while the engine is running"},
     "constraints_saved": {"he": "האילוצים נשמרו בהצלחה", "en": "Constraints saved successfully"},
 }
