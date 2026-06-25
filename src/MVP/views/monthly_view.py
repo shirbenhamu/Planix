@@ -220,6 +220,7 @@ class MonthlyGridView(ctk.CTkFrame):
                 "original_key": original_key,
                 "is_excluded": data.get("is_excluded", False),
                 "exams": data.get("exams", []),
+                "holiday_name": data.get("holiday_name"),  
             }
             current_col += 1
             if current_col > 6:
@@ -267,6 +268,28 @@ class MonthlyGridView(ctk.CTkFrame):
         day_lbl = ctk.CTkLabel(cell_frame, text=str(content["day"]), font=self.f_day, text_color=theme.TEXT_MAIN)
         day_lbl.pack(anchor=anchor, padx=8, pady=4)
         day_lbl.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
+
+        # Display holiday name if this date is excluded due to a holiday
+        holiday_name = content.get("holiday_name")
+        if content["is_excluded"] and holiday_name:
+            trans_key = f"holiday_{holiday_name}"
+            display_name = holiday_name
+            if trans_key in TRANSLATIONS:
+                display_name = TRANSLATIONS[trans_key].get(self.current_lang, holiday_name)
+            
+            # Split multi-word names across lines (e.g., "Good Friday" -> "Good\nFriday")
+            display_name = "\n".join(display_name.split())
+            
+            holiday_lbl = ctk.CTkLabel(
+                cell_frame,
+                text=display_name,
+                font=("Arial", 12),  # Larger font for monthly view
+                text_color="#d32f2f",
+                wraplength=80,
+                justify="right" if self.current_lang == "he" else "left"
+            )
+            holiday_lbl.pack(anchor=anchor, padx=8, pady=(0, 2), fill="x")
+            holiday_lbl.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
         exams = content["exams"]
         if exams:

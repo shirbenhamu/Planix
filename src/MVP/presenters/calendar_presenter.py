@@ -1,10 +1,13 @@
 # src/MVP/presenters/calendar_presenter.py
 
+import re
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 from src.manual_edit.manual_edit_session import ManualEditSession
 from src.metrics.metrics_calculator import MetricsCalculator
+from src.engine.holiday_data import get_holidays_for_religions
+from src.MVP.views.ui_utils import TRANSLATIONS
 
 
 class CalendarPresenter:
@@ -213,11 +216,15 @@ class CalendarPresenter:
         current_year = schedule.exams[0].exam_date.year if schedule.exams else datetime.now().year
         all_courses = {c.course_id: c for c in self.model.data_manager.get_courses()}
 
+        # Load holidays dict for display (will extract holiday name if is_excluded)
+        selected_religions = self.model.constraints.selected_religions if self.model.constraints else []
+        holidays_dict = get_holidays_for_religions(selected_religions, year=current_year) if selected_religions else {}
+
         for row_idx, month_idx in enumerate(self.active_months, start=1):
             for day_num in range(1, 32):
                 col_idx = day_num - 1
                 cell_key = f"{row_idx}-{col_idx}"
-                grid_data[cell_key] = {"is_excluded": False, "day_text": "", "exams": []}
+                grid_data[cell_key] = {"is_excluded": False, "day_text": "", "exams": [], "holiday_name": None}
                 try:
                     real_date = date(current_year, month_idx + 1, day_num)
                     self.cell_to_date_mapping[cell_key] = real_date
@@ -235,6 +242,20 @@ class CalendarPresenter:
 
         for cel_key, cell_date in self.cell_to_date_mapping.items():
             grid_data[cel_key]["is_excluded"] = cell_date in excluded_dates
+            # Extract and display holiday name if this date is a holiday
+            if cell_date in holidays_dict and grid_data[cel_key]["is_excluded"]:
+                holiday_full = holidays_dict[cell_date]  # e.g., "Jewish: Purim"
+                # Remove religion prefix (Jewish:, Christian:, Muslim:)
+                if ": " in holiday_full:
+                    holiday_name = holiday_full.split(": ", 1)[1]
+                else:
+                    holiday_name = holiday_full
+                
+                # Remove parentheses and their content (estimated), (observed, estimated), etc.
+                holiday_name = re.sub(r'\s*\([^)]*\)', '', holiday_name).strip()
+                
+                # PLAN-555: Store English holiday name; view layer will translate
+                grid_data[cel_key]["holiday_name"] = holiday_name
 
         for exam in schedule.exams:
             exam_date = exam.exam_date

@@ -271,6 +271,7 @@ class CalendarGridView(ctk.CTkFrame):
         if cell_key not in self._cell_widget_pools:
             self._cell_widget_pools[cell_key] = {
                 "day_label": None,
+                "holiday_label": None,  
                 "exams_container": None,
                 "exam_cards": []
             }
@@ -295,6 +296,55 @@ class CalendarGridView(ctk.CTkFrame):
             # Just update text if it changed
             if pool["day_label"].cget("text") != str(day_num):
                 pool["day_label"].configure(text=str(day_num))
+
+        # Handle holiday name label (show only if excluded + has holiday_name)
+        holiday_name = cell_data.get("holiday_name")
+        if cell_data.get("is_excluded") and holiday_name:
+            if pool["holiday_label"] is None:
+                # Create holiday label with translation + proper wrapping for annual view
+                trans_key = f"holiday_{holiday_name}"
+                display_name = holiday_name
+                if trans_key in TRANSLATIONS:
+                    display_name = TRANSLATIONS[trans_key].get(self.current_lang, holiday_name)
+                
+                # Split multi-word names across lines (e.g., "Rosh Hashanah" -> "Rosh\nHashanah")
+                display_name = "\n".join(display_name.split())
+                
+                holiday_lbl = ctk.CTkLabel(
+                    cell_frame,
+                    text=display_name,
+                    font=("Arial", 10),  # Larger font for annual view
+                    text_color="#d32f2f",
+                    wraplength=100,  # Large wraplength for annual view cells
+                    justify="right" if self.current_lang == "he" else "left"
+                )
+                holiday_lbl.pack(anchor="ne" if self.current_lang == "he" else "nw", padx=4, pady=0, fill="x")
+                holiday_lbl.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
+                pool["holiday_label"] = holiday_lbl
+            else:
+                # Update existing holiday label
+                trans_key = f"holiday_{holiday_name}"
+                display_name = holiday_name
+                if trans_key in TRANSLATIONS:
+                    display_name = TRANSLATIONS[trans_key].get(self.current_lang, holiday_name)
+                
+                # Split multi-word names across lines
+                display_name = "\n".join(display_name.split())
+                
+                if pool["holiday_label"].cget("text") != display_name:
+                    pool["holiday_label"].configure(text=display_name)
+                # Ensure it's visible
+                try:
+                    pool["holiday_label"].pack(anchor="ne" if self.current_lang == "he" else "nw", padx=4, pady=0, fill="x")
+                except:
+                    pass
+        else:
+            # Hide holiday label if no holiday or not excluded
+            if pool["holiday_label"] is not None:
+                try:
+                    pool["holiday_label"].pack_forget()
+                except:
+                    pass
 
         # Handle exams container - use pack_forget/pack instead of destroy
         exams = cell_data.get("exams", [])
