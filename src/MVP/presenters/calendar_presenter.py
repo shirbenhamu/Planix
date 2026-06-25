@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 from src.manual_edit.manual_edit_session import ManualEditSession
 from src.metrics.metrics_calculator import MetricsCalculator
+from src.output.calendar_ics_exporter import CalendarIcsExporter
 
 
 class CalendarPresenter:
@@ -375,7 +376,7 @@ class CalendarPresenter:
         if adapter is None:
             return False
         try:
-            return bool(adapter.is_generation_active())
+            return adapter.is_generation_active() is True
         except Exception:
             return False
 
@@ -446,19 +447,54 @@ class CalendarPresenter:
         except Exception as e:
             print(f"Error updating exam period range: {e}")
 
-    def _handle_export(self, destination_file_path: str) -> None:
+    def _handle_export(
+        self,
+        destination_file_path: str,
+        export_format: str = "text",
+        open_after_export: bool = False,
+    ) -> str | None:
+        """Export the currently displayed board.
+
+        export_format="text" keeps the legacy text export. export_format="ics"
+        creates an RFC 5545 iCalendar file that contains only the active exam
+        events. Manual drag-and-drop edits are respected because the active board
+        is read through _active_board() (PLAN-562 / PLAN-556).
+        """
         try:
-            # Export the currently displayed board including manual edits, not the
-            # original on-disk one (PLAN-562).
             active_schedule = self._active_board()
+            normalized_format = (export_format or "text").strip().lower()
+
+            if normalized_format in {"ics", "calendar", "ical"}:
+                # PLAN-556: external calendar export. Constraints, excluded days,
+                # ranking metrics, and other internal scheduler data are not
+                # serialized by CalendarIcsExporter; only visible exam slots become
+                # VEVENT blocks.
+                export_handler = getattr(self.model, "export_schedule_to_ics", None)
+                exported_path = None
+                if callable(export_handler):
+                    exported_path = export_handler(active_schedule, destination_file_path)
+                if not isinstance(exported_path, str) or not exported_path.strip():
+                    exported_path = CalendarIcsExporter().export_schedule(
+                        active_schedule,
+                        destination_file_path,
+                    )
+                print(f"Calendar schedule exported successfully to {exported_path}")
+                return exported_path
+
+            # Legacy text option from the two-choice export dialog.
             with open(destination_file_path, "w", encoding="utf-8") as out_file:
                 out_file.write("--- EXPORTED EXAM SCHEDULE SYSTEM OPTION ---\n")
                 for exam in active_schedule.exams:
-                    formatted_line = f"Date: {exam.exam_date.strftime('%d-%m-%Y')} | Course: {exam.course.course_id} - {exam.course.course_name}\n"
+                    formatted_line = (
+                        f"Date: {exam.exam_date.strftime('%d-%m-%Y')} | "
+                        f"Course: {exam.course.course_id} - {exam.course.course_name}\n"
+                    )
                     out_file.write(formatted_line)
             print(f"Schedule exported successfully to {destination_file_path}")
+            return destination_file_path
         except Exception as e:
             print(f"Failed to export destination file: {e}")
+            return None
 
     def _handle_filter_click(self) -> None:
         try:

@@ -131,6 +131,9 @@ class AppController:
         if self.engine_adapter.is_generation_active():
             print("[AppController] Existing generation process is active. UI Lock engaged. Routing user straight to current preview screen.")
             self._set_constraints_save_state(enabled=False)
+            self.collection_manager.clear_cache()
+            self.collection_manager.snapshot_mode = True
+            self.app_window.switch_view("annual")
             self.app_window.switch_view("calendar")
             self.app_window.after(100, self._load_snapshot_schedules)
             return
