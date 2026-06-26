@@ -1,5 +1,6 @@
 # src/engine/scheduling_constraints.py
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 
 @dataclass
 class SchedulingConstraints:
@@ -22,3 +23,6 @@ class SchedulingConstraints:
     # 2.5: Max exams per day
     max_exams_per_day_enabled: bool = False
     max_exams_per_day_k: int = 1
+
+    # PLAN-555: Persistent storage for multi-select religious constraint configurations
+    selected_religions: List[str] = field(default_factory=list)

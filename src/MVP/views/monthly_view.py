@@ -30,6 +30,7 @@ class MonthlyGridView(ctk.CTkFrame):
         self.on_range_update_clicked = None
         self.get_exam_periods_callback = None 
         self.on_load_more_clicked = None
+        self.on_refresh_feed_clicked = None
         self.on_save_constraints = None
         self._constraints_state = default_constraints_data()
         self._constraints_save_enabled = True
@@ -49,6 +50,7 @@ class MonthlyGridView(ctk.CTkFrame):
         self.toolbar = TopToolbar(self, is_monthly=True)
         self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
         self.toolbar.on_load_more = lambda: self.on_load_more_clicked() if self.on_load_more_clicked else None
+        self.toolbar.on_refresh_feed = lambda: self.on_refresh_feed_clicked() if self.on_refresh_feed_clicked else None
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
         self.toolbar.on_month_prev = self._prev_month
         self.toolbar.on_month_next = self._next_month
@@ -218,6 +220,7 @@ class MonthlyGridView(ctk.CTkFrame):
                 "original_key": original_key,
                 "is_excluded": data.get("is_excluded", False),
                 "exams": data.get("exams", []),
+                "holiday_name": data.get("holiday_name"),  
             }
             current_col += 1
             if current_col > 6:
@@ -266,6 +269,28 @@ class MonthlyGridView(ctk.CTkFrame):
         day_lbl.pack(anchor=anchor, padx=8, pady=4)
         day_lbl.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
+        # Display holiday name if this date is excluded due to a holiday
+        holiday_name = content.get("holiday_name")
+        if content["is_excluded"] and holiday_name:
+            trans_key = f"holiday_{holiday_name}"
+            display_name = holiday_name
+            if trans_key in TRANSLATIONS:
+                display_name = TRANSLATIONS[trans_key].get(self.current_lang, holiday_name)
+            
+            # Split multi-word names across lines (e.g., "Good Friday" -> "Good\nFriday")
+            display_name = "\n".join(display_name.split())
+            
+            holiday_lbl = ctk.CTkLabel(
+                cell_frame,
+                text=display_name,
+                font=("Arial", 12),  # Larger font for monthly view
+                text_color="#d32f2f",
+                wraplength=80,
+                justify="right" if self.current_lang == "he" else "left"
+            )
+            holiday_lbl.pack(anchor=anchor, padx=8, pady=(0, 2), fill="x")
+            holiday_lbl.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
+
         exams = content["exams"]
         if exams:
             exams_container = ctk.CTkScrollableFrame(cell_frame, fg_color="transparent")
@@ -274,18 +299,12 @@ class MonthlyGridView(ctk.CTkFrame):
             if hasattr(exams_container, "_parent_canvas"):
                 exams_container._parent_canvas.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
-            # Elegant color palette for when there are multiple exams on the same day
-            elegant_colors = [
-                ("#0d6efd", "#0077b6"), # Blue
-                ("#20c997", "#128260"), # Mint-green
-                ("#f39c12", "#d68910"), # Orange
-                ("#e83e8c", "#b8306f"), # Pink
-                ("#8e44ad", "#6c3483")  # Purple
-            ]
-
             for i, exam in enumerate(exams):
-                # Pick a color dynamically based on the exam index
-                pill_color = elegant_colors[i % len(elegant_colors)]
+                # Color by course type: Mandatory (ח) = Blue, Elective (ב) = Green
+                if exam.get("type") == "ח":
+                    pill_color = ("#0d6efd", "#0077b6")  # Blue for Mandatory
+                else:
+                    pill_color = ("#20c997", "#128260")  # Green for Elective
                 
                 # "Pill" styling with very rounded corners
                 card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
