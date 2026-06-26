@@ -282,6 +282,8 @@ def test_filter_click_cleans_program_ids_and_regenerates_snapshot():
         "Computer Science (83200)",
     ]
 
+    presenter.controller.engine_adapter.is_generation_active.return_value = False
+    controller.engine_adapter.is_generation_active.return_value = False
     presenter._handle_filter_click()
 
     model.update_selected_programs.assert_called_once_with(["83108", "83200"])
@@ -293,6 +295,8 @@ def test_filter_click_preserves_model_when_view_selection_is_empty():
 
     view.get_selected_programs.return_value = []
 
+    presenter.controller.engine_adapter.is_generation_active.return_value = False
+    controller.engine_adapter.is_generation_active.return_value = False
     presenter._handle_filter_click()
 
     model.update_selected_programs.assert_not_called()
