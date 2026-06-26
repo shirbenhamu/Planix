@@ -5,6 +5,15 @@ TRANSLATIONS = {
     "monthly_title": {"he": "תצוגה חודשית", "en": "Monthly View"},
     "exclude_btn": {"he": "החרג תאריך", "en": "Exclude Date"},
     "export_btn": {"he": "ייצוא", "en": "Export"},
+    "export_choice_title": {"he": "בחירת סוג ייצוא", "en": "Choose Export Type"},
+    "export_choice_desc": {
+        "he": "אפשר לשמור את הלוח הנוכחי כקובץ טקסט, או ליצור קובץ ICS תקני ולפתוח אותו באפליקציית היומן המקומית",
+        "en": "Save the current schedule as a text file, or create a standards-compliant ICS file and open it with your local calendar app.",
+    },
+    "export_text_file": {"he": "קובץ טקסט", "en": "Text file"},
+    "export_local_calendar": {"he": "פתיחה ביומן המקומי", "en": "Open in local calendar"},
+    "export_text_dialog_title": {"he": "שמירת קובץ טקסט", "en": "Save text file"},
+    "export_calendar_dialog_title": {"he": "שמירת קובץ ICS", "en": "Save ICS calendar file"},
     "start_date": {"he": "התחלה", "en": "Start"},
     "end_date": {"he": "סיום", "en": "End"},
     "update_range": {"he": "עדכן", "en": "Update"},
@@ -238,8 +247,8 @@ TRANSLATIONS = {
     },
     "info_button_export_title": {"he": "ייצוא", "en": "Export"},
     "info_button_export_desc": {
-        "he": "כפתור הייצוא שומר או מייצא את הלוח הנוכחי כדי שניתן יהיה להשתמש בו מחוץ למסך התוצאות",
-        "en": "The Export button saves or exports the current schedule so it can be used outside the results screen.",
+        "he": "כפתור הייצוא פותח שתי אפשרויות: שמירת קובץ טקסט, או יצירת קובץ ICS תקני שניתן לפתוח ב-Google Calendar, Outlook או Apple Calendar. קובץ ה-ICS כולל רק אירועי מבחן מהלוח המוצג בפועל, ללא אילוצים פנימיים, ימי חג או נתוני חישוב",
+        "en": "The Export button opens two options: save a text file, or create a standards-compliant ICS file that can be opened in Google Calendar, Outlook, or Apple Calendar. The ICS file contains only exam events from the currently displayed schedule, without internal constraints, holiday blocks, or calculation data.",
     },
 
     # --- Pruning constraints settings modal (PLAN-418) ---

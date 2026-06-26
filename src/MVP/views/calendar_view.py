@@ -1,5 +1,8 @@
 import customtkinter as ctk
 import calendar
+import os
+import subprocess
+import sys
 from datetime import datetime
 from tkinter import filedialog
 from typing import Callable, Dict, List
@@ -10,6 +13,7 @@ from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views.components.ranking_bar import RankingBar
 from src.MVP.views.components.info_modal import show_metrics_info_popup, show_metrics_values_popup
+from src.MVP.views.components.export_choice_modal import show_export_choice_popup
 from src.MVP.views.components.constraints_modal import (
     show_constraints_popup, default_constraints_data, normalize_constraints_data
 )
@@ -511,8 +515,50 @@ class CalendarGridView(ctk.CTkFrame):
             show_exam_popup(self, self._last_exam_data, lang)
 
     def _handle_export(self):
-        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")], title="Save")
-        if file_path and self.on_export_clicked: self.on_export_clicked(file_path)
+        """Open the PLAN-556 two-option export flow."""
+        show_export_choice_popup(
+            parent=self,
+            current_lang=self.current_lang,
+            on_choice_callback=self._handle_export_choice,
+        )
+
+    def _handle_export_choice(self, choice: str):
+        normalized_choice = (choice or "").strip().lower()
+
+        if normalized_choice == "text":
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                title=format_text("export_text_dialog_title", self.current_lang),
+            )
+            if file_path and self.on_export_clicked:
+                # Preserve the legacy one-argument text export callback contract.
+                self.on_export_clicked(file_path)
+            return
+
+        if normalized_choice == "calendar":
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".ics",
+                filetypes=[("iCalendar files", "*.ics"), ("All files", "*.*")],
+                title=format_text("export_calendar_dialog_title", self.current_lang),
+            )
+            if not file_path or not self.on_export_clicked:
+                return
+            exported_path = self.on_export_clicked(file_path, "ics", True)
+            if exported_path:
+                self._open_local_calendar_file(exported_path)
+
+    def _open_local_calendar_file(self, file_path: str) -> None:
+        """Open the exported .ics through the operating system's default app."""
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(file_path)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", file_path])
+            else:
+                subprocess.Popen(["xdg-open", file_path])
+        except Exception as ex:
+            print(f"[CalendarGridView] Could not open local calendar file: {ex}")
 
     # ===== Manual drag & drop of exam cards (PLAN-560/561/563) ===============
 

@@ -12,6 +12,8 @@ from src.engine.scheduling_constraints import SchedulingConstraints  # Imported 
 from src.engine.holiday_data import get_holidays_for_religions  # PLAN-555: Holiday resolution utility
 from src.MVP.models.course import Course
 from src.MVP.models.exam_period import ExcludedDate, ExamPeriod
+from src.MVP.models.schedule import Schedule
+from src.output.calendar_ics_exporter import CalendarIcsExporter
 
 PROGRAM_MAPPING = {
     "83101": "Computer Engineering",
@@ -138,6 +140,15 @@ class PlanixModel:
 
     def get_selected_programs(self) -> List[str]:
         return list(self.selected_programs)
+
+    def export_schedule_to_ics(self, schedule: Schedule, destination_path: str) -> str:
+        """Export an active schedule to an RFC 5545 .ics file.
+
+        The model-level method keeps the export operation explicit in the data
+        flow: presenter selects the active/edited board, model delegates the
+        calendar serialization, and the view handles only user interaction.
+        """
+        return CalendarIcsExporter().export_schedule(schedule, destination_path)
 
     def get_courses_path(self) -> Optional[str]:
         return self.courses_path
