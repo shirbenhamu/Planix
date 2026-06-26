@@ -37,6 +37,7 @@ class CalendarIcsExporter:
             f.write(self.build_calendar(schedule, calendar_name=calendar_name))
         return str(destination)
 
+
     def build_calendar(
         self,
         schedule: Schedule,
