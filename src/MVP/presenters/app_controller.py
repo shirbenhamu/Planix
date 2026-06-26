@@ -169,8 +169,7 @@ class AppController:
             self.app_window.after(500, self._load_snapshot_schedules)
         else:
             self.collection_manager.snapshot_mode = False
-            # Re-index after snapshot mode disabled to catch any missed schedules
-            self.collection_manager.build_snapshot_index()
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
             if hasattr(self.model, "is_generating") and self.model.is_generating:
                 self.model.is_generating = False
             self.engine_adapter.clear_finished_worker()
@@ -206,6 +205,7 @@ class AppController:
                 500, lambda: self._monitor_load_more_progress(previous_count))
         else:
             self.collection_manager.snapshot_mode = False
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
             if hasattr(self.model, "is_generating") and self.model.is_generating:
                 self.model.is_generating = False
 
