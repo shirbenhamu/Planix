@@ -1,7 +1,5 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
-
+from unittest.mock import MagicMock, patch
 from src.MVP.views.components.ranking_bar import RankingBar
 from src.MVP.views.components.sort_criteria_modal import (
     DEFAULT_SORT_CRITERIA,
@@ -15,7 +13,7 @@ from src.MVP.views.components.sort_criteria_modal import (
 from src.MVP.views.ui_utils import TRANSLATIONS
 from src.metrics.metrics_calculator import METRIC_KEYS
 
-
+# Stand-in for a Tk BoolVar so checkbox state can be set/read without a GUI.
 class FakeBoolVar:
     def __init__(self, value):
         self.value = bool(value)
@@ -26,7 +24,7 @@ class FakeBoolVar:
     def set(self, value):
         self.value = bool(value)
 
-
+# Build a SortCriteriaSelectorModal without GUI widgets, seeding order and enabled flags.
 def _modal_stub(order=None, enabled_keys=None):
     modal = object.__new__(SortCriteriaSelectorModal)
     modal.current_lang = "en"
@@ -39,7 +37,7 @@ def _modal_stub(order=None, enabled_keys=None):
     modal.error_label = MagicMock()
     return modal
 
-
+# Build a RankingBar shell exposing only the fields the sort-selector logic touches.
 def _ranking_bar_stub(lang="he"):
     bar = object.__new__(RankingBar)
     bar.current_lang = lang
@@ -51,7 +49,7 @@ def _ranking_bar_stub(lang="he"):
     bar.sort_selector_btn = MagicMock()
     return bar
 
-
+# Normalizing keys drops invalid/duplicate entries while keeping priority order.
 def test_normalize_selected_sort_keys_removes_invalid_duplicates_and_preserves_priority():
     result = normalize_selected_sort_keys([
         "max_exams_per_day",
@@ -63,13 +61,13 @@ def test_normalize_selected_sort_keys_removes_invalid_duplicates_and_preserves_p
 
     assert result == ["max_exams_per_day", "avg_gap_all", "min_gap_mandatory"]
 
-
+# Empty, invalid, or None input falls back to the default criteria.
 def test_normalize_selected_sort_keys_falls_back_to_default_when_empty():
     assert normalize_selected_sort_keys([]) == DEFAULT_SORT_CRITERIA
     assert normalize_selected_sort_keys(["invalid"]) == DEFAULT_SORT_CRITERIA
     assert normalize_selected_sort_keys(None) == DEFAULT_SORT_CRITERIA
 
-
+# The full order lists selected metrics first, then the rest, covering all five.
 def test_normalize_full_metric_order_keeps_selected_first_then_adds_remaining_metrics():
     order = normalize_full_metric_order(["mandatory_span", "avg_gap_all"])
 
@@ -77,7 +75,7 @@ def test_normalize_full_metric_order_keeps_selected_first_then_adds_remaining_me
     assert set(order) == set(METRIC_KEYS)
     assert len(order) == 5
 
-
+# Moving a key shifts it within bounds; out-of-range or missing keys are a no-op.
 def test_move_key_in_order_moves_metric_up_and_down_inside_bounds():
     order = ["avg_gap_all", "min_gap_mandatory", "elective_conflicts"]
 
@@ -89,7 +87,7 @@ def test_move_key_in_order_moves_metric_up_and_down_inside_bounds():
     assert move_key_in_order(order, "avg_gap_all", -1) == order
     assert move_key_in_order(order, "missing", 1) == order
 
-
+# Placing a key at an index supports drag-and-drop reordering (index clamped).
 def test_place_key_at_index_supports_drag_drop_reordering():
     order = ["avg_gap_all", "min_gap_mandatory", "elective_conflicts"]
 
@@ -104,7 +102,7 @@ def test_place_key_at_index_supports_drag_drop_reordering():
         "avg_gap_all",
     ]
 
-
+# Collected keys are exactly the enabled metrics, in their visual order.
 def test_modal_collect_sort_keys_returns_enabled_metrics_in_visual_order():
     modal = _modal_stub(
         order=["mandatory_span", "avg_gap_all", "max_exams_per_day"],
@@ -116,21 +114,21 @@ def test_modal_collect_sort_keys_returns_enabled_metrics_in_visual_order():
         "max_exams_per_day",
     ]
 
-
+# Saving with nothing selected is rejected and surfaces an error.
 def test_modal_validation_rejects_saving_when_no_metric_is_selected():
     modal = _modal_stub(enabled_keys=set())
 
     assert SortCriteriaSelectorModal._validate_before_save(modal) is False
     modal.error_label.configure.assert_called_once()
 
-
+# Saving is allowed once at least one metric is selected.
 def test_modal_validation_accepts_at_least_one_selected_metric():
     modal = _modal_stub(enabled_keys={"avg_gap_all"})
 
     assert SortCriteriaSelectorModal._validate_before_save(modal) is True
     modal.error_label.configure.assert_called_with(text="")
 
-
+# Setting sort keys updates the order, the legacy primary/secondary, and the button label.
 def test_ranking_bar_set_sort_keys_updates_visual_order_and_legacy_fields():
     bar = _ranking_bar_stub(lang="en")
 
@@ -141,7 +139,7 @@ def test_ranking_bar_set_sort_keys_updates_visual_order_and_legacy_fields():
     assert bar._secondary_key == "avg_gap_all"
     assert "Span(mand)" in bar.sort_selector_btn.configure.call_args.kwargs["text"]
 
-
+# Saving from the popup updates the keys and fires the presenter callback.
 def test_ranking_bar_saving_popup_selection_triggers_presenter_callback():
     bar = _ranking_bar_stub(lang="en")
     bar.on_sort_changed = MagicMock()
@@ -154,7 +152,7 @@ def test_ranking_bar_saving_popup_selection_triggers_presenter_callback():
         False,
     )
 
-
+# Opening the selector passes the current order, language, and save callback.
 def test_ranking_bar_open_sort_selector_passes_current_order_and_save_callback():
     bar = _ranking_bar_stub(lang="he")
     bar._sort_keys = ["max_exams_per_day", "avg_gap_all"]
@@ -169,13 +167,22 @@ def test_ranking_bar_open_sort_selector_passes_current_order_and_save_callback()
         on_save_callback=bar._handle_sort_selection,
     )
 
-
 @pytest.mark.parametrize("key", [
     "sort_selector_tooltip",
     "sort_selector_title",
     "sort_selector_hint",
     "sort_selector_empty_error",
 ])
+# Every sort-selector string is translated in each language.
 @pytest.mark.parametrize("lang", ["he", "en"])
 def test_sort_selector_translations_exist(key, lang):
     assert TRANSLATIONS[key][lang]
+    
+# Extra normalization checks: dedupe, drop invalid, and None maps to the default.
+def test_normalize_selected_sort_keys_logic():
+    # Verify that duplicate keys are removed while preserving the original order.
+    assert normalize_selected_sort_keys(["avg_gap_all", "avg_gap_all"]) == ["avg_gap_all"]
+    # Verify that unrecognized or invalid keys are filtered out to prevent errors.
+    assert normalize_selected_sort_keys(["invalid_key", "avg_gap_all"]) == ["avg_gap_all"]
+    # Verify that None input safely falls back to the system default sort key.
+    assert normalize_selected_sort_keys(None) == ["avg_gap_all"]

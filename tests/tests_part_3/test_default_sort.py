@@ -1,7 +1,5 @@
-from datetime import date
-
 import pytest
-
+from datetime import date
 from src.data_manager import DataManager
 from src.MVP.models.course import Course, ProgramCourseInfo
 from src.MVP.models.schedule import Schedule, ScheduledExam
@@ -17,7 +15,7 @@ from src.parsers.base_parser import BaseParser
 _AVG_GAP_POS = METRIC_KEYS.index("avg_gap_all")
 _MIN_GAP_POS = METRIC_KEYS.index("min_gap_mandatory")
 
-
+# Parser stub returning nothing, so a DataManager can be built without real files.
 class _DummyParser(BaseParser):
     def parse_courses(self, file_path):
         return []
@@ -28,12 +26,13 @@ class _DummyParser(BaseParser):
     def parse_selected_programs(self, file_path):
         return []
 
-
+# Obligatory course in program 83108, year 1, FALL.
 def _course(cid):
     return Course(cid, f"C{cid}", "T", "Exam",
                   [ProgramCourseInfo("83108", 1, "FALL", "Obligatory")])
 
 
+# Write one 2-exam schedule per gap and return a manager over them.
 def _manager_with_gaps(tmp_path, gaps):
     """Write one 2-exam schedule per gap (avg_gap_all == min_gap == the gap)."""
     c1, c2 = _course("10001"), _course("10002")
@@ -50,15 +49,13 @@ def _manager_with_gaps(tmp_path, gaps):
     dm.courses = {c1.course_id: c1, c2.course_id: c2}
     return ScheduleCollectionManager(str(out), dm)
 
-
-# --- PLAN-496: documented & agreed default ----------------------------------
+# The agreed default sort is avg_gap_all, descending.
 def test_default_sort_is_avg_gap_descending():
     assert DEFAULT_SORT_KEYS == ("avg_gap_all",)
     assert DEFAULT_SORT_ASCENDING is False
     assert "avg_gap_all" in METRIC_KEYS
 
-
-# --- PLAN-497: applied automatically on first load --------------------------
+# The default sort is applied automatically on the first load.
 def test_default_applied_on_first_load(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5])  # avg gaps 3, 9, 5
 
@@ -68,7 +65,7 @@ def test_default_applied_on_first_load(tmp_path):
     assert manager.get_current_index() == 0
     assert manager.get_current_metrics()[_AVG_GAP_POS] == 9.0
 
-
+# No sort is applied to an empty collection.
 def test_default_not_applied_to_empty_collection(tmp_path):
     out = tmp_path / "empty.txt"
     out.write_text("=== header ===\n", encoding="utf-8")
@@ -79,7 +76,7 @@ def test_default_not_applied_to_empty_collection(tmp_path):
     assert manager._sort_spec is None  # nothing to rank yet
     assert manager._user_sorted is False
 
-
+# Legacy (metric-less) blocks keep file order, untouched by the default.
 def test_default_does_not_reorder_legacy_blocks(tmp_path):
     # Old-format blocks (no METRICS) carry None metrics -> stable, file order kept.
     block = (
@@ -97,8 +94,7 @@ def test_default_does_not_reorder_legacy_blocks(tmp_path):
     # File order preserved (first block first).
     assert manager._offsets[0][0] < manager._offsets[1][0]
 
-
-# --- PLAN-498: user sort overrides default for the rest of the session ------
+# A user sort replaces the default for the rest of the session.
 def test_user_sort_overrides_default(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5])
     assert manager._user_sorted is False  # default in effect
@@ -107,7 +103,7 @@ def test_user_sort_overrides_default(tmp_path):
     assert manager._user_sorted is True
     assert [mt[_MIN_GAP_POS] for _, mt in manager._offsets] == [3.0, 5.0, 9.0]
 
-
+# After a regeneration the user's sort is re-applied, not the default.
 def test_user_sort_persists_across_regeneration(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5])
     manager.sort_collection(["min_gap_mandatory"], ascending=True)
@@ -120,7 +116,7 @@ def test_user_sort_persists_across_regeneration(tmp_path):
     assert manager._user_sorted is True
     assert [mt[_MIN_GAP_POS] for _, mt in manager._offsets] == [3.0, 5.0, 9.0]
 
-
+# Clearing a sort leaves it cleared; it does not silently restore the default.
 def test_clear_sort_does_not_revert_to_default(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5])
     manager.sort_collection(["min_gap_mandatory"], ascending=True)
