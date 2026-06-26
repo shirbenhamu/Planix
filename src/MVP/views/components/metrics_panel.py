@@ -26,7 +26,7 @@ class MetricsPanel(ctk.CTkFrame):
             master,
             fg_color=theme.BG_CARD,
             border_color=theme.BORDER_DEFAULT,
-            border_width=1,
+            border_width=theme.BORDER_WIDTH_DEFAULT,
             corner_radius=theme.RADIUS_CARD,
             **kwargs,
         )
@@ -53,18 +53,18 @@ class MetricsPanel(ctk.CTkFrame):
     def _build(self) -> None:
         self._title_font = ctk.CTkFont(
             family=theme.FONT_FAMILY,
-            size=13,
-            weight="bold",
+            size=theme.FONT_SIZE_BODY,
+            weight=theme.FONT_WEIGHT_BOLD,
         )
         self._label_font = ctk.CTkFont(
             family=theme.FONT_FAMILY,
-            size=11,
-            weight="bold",
+            size=theme.FONT_SIZE_XS,
+            weight=theme.FONT_WEIGHT_BOLD,
         )
         self._value_font = ctk.CTkFont(
             family=theme.FONT_FAMILY,
-            size=18,
-            weight="bold",
+            size=theme.FONT_SIZE_TITLE,
+            weight=theme.FONT_WEIGHT_BOLD,
         )
 
         self.title_label = ctk.CTkLabel(
@@ -72,10 +72,10 @@ class MetricsPanel(ctk.CTkFrame):
             font=self._title_font,
             text_color=theme.TEXT_ACCENT,
         )
-        self.title_label.pack(fill="x", padx=theme.SPACING_REGULAR, pady=(10, 4))
+        self.title_label.pack(fill="x", padx=theme.SPACING_REGULAR, pady=(theme.SPACING_COMPACT, theme.SPACING_TINY))
 
         self.metrics_row = ctk.CTkFrame(self, fg_color=theme.TRANSPARENT)
-        self.metrics_row.pack(fill="x", padx=theme.SPACING_SMALL, pady=(0, 10))
+        self.metrics_row.pack(fill="x", padx=theme.SPACING_SMALL, pady=(theme.SPACING_NONE, theme.SPACING_COMPACT))
 
         for column, key in enumerate(METRICS_PANEL_FIELDS):
             self.metrics_row.grid_columnconfigure(column, weight=1, uniform="metric")
@@ -84,33 +84,33 @@ class MetricsPanel(ctk.CTkFrame):
                 self.metrics_row,
                 fg_color=theme.BG_CARD_HOVER,
                 border_color=theme.BORDER_DEFAULT,
-                border_width=1,
+                border_width=theme.BORDER_WIDTH_DEFAULT,
                 corner_radius=theme.RADIUS_BUTTON,
             )
             card.grid(
                 row=0,
                 column=column,
                 sticky="nsew",
-                padx=4,
-                pady=2,
+                padx=theme.SPACING_TINY,
+                pady=theme.SPACING_XS,
             )
 
             name_label = ctk.CTkLabel(
                 card,
                 font=self._label_font,
                 text_color=theme.TEXT_MUTED,
-                wraplength=155,
+                wraplength=theme.CONTROL_WRAP_METRIC_CARD,
                 justify="center",
             )
-            name_label.pack(fill="x", padx=theme.SPACING_SMALL, pady=(8, 2))
+            name_label.pack(fill="x", padx=theme.SPACING_SMALL, pady=(theme.SPACING_SMALL, theme.SPACING_XS))
 
             value_label = ctk.CTkLabel(
                 card,
-                text="—",
+                text=theme.EMPTY_VALUE_TEXT,
                 font=self._value_font,
                 text_color=theme.TEXT_MAIN,
             )
-            value_label.pack(fill="x", padx=theme.SPACING_SMALL, pady=(0, 8))
+            value_label.pack(fill="x", padx=theme.SPACING_SMALL, pady=(theme.SPACING_NONE, theme.SPACING_SMALL))
 
             self._metric_cards[key] = card
             self._name_labels[key] = name_label
@@ -122,7 +122,7 @@ class MetricsPanel(ctk.CTkFrame):
             font=self._label_font,
             text_color=theme.TEXT_MUTED,
         )
-        self.status_label.pack(fill="x", padx=theme.SPACING_REGULAR, pady=(0, 8))
+        self.status_label.pack(fill="x", padx=theme.SPACING_REGULAR, pady=(theme.SPACING_NONE, theme.SPACING_SMALL))
 
     # --- public API ---------------------------------------------------------
     def set_language(self, lang: str) -> None:
