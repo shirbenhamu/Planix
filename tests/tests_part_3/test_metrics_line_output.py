@@ -1,8 +1,6 @@
+import pytest
 import math
 from datetime import date
-
-import pytest
-
 from src.data_manager import DataManager
 from src.MVP.models.course import Course, ProgramCourseInfo
 from src.MVP.models.schedule import Schedule, ScheduledExam
@@ -19,8 +17,7 @@ from src.metrics.metrics_calculator import (
 from src.output.file_output_writer import FileOutputWriter
 from src.parsers.base_parser import BaseParser
 
-
-# --- wire-format round trip (PLAN-487) --------------------------------------
+# The METRICS line has five fields: three floats then two ints.
 def test_format_line_shape_floats_then_ints():
     m = ScheduleMetrics(5.0, 3.3333333333333335, 2.0, 9.0, 3.0)
     line = format_metrics_line(m)
@@ -30,12 +27,12 @@ def test_format_line_shape_floats_then_ints():
     # positions 1-3 are floats, positions 4-5 are ints
     assert parts == ["5.0", "3.3333333333333335", "2.0", "9", "3"]
 
-
+# format then parse reproduces the exact metric tuple.
 def test_format_parse_round_trip_exact():
     m = ScheduleMetrics(5.0, 3.3333333333333335, 2.0, 9.0, 3.0)
     assert parse_metrics_line(format_metrics_line(m)).as_tuple() == m.as_tuple()
 
-
+# The format/parse round trip preserves +inf values.
 def test_round_trip_handles_infinity():
     m = ScheduleMetrics(float("inf"), 0.0, 0.0, float("inf"), 0.0)
     line = format_metrics_line(m)
@@ -43,19 +40,19 @@ def test_round_trip_handles_infinity():
     assert math.isinf(parsed.min_gap_mandatory)
     assert math.isinf(parsed.mandatory_span)
 
-
+# Non-METRICS lines are rejected by the parser.
 def test_parse_rejects_non_metrics_line():
     assert not is_metrics_line("--- FULL SYSTEM OPTION 1 ---")
     with pytest.raises(ValueError):
         parse_metrics_line("Date: 01-01-2026 | Course: x")
 
-
+# A METRICS line with the wrong field count is rejected.
 def test_parse_rejects_wrong_field_count():
     with pytest.raises(ValueError):
         parse_metrics_line("METRICS|1.0|2.0|3.0")
 
 
-# --- writer integration (PLAN-486 / PLAN-488) -------------------------------
+# Fixture: two obligatory courses sharing one program and year.
 @pytest.fixture
 def sample_courses():
     info = [ProgramCourseInfo(program_id="83108", year=1, semester="FALL", requirement="Obligatory")]
@@ -63,7 +60,7 @@ def sample_courses():
     c2 = Course("83112", "Calculus 1", "Prof. Erez Scheiner", "Exam", info)
     return c1, c2
 
-
+# Each written schedule block is followed by exactly one METRICS line.
 def test_every_block_followed_by_exactly_one_metrics_line(tmp_path, sample_courses):
     c1, c2 = sample_courses
     writer = FileOutputWriter()
@@ -82,7 +79,7 @@ def test_every_block_followed_by_exactly_one_metrics_line(tmp_path, sample_cours
     # exactly one METRICS line per block
     assert metrics_count == header_count
 
-
+# The written METRICS values match the calculator's output.
 def test_metrics_line_values_match_calculator(tmp_path, sample_courses):
     c1, c2 = sample_courses
     writer = FileOutputWriter()
@@ -106,7 +103,7 @@ def test_metrics_line_values_match_calculator(tmp_path, sample_courses):
     assert parsed.min_gap_mandatory == 5.0
     assert parsed.max_exams_per_day == 1.0
 
-
+# Adding METRICS lines leaves the schedule body format intact.
 def test_schedule_body_format_unchanged(tmp_path, sample_courses):
     # PLAN-488: the schedule body (header, Date: lines, separator) is intact.
     c1, c2 = sample_courses
@@ -129,8 +126,7 @@ def test_schedule_body_format_unchanged(tmp_path, sample_courses):
     assert "Date: 06-02-2026" in body
     assert after.lstrip().startswith("\n") or after.startswith("\n") or "\n" in after
 
-
-# --- collection manager still parses files with METRICS lines ---------------
+# Parser stub returning nothing, so a DataManager can be built without files.
 class _DummyParser(BaseParser):
     def parse_courses(self, file_path):
         return []
@@ -141,7 +137,7 @@ class _DummyParser(BaseParser):
     def parse_selected_programs(self, file_path):
         return []
 
-
+# The collection manager parses files with METRICS lines without leaking them into the exams.
 def test_collection_manager_ignores_metrics_lines(tmp_path, sample_courses):
     c1, c2 = sample_courses
     writer = FileOutputWriter()
