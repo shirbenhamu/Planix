@@ -199,3 +199,14 @@ class AdvancedExamScheduler(ExamScheduler):
     def _check_max_exams_per_day(self, exam_date: date) -> bool:
         current_count = self._exams_per_day.get(exam_date, 0)
         return current_count < self.constraints.max_exams_per_day_k
+    
+    def validate_full_schedule_span(self, schedule: Schedule, constraints: SchedulingConstraints) -> bool:
+        if not constraints.span_mandatory_enabled:
+            return True
+        
+        dates = [exam.exam_date for exam in schedule.exams]
+        if not dates:
+            return True
+            
+        span = (max(dates) - min(dates)).days + 1
+        return span >= constraints.span_mandatory_k

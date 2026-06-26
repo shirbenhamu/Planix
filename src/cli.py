@@ -110,6 +110,8 @@ def generate_ranked_window(
     then rank and slice them."""
     from src.output.file_output_writer import FileOutputWriter
 
+    validate_sort_keys(sort_keys)
+
     # PLAN-407: Compatibility framework for testing harnesses.
     # If no scheduler instantiation was provided, dynamically resolve whether 
     # ExamScheduler was mocked/patched in the module space, otherwise instantiate AdvancedExamScheduler.
@@ -133,6 +135,14 @@ def generate_ranked_window(
     return rank_and_slice(
         data_manager, work_file_path, sort_keys, ascending, window_size
     )
+    
+def validate_sort_keys(sort_keys: Sequence[str]) -> None:
+    """Reject any sort key that isn't one of the section-3 metrics."""
+    for key in sort_keys:
+        if key not in METRIC_KEYS:
+            raise ValueError(
+                f"Unknown sort metric: {key!r}. Valid keys: {', '.join(METRIC_KEYS)}"
+            )
 
 
 # --- presentation -----------------------------------------------------------
@@ -226,47 +236,39 @@ def _split_csv(value: Any) -> Optional[List[str]]:
 def build_scheduling_constraints(args: argparse.Namespace, config: dict) -> SchedulingConstraints:
     """PLAN-407: Resolves and builds the unified SchedulingConstraints dataclass container."""
     constraints_config = config.get("constraints", {})
-    constraints = SchedulingConstraints()
 
-    def resolve_constraint(cli_val: Optional[int], json_key: str, default_k: int) -> Tuple[bool, int]:
+    def resolve_constraint(cli_val, json_key, default_k):
         if cli_val is not None:
             return True, cli_val
         if json_key in constraints_config:
             return True, int(constraints_config[json_key])
         return False, default_k
 
-    enabled, val = resolve_constraint(args.min_days_mandatory, "min_days_mandatory", 0)
-    constraints.min_days_mandatory_enabled = enabled
-    constraints.min_days_mandatory_k = val
-
-    enabled, val = resolve_constraint(args.min_days_any, "min_days_any", 0)
-    constraints.min_days_any_enabled = enabled
-    constraints.min_days_any_k = val
-
-    enabled, val = resolve_constraint(args.max_elective_conflicts, "max_elective_conflicts", 0)
-    constraints.max_elective_conflicts_enabled = enabled
-    constraints.max_elective_conflicts_k = val
-
-    enabled, val = resolve_constraint(args.span_mandatory, "span_mandatory", 0)
-    constraints.span_mandatory_enabled = enabled
-    constraints.span_mandatory_k = val
+    md_en, md_k = resolve_constraint(args.min_days_mandatory, "min_days_mandatory", 0)
+    ma_en, ma_k = resolve_constraint(args.min_days_any, "min_days_any", 0)
+    ec_en, ec_k = resolve_constraint(args.max_elective_conflicts, "max_elective_conflicts", 0)
+    sp_en, sp_k = resolve_constraint(args.span_mandatory, "span_mandatory", 0)
 
     if args.max_exams_per_day is not None:
-        constraints.max_exams_per_day_enabled = True
-        constraints.max_exams_per_day_k = args.max_exams_per_day
+        mx_en, mx_k = True, args.max_exams_per_day
     elif "max_exams_per_day" in constraints_config:
-        constraints.max_exams_per_day_enabled = True
-        constraints.max_exams_per_day_k = int(constraints_config["max_exams_per_day"])
+        mx_en, mx_k = True, int(constraints_config["max_exams_per_day"])
     else:
-        constraints.max_exams_per_day_enabled = False
-        constraints.max_exams_per_day_k = 1
+        mx_en, mx_k = False, 1
 
-    return constraints
+    return SchedulingConstraints(
+        min_days_mandatory_enabled=md_en, min_days_mandatory_k=md_k,
+        min_days_any_enabled=ma_en, min_days_any_k=ma_k,
+        max_elective_conflicts_enabled=ec_en, max_elective_conflicts_k=ec_k,
+        span_mandatory_enabled=sp_en, span_mandatory_k=sp_k,
+        max_exams_per_day_enabled=mx_en, max_exams_per_day_k=mx_k,
+    )
 
 
 def resolve_options(args: argparse.Namespace, config: dict) -> dict:
     """Merge CLI args over config values; CLI takes precedence when provided."""
     sort_keys = _split_csv(args.sort) or _split_csv(config.get("sort")) or list(DEFAULT_SORT_KEYS)
+    validate_sort_keys(sort_keys)   
     programs = _split_csv(args.programs) or _split_csv(config.get("programs"))
 
     if args.ascending:
@@ -285,6 +287,7 @@ def resolve_options(args: argparse.Namespace, config: dict) -> dict:
         "window": args.window or config.get("window") or DEFAULT_WINDOW_SIZE,
         "output": args.output or config.get("output"),
         "work_file": args.work_file or config.get("work_file") or DEFAULT_WORK_FILE,
+        "constraints": config.get("constraints"),
     }
 
 
@@ -309,8 +312,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     config = load_config(args.config)
     opts = resolve_options(args, config)
 
-    constraints = build_scheduling_constraints(args, config)
+    try:
+        constraints = build_scheduling_constraints(args, config)
+    except ValueError as exc:
+        print(f"Error: invalid constraint value: {exc}")
+        return 2
     data_manager, programs = _load_data_manager(opts)
+
     if not programs:
         print("Error: no selected programs provided (use --programs or a config/file).")
         return 2
