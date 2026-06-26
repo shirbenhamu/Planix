@@ -1,5 +1,7 @@
+# src/MVP/views/components/constraints_modal.py
+
 import tkinter as tk
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union, List
 
 import customtkinter as ctk
 
@@ -47,15 +49,17 @@ CONSTRAINT_FIELDS = [
 ]
 
 
-def default_constraints_data() -> Dict[str, Union[int, bool]]:
-    data: Dict[str, Union[int, bool]] = {}
+def default_constraints_data() -> Dict[str, Union[int, bool, list]]:
+    data: Dict[str, Union[int, bool, list]] = {}
     for field in CONSTRAINT_FIELDS:
         data[field["enabled"]] = field["default_enabled"]
         data[field["k"]] = field["default_k"]
+    # PLAN-555: Baseline system configuration default initialization
+    data["selected_religions"] = []
     return data
 
 
-def normalize_constraints_data(data: Optional[dict]) -> Dict[str, Union[int, bool]]:
+def normalize_constraints_data(data: Optional[dict]) -> Dict[str, Union[int, bool, list]]:
     normalized = default_constraints_data()
     if not data:
         return normalized
@@ -63,6 +67,9 @@ def normalize_constraints_data(data: Optional[dict]) -> Dict[str, Union[int, boo
     for field in CONSTRAINT_FIELDS:
         normalized[field["enabled"]] = bool(data.get(field["enabled"], field["default_enabled"]))
         normalized[field["k"]] = _safe_non_negative_int(data.get(field["k"], field["default_k"]), field["default_k"])
+    
+    # PLAN-555: Persist selected religions array directly within normalized system state config
+    normalized["selected_religions"] = list(data.get("selected_religions", []))
     return normalized
 
 
@@ -97,6 +104,7 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         self.on_close_callback = on_close_callback
         self.save_enabled = save_enabled
         self._row_refs = []
+        self._religion_boxes: Dict[str, tk.BooleanVar] = {}  # PLAN-555: Religion checkboxes tracking variables mapping
         self._vars: Dict[str, tk.Variable] = {}
         self._state = normalize_constraints_data(constraints_data)
         self._drag_start_x = 0
@@ -149,7 +157,6 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         title.grid(row=0, column=0, sticky="ew")
         title.bind("<ButtonPress-1>", self._start_drag)
         title.bind("<B1-Motion>", self._on_drag)
-
 
         body = ctk.CTkScrollableFrame(
             outer,
@@ -240,6 +247,63 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 "entry": entry,
             })
 
+        # -----------------------------------------------------------------
+        # PLAN-555: New Multi-Select UI Section Block Component Injection
+        # -----------------------------------------------------------------
+        start_religion_row = len(CONSTRAINT_FIELDS) + 1
+        
+        # Spacer Line Separator block structure layout
+        divider = ctk.CTkFrame(body, height=2, fg_color=theme.BORDER_DEFAULT)
+        divider.grid(row=start_religion_row, column=0, columnspan=3, sticky="ew", padx=14, pady=16)
+        
+        # Section Header Text label widget
+        religions_title = ctk.CTkLabel(
+            body,
+            text=format_text("religion_section_title", self.current_lang),
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=16, weight="bold"),
+            text_color=theme.TEXT_ACCENT,
+            anchor=header_anchor,
+        )
+        religions_title.grid(row=start_religion_row + 1, column=0, columnspan=3, sticky="ew", padx=14, pady=(4, 8))
+
+        # Core container grouping box component wrapper
+        religions_container = ctk.CTkFrame(
+            body, 
+            fg_color=theme.BG_CARD, 
+            corner_radius=theme.RADIUS_CARD, 
+            border_width=1, 
+            border_color=theme.BORDER_DEFAULT
+        )
+        religions_container.grid(row=start_religion_row + 2, column=0, columnspan=3, sticky="ew", padx=14, pady=4)
+        religions_container.grid_columnconfigure((0, 1, 2), weight=1, uniform="religion_cols")
+
+        religions_list = [
+            ("Jewish", "religion_jewish"),
+            ("Christian", "religion_christian"),
+            ("Muslim", "religion_muslim")
+        ]
+
+        # Multi-select alignment loop setup grid layer lines
+        for idx, (internal_name, lang_key) in enumerate(religions_list):
+            is_checked = internal_name in self._state.get("selected_religions", [])
+            box_var = tk.BooleanVar(master=self, value=is_checked)
+            self._religion_boxes[internal_name] = box_var
+
+            cb = ctk.CTkCheckBox(
+                religions_container,
+                text=format_text(lang_key, self.current_lang),
+                variable=box_var,
+                font=ctk.CTkFont(family=theme.FONT_FAMILY, size=13),
+                text_color=theme.TEXT_MAIN,
+                fg_color=theme.BORDER_ACTIVE,
+                hover_color=theme.BORDER_ACTIVE
+            )
+            
+            # Align items grid side layout elements properly satisfying language context
+            grid_col = (2 - idx) if self.current_lang == "he" else idx
+            cb.grid(row=0, column=grid_col, padx=15, pady=12, sticky="ew")
+
+        # Footer Frame rendering block areas layout
         footer = ctk.CTkFrame(outer, fg_color=theme.TRANSPARENT)
         footer.grid(row=2, column=0, sticky="ew", padx=theme.SPACING_XL, pady=(theme.SPACING_NONE, theme.SPACING_LARGE))
 
@@ -307,13 +371,17 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 )
                 label.configure(text_color=theme.TEXT_MUTED)
 
-    def _collect_data(self) -> Dict[str, Union[int, bool]]:
-        data: Dict[str, Union[int, bool]] = {}
+    def _collect_data(self) -> Dict[str, Union[int, bool, list]]:
+        data: Dict[str, Union[int, bool, list]] = {}
         for field in CONSTRAINT_FIELDS:
             enabled_key = field["enabled"]
             k_key = field["k"]
             data[enabled_key] = bool(self._vars[enabled_key].get())
             data[k_key] = _safe_non_negative_int(self._vars[k_key].get(), field["default_k"])
+            
+        # PLAN-555: Pack currently checked elements array back to output data structures dictionary payload
+        selected_religions_list = [name for name, var in self._religion_boxes.items() if var.get()]
+        data["selected_religions"] = selected_religions_list
         return data
 
     def _validate_before_save(self) -> bool:

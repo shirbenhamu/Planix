@@ -106,7 +106,23 @@ TRANSLATIONS = {
     "sort_selector_title": {"he": "בחירת סדר מיון", "en": "Sort Criteria Priority"},
     "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי ניתן לגרור שורות או להשתמש בחצים", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
     "sort_selector_empty_error": {"he": "יש לבחור לפחות מדד מיון אחד", "en": "Select at least one sort metric"},
-
+    
+    "holiday_Rosh Hashanah": {"he": "ראש השנה", "en": "Rosh Hashanah"},
+    "holiday_Yom Kippur": {"he": "יום כיפור", "en": "Yom Kippur"},
+    "holiday_Sukkot": {"he": "סוכות", "en": "Sukkot"},
+    "holiday_Simchat Torah / Shemini Atzeret": {"he": "שמחת תורה", "en": "Simchat Torah"},
+    "holiday_Pesach": {"he": "פסח", "en": "Pesach"},
+    "holiday_Seventh day of Pesach": {"he": "שביעי של פסח", "en": "Pesach 2"},
+    "holiday_Independence Day": {"he": "יום העצמאות", "en": "Independence Day"},
+    "holiday_Shavuot": {"he": "שבועות", "en": "Shavuot"},
+    "holiday_Good Friday": {"he": "יום שישי טוב", "en": "Good Friday"},
+    "holiday_Easter Monday": {"he": "יום שני פסחא", "en": "Easter Monday"},
+    "holiday_Christmas Day": {"he": "חג המולד", "en": "Christmas"},
+    "holiday_Christmas Holiday": {"he": "חופשת המולד", "en": "Christmas Holiday"},
+    "holiday_Eid al-Fitr": {"he": "עיד אל-פטר", "en": "Eid al-Fitr"},
+    "holiday_Eid al-Adha": {"he": "עיד אל-אדהא", "en": "Eid al-Adha"},
+    "holiday_Islamic New Year": {"he": "ראש שנה אסלאמי", "en": "Islamic New Year"},
+    
     # Sort-metric labels (dropdown) for the five section-3 metrics
     "metric_avg_gap_all": {"he": "ממוצע ימים בין בחינות", "en": "Avg days between exams"},
     "metric_min_gap_mandatory": {"he": "מרווח מינימלי (חובה)", "en": "Min gap (mandatory)"},
@@ -250,6 +266,12 @@ TRANSLATIONS = {
     "constraints_invalid": {"he": "הערך חייב להיות מספר שלם ולא שלילי", "en": "k must be a non-negative whole number"},
     "constraints_locked": {"he": "לא ניתן לשמור אילוצים בזמן שהמנוע רץ", "en": "Constraints cannot be saved while the engine is running"},
     "constraints_saved": {"he": "האילוצים נשמרו בהצלחה", "en": "Constraints saved successfully"},
+
+    # --- Religious Holiday Exclusions (PLAN-555)
+    "religion_section_title": {"he": "החרגת ימי חג ומועד דתיים", "en": "Religious Holiday Exclusions"},
+    "religion_jewish": {"he": "יהדות", "en": "Jewish"},
+    "religion_christian": {"he": "נצרות", "en": "Christian"},
+    "religion_muslim": {"he": "אסלאם", "en": "Muslim"},
 }
 
 def format_text(key: str, lang: str) -> str:

@@ -1,3 +1,5 @@
+# src/MVP/models/planix_model.py
+
 from __future__ import annotations
 
 import threading
@@ -7,6 +9,7 @@ from typing import Dict, List, Optional, Set
 
 from src.data_manager import DataManager
 from src.engine.scheduling_constraints import SchedulingConstraints  # Imported constraints
+from src.engine.holiday_data import get_holidays_for_religions  # PLAN-555: Holiday resolution utility
 from src.MVP.models.course import Course
 from src.MVP.models.exam_period import ExcludedDate, ExamPeriod
 from src.MVP.models.schedule import Schedule
@@ -182,6 +185,9 @@ class PlanixModel:
         if len(updated_ranges) != len(existing_periods):
             raise ValueError("updated_ranges length must match existing exam periods length.")
 
+        # PLAN-555: Fetch dynamic active religious holidays cache to sync properly
+        religious_holidays = self.get_religious_holidays_cache()
+
         new_periods: List[ExamPeriod] = []
         for idx, period in enumerate(existing_periods):
             start_date, end_date = updated_ranges[idx]
@@ -194,9 +200,9 @@ class PlanixModel:
             original_exclusions = []
             for ex in period.excluded_dates:
                 dt_val = getattr(ex, "start_date", ex) 
-                if dt_val not in self._user_excluded_dates and start_date <= dt_val <= end_date:
+                # PLAN-555: Filter out old user and religious exclusions to avoid duplication splits
+                if dt_val not in self._user_excluded_dates and dt_val not in religious_holidays and start_date <= dt_val <= end_date:
                     original_exclusions.append(ex)
-
 
             user_exclusions = [
                 ExcludedDate(start_date=dt, end_date=dt, comment="User Excluded")
@@ -204,7 +210,14 @@ class PlanixModel:
                 if start_date <= dt <= end_date
             ]
 
-            combined_exclusions = original_exclusions + user_exclusions
+            # PLAN-555: Automatically build internal religious exclusions objects list
+            religious_exclusions = [
+                ExcludedDate(start_date=dt, end_date=dt, comment=name)
+                for dt, name in religious_holidays.items()
+                if start_date <= dt <= end_date
+            ]
+
+            combined_exclusions = original_exclusions + user_exclusions + religious_exclusions
 
             new_periods.append(
                 ExamPeriod(
@@ -217,7 +230,7 @@ class PlanixModel:
             )
 
         self.data_manager.exam_periods = new_periods
-        print(f"[PlanixModel] Updated all exam periods. Count: {len(new_periods)}")
+        print(f"[PlanixModel] Updated all exam periods with user and religious exclusions. Count: {len(new_periods)}")
     
     def _normalize_program_id(self, program_id: str) -> str:
         if not isinstance(program_id, str):
@@ -264,18 +277,27 @@ class PlanixModel:
             return
         try:
             exam_periods = self.data_manager.get_exam_periods() or []
+            religious_holidays = self.get_religious_holidays_cache()
+
             for period in exam_periods:
                 original_exclusions = [
                     ex for ex in period.excluded_dates
                     if isinstance(ex, ExcludedDate)
                     and getattr(ex, "comment", "") != "User Excluded"
+                    and getattr(ex, "comment", "") not in religious_holidays.values()
                 ]
                 user_exclusions = [
                     ExcludedDate(start_date=dt, end_date=dt, comment="User Excluded")
                     for dt in self._user_excluded_dates
                     if period.start_date <= dt <= period.end_date
                 ]
-                period.excluded_dates = original_exclusions + user_exclusions
+                # PLAN-555: Inject active religious dates configurations safely during quick synchronizations
+                religious_exclusions = [
+                    ExcludedDate(start_date=dt, end_date=dt, comment=name)
+                    for dt, name in religious_holidays.items()
+                    if period.start_date <= dt <= period.end_date
+                ]
+                period.excluded_dates = original_exclusions + user_exclusions + religious_exclusions
         except Exception as e:
             print(f"Error syncing excluded dates to data manager: {e}")
 
@@ -382,12 +404,28 @@ class PlanixModel:
 
     def _validate_date_value(self, value: date) -> None:
         if not isinstance(value, date):
-            raise TypeError("Expected a datetime.date value.")
+            type_name = type(value).__name__
+            raise TypeError(f"Expected a datetime.date value, received: {type_name}")
 
     def get_exam_periods(self) -> list:
         if self.data_manager:
             return self.data_manager.get_exam_periods() or []
         return []
+
+    def get_religious_holidays_cache(self) -> Dict[date, str]:
+        """
+        PLAN-555: Computes and returns the dynamic cache of currently 
+        excluded religious dates based on the active exam period's year.
+        """
+        selected = getattr(self.constraints, "selected_religions", [])
+        
+        # PLAN-555: Extract academic calendar year dynamically from current exam periods data
+        current_year = 2026  # Safe fallback default value
+        existing_periods = self.get_exam_periods()
+        if existing_periods:
+            current_year = existing_periods[0].start_date.year
+            
+        return get_holidays_for_religions(selected, year=current_year)
 
     def enforce_state_to_data_manager(self) -> None:
         if not self.data_manager:
@@ -397,11 +435,15 @@ class PlanixModel:
         if not existing_periods:
             return
         
+        # PLAN-555: Fetch the resolved religious holidays mapping matching current choices
+        religious_holidays = self.get_religious_holidays_cache()
+        
         for period in existing_periods:
             original_exclusions = []
             for ex in period.excluded_dates:
                 dt_val = getattr(ex, "start_date", ex)
-                if dt_val not in self._user_excluded_dates:
+                # PLAN-555: Filter out old custom user/religious exclusions to avoid duplication splits
+                if dt_val not in self._user_excluded_dates and dt_val not in religious_holidays:
                     original_exclusions.append(ex)
             
             user_exclusions = [
@@ -409,9 +451,17 @@ class PlanixModel:
                 for dt in sorted(self._user_excluded_dates)
                 if period.start_date <= dt <= period.end_date
             ]
-            period.excluded_dates = original_exclusions + user_exclusions
+            
+            # PLAN-555: Automatically inject selected religious dates into the engine's exclusion list
+            religious_exclusions = [
+                ExcludedDate(start_date=dt, end_date=dt, comment=name)
+                for dt, name in religious_holidays.items()
+                if period.start_date <= dt <= period.end_date
+            ]
+            
+            period.excluded_dates = original_exclusions + user_exclusions + religious_exclusions
 
-        print(f"[PlanixModel] State enforced successfully. Synced user exclusions to DataManager.")
+        print(f"[PlanixModel] State enforced successfully. Synced user and religious exclusions to DataManager.")
 
     def clear_user_exclusions(self) -> None:
         self._user_excluded_dates.clear()
