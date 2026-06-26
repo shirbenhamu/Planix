@@ -35,7 +35,7 @@ METRIC_DISPLAY_ORDER = [
 
 def format_metric_value(value) -> str:
     if value is None:
-        return "—"
+        return theme.EMPTY_VALUE_TEXT
     numeric = float(value)
     if math.isinf(numeric):
         return "∞"
@@ -46,7 +46,7 @@ def format_metric_value(value) -> str:
 
 class RankingBar(ctk.CTkFrame):
     def __init__(self, master, lang: str = "he", **kwargs):
-        super().__init__(master, fg_color=theme.BG_CARD, corner_radius=10, **kwargs)
+        super().__init__(master, fg_color=theme.BG_CARD, corner_radius=theme.RADIUS_BAR, **kwargs)
         self.current_lang = lang
 
         # Public callbacks (wired by the embedding view / presenter).
@@ -79,14 +79,14 @@ class RankingBar(ctk.CTkFrame):
 
     # --- construction -------------------------------------------------------
     def _build(self) -> None:
-        self._font = ctk.CTkFont(family=theme.FONT_FAMILY, size=12, weight="bold")
-        self._font_metrics = ctk.CTkFont(family=theme.FONT_FAMILY, size=11)
+        self._font = ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_SMALL, weight=theme.FONT_WEIGHT_BOLD)
+        self._font_metrics = ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_XS)
 
         menu_style = dict(
             font=self._font,
             dropdown_font=self._font,
-            corner_radius=8,
-            height=30,
+            corner_radius=theme.RADIUS_BUTTON,
+            height=theme.CONTROL_HEIGHT_MEDIUM,
             fg_color=theme.BG_CARD_HOVER,
             button_color=theme.TEXT_ACCENT,
             button_hover_color=theme.BORDER_ACTIVE,
@@ -102,9 +102,9 @@ class RankingBar(ctk.CTkFrame):
         # PLAN-420: one selector button opens the full priority-order modal.
         self.sort_selector_btn = ctk.CTkButton(
             self,
-            width=270,
-            height=30,
-            corner_radius=8,
+            width=theme.CONTROL_WIDTH_SORT_SELECTOR,
+            height=theme.CONTROL_HEIGHT_MEDIUM,
+            corner_radius=theme.RADIUS_BUTTON,
             font=self._font,
             fg_color=theme.BG_CARD_HOVER,
             hover_color=theme.BORDER_ACTIVE,
@@ -114,12 +114,12 @@ class RankingBar(ctk.CTkFrame):
         self._sort_tooltip = Tooltip(self.sort_selector_btn, "")
 
         self.direction_menu = ctk.CTkOptionMenu(
-            self, values=[""], width=110, command=self._on_direction, **menu_style)
+            self, values=[""], width=theme.CONTROL_WIDTH_DIRECTION, command=self._on_direction, **menu_style)
 
         # Round "i" help button — opens the metrics/sorting explanation modal.
         self.info_btn = ctk.CTkButton(
-            self, text="ⓘ", width=30, height=30, corner_radius=15,
-            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=15, weight="bold"),
+            self, text="ⓘ", width=theme.CONTROL_WIDTH_NAV, height=theme.CONTROL_HEIGHT_MEDIUM, corner_radius=theme.RADIUS_ROUND,
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_ICON, weight=theme.FONT_WEIGHT_BOLD),
             fg_color=theme.BG_CARD_HOVER, hover_color=theme.BORDER_ACTIVE,
             text_color=theme.TEXT_ACCENT, command=self._on_info_click)
         self._info_tooltip = Tooltip(self.info_btn, "")
@@ -128,7 +128,7 @@ class RankingBar(ctk.CTkFrame):
         # full label+value details open only on demand. This replaces the large
         # always-visible metrics panel below the ranking bar.
         self.metrics_details_btn = ctk.CTkButton(
-            self, width=72, height=30, corner_radius=8,
+            self, width=theme.CONTROL_WIDTH_METRICS_DETAILS, height=theme.CONTROL_HEIGHT_MEDIUM, corner_radius=theme.RADIUS_BUTTON,
             font=self._font, fg_color=theme.BG_CARD_HOVER,
             hover_color=theme.BORDER_ACTIVE, text_color=theme.TEXT_ACCENT,
             command=self._on_metrics_details_click,
@@ -181,8 +181,8 @@ class RankingBar(ctk.CTkFrame):
         rtl = self.current_lang == "he"
         controls_side = "right" if rtl else "left"
         for widget in self._control_widgets:
-            widget.pack(side=controls_side, padx=4, pady=8)
-        self.metrics_label.pack(side="left" if rtl else "right", padx=14, pady=8)
+            widget.pack(side=controls_side, padx=theme.SPACING_TINY, pady=theme.SPACING_SMALL)
+        self.metrics_label.pack(side="left" if rtl else "right", padx=theme.SPACING_REGULAR, pady=theme.SPACING_SMALL)
 
     # --- priority selector --------------------------------------------------
     def _sync_legacy_keys(self) -> None:

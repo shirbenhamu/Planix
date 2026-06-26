@@ -52,6 +52,12 @@ def show_exam_popup(parent, exam_data: dict, current_lang: str):
         font=f_reg, wraplength=WRAP, justify=just,
     ).pack(pady=3, padx=20, fill="x")
 
+    # Academic year — helps users understand constraint cohorts (PLAN-555)
+    ctk.CTkLabel(
+        parent.popup_box, text=detail_line("year", exam_data.get('year', 'N/A')),
+        font=f_reg, wraplength=WRAP, justify=just,
+    ).pack(pady=3, padx=20, fill="x")
+
     ctk.CTkButton(
         parent.popup_box, text=format_text("close", current_lang),
         command=parent.popup_box.destroy, width=120,

@@ -517,10 +517,14 @@ class ScheduleCollectionManager:
 
     # The core refresh primitive: ingest any newly generated blocks from disk
     # (NO engine run), re-rank the FULL _offsets collection under the active sort
-    # so freshly discovered schedules are factored into the top results, then
-    # lazily materialize only the current window batch. The active sort criterion
-    # is reused automatically — the user never has to re-select it (PLAN-505).
-    def apply_sort_and_refresh(self) -> List[Schedule]:
+    # so freshly discovered schedules are factored into the displayed results,
+    # then lazily materialize only the active window batch. The active sort
+    # criterion is reused automatically — the user never has to re-select it
+    # (PLAN-505).
+    def apply_sort_and_refresh(self, reset_to_top: bool = False) -> List[Schedule]:
+        if not isinstance(reset_to_top, bool):
+            raise TypeError("reset_to_top must be a boolean.")
+
         # Pull in new blocks. Snapshot scan while the engine writes, full scan
         # once it is idle; both append to _offsets without re-running the engine.
         if self.snapshot_mode:
@@ -528,13 +532,17 @@ class ScheduleCollectionManager:
         else:
             self._build_index()
 
-        # Force a full re-rank (even when no new blocks were added) so the window
-        # always reflects the active ordering, preserving the user's position.
+        # Force a full re-rank even when no new blocks were added. Manual refresh
+        # jumps back to the current top-N window; background/auto refresh preserves
+        # the user's page position.
         with self._lock:
             if self._sort_spec is not None:
-                self._sort_offsets_locked(reset_to_top=False)
+                self._sort_offsets_locked(reset_to_top=reset_to_top)
+            elif reset_to_top:
+                self._current_index = 0
+                self._window_start = 0
 
-        return self.materialize_window()
+        return self.materialize_window(0 if reset_to_top else None)
 
     # Whether there are indexed schedules beyond the current window (used to keep
     # the "Next" action enabled / decide when to show "End of results").

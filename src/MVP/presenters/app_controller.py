@@ -131,6 +131,9 @@ class AppController:
         if self.engine_adapter.is_generation_active():
             print("[AppController] Existing generation process is active. UI Lock engaged. Routing user straight to current preview screen.")
             self._set_constraints_save_state(enabled=False)
+            self.collection_manager.clear_cache()
+            self.collection_manager.snapshot_mode = True
+            self.app_window.switch_view("annual")
             self.app_window.switch_view("calendar")
             self.app_window.after(100, self._load_snapshot_schedules)
             return
@@ -166,6 +169,7 @@ class AppController:
             self.app_window.after(500, self._load_snapshot_schedules)
         else:
             self.collection_manager.snapshot_mode = False
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
             if hasattr(self.model, "is_generating") and self.model.is_generating:
                 self.model.is_generating = False
             self.engine_adapter.clear_finished_worker()
@@ -201,6 +205,7 @@ class AppController:
                 500, lambda: self._monitor_load_more_progress(previous_count))
         else:
             self.collection_manager.snapshot_mode = False
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
             if hasattr(self.model, "is_generating") and self.model.is_generating:
                 self.model.is_generating = False
 

@@ -1,10 +1,14 @@
 # src/MVP/presenters/calendar_presenter.py
 
+import re
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from src.MVP.models.schedule import Schedule, ScheduledExam
 from src.manual_edit.manual_edit_session import ManualEditSession
 from src.metrics.metrics_calculator import MetricsCalculator
+from src.output.calendar_ics_exporter import CalendarIcsExporter
+from src.engine.holiday_data import get_holidays_for_religions
+from src.MVP.views.ui_utils import TRANSLATIONS
 
 
 class CalendarPresenter:
@@ -36,6 +40,12 @@ class CalendarPresenter:
 
         if hasattr(self.view, "on_load_more_clicked"):
             self.view.on_load_more_clicked = self._handle_load_more
+
+        if hasattr(self.view, "on_refresh_feed_clicked"):
+            self.view.on_refresh_feed_clicked = self.refresh_feed
+        # Backward-compatible hook used by earlier PLAN-415 tests/prototypes.
+        if hasattr(self.view, "on_refresh_clicked"):
+            self.view.on_refresh_clicked = self.refresh_feed
 
         if hasattr(self.view, "on_sort_changed"):
             self.view.on_sort_changed = self._handle_sort_changed
@@ -207,11 +217,15 @@ class CalendarPresenter:
         current_year = schedule.exams[0].exam_date.year if schedule.exams else datetime.now().year
         all_courses = {c.course_id: c for c in self.model.data_manager.get_courses()}
 
+        # Load holidays dict for display (will extract holiday name if is_excluded)
+        selected_religions = self.model.constraints.selected_religions if self.model.constraints else []
+        holidays_dict = get_holidays_for_religions(selected_religions, year=current_year) if selected_religions else {}
+
         for row_idx, month_idx in enumerate(self.active_months, start=1):
             for day_num in range(1, 32):
                 col_idx = day_num - 1
                 cell_key = f"{row_idx}-{col_idx}"
-                grid_data[cell_key] = {"is_excluded": False, "day_text": "", "exams": []}
+                grid_data[cell_key] = {"is_excluded": False, "day_text": "", "exams": [], "holiday_name": None}
                 try:
                     real_date = date(current_year, month_idx + 1, day_num)
                     self.cell_to_date_mapping[cell_key] = real_date
@@ -229,6 +243,20 @@ class CalendarPresenter:
 
         for cel_key, cell_date in self.cell_to_date_mapping.items():
             grid_data[cel_key]["is_excluded"] = cell_date in excluded_dates
+            # Extract and display holiday name if this date is a holiday
+            if cell_date in holidays_dict and grid_data[cel_key]["is_excluded"]:
+                holiday_full = holidays_dict[cell_date]  # e.g., "Jewish: Purim"
+                # Remove religion prefix (Jewish:, Christian:, Muslim:)
+                if ": " in holiday_full:
+                    holiday_name = holiday_full.split(": ", 1)[1]
+                else:
+                    holiday_name = holiday_full
+                
+                # Remove parentheses and their content (estimated), (observed, estimated), etc.
+                holiday_name = re.sub(r'\s*\([^)]*\)', '', holiday_name).strip()
+                
+                # PLAN-555: Store English holiday name; view layer will translate
+                grid_data[cel_key]["holiday_name"] = holiday_name
 
         for exam in schedule.exams:
             exam_date = exam.exam_date
@@ -243,18 +271,30 @@ class CalendarPresenter:
             cell_key = f"{row_idx}-{col_idx}"
 
             real_c = all_courses.get(exam.course.course_id, exam.course)
-            is_mandatory = getattr(real_c, "is_mandatory", True)
-            exam_type_marker = "ח" if is_mandatory else "ב"
+            # Extract course type from program_info: check if requirement is "Elective"
+            is_elective = False
+            program_info = getattr(real_c, "program_info", [])
+            if program_info and len(program_info) > 0:
+                # Use the first program_info to determine type (all should be same within a cohort)
+                is_elective = program_info[0].requirement == "Elective"
+            exam_type_marker = "ב" if is_elective else "ח"
 
             course_id = str(getattr(exam.course, "course_id", "")).strip()
             linked_programs = course_to_programs.get(course_id, [])
             program_text = ", ".join(linked_programs) if linked_programs else "Prog"
+            
+            # Extract academic year from course.program_info (first year in cohort)
+            year = "N/A"
+            program_info = getattr(exam.course, "program_info", [])
+            if program_info and len(program_info) > 0:
+                year = str(program_info[0].year)
 
             grid_data[cell_key]["exams"].append({
                 "short_name": getattr(exam.course, "course_name", "")[:10],
                 "course_id": getattr(exam.course, "course_id", ""),
                 "type": exam_type_marker,
                 "program": program_text,
+                "year": year,
             })
 
         self.view.render_calendar_data(grid_data)
@@ -283,13 +323,30 @@ class CalendarPresenter:
         if self.collection_manager.get_total_count() == 0:
             self.refresh_presenter_state()
             return
+
+        # Predictive refresh-feed (PLAN-421): while the engine is still writing,
+        # the user is restricted to the current top-N window. Pressing Next from
+        # the last item in that window refreshes the feed first, then advances to
+        # the next window if one is available. Once the engine is idle this guard
+        # is skipped, so normal navigation can move through the full sorted result
+        # set without any future auto-refreshes.
+        if self._engine_is_active() and self._is_next_outside_active_window():
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
+            if self.collection_manager.advance_window():
+                self.refresh_presenter_state()
+            else:
+                self.refresh_pagination_only()
+            return
+
         if self.collection_manager.next_schedule():
             self.refresh_presenter_state()
             return
         if self._engine_is_active():
-            self.collection_manager.apply_sort_and_refresh()
+            self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
             if self.collection_manager.next_schedule():
                 self.refresh_presenter_state()
+            else:
+                self.refresh_pagination_only()
         else:
             self._show_end_of_results()
 
@@ -317,13 +374,34 @@ class CalendarPresenter:
         except (ValueError, IndexError):
             return None
 
+    def refresh_feed(self, reset_to_top: bool = True) -> bool:
+        """Refresh the result feed without touching the engine.
+
+        Manual toolbar refresh jumps back to the currently best top-N window under
+        the active sort. Internal/predictive refresh can pass reset_to_top=False
+        to keep the user's current rank while ingesting newly written blocks.
+        Returns whether generation is still active after the refresh.
+        """
+        self.collection_manager.apply_sort_and_refresh(reset_to_top=reset_to_top)
+        self.refresh_presenter_state()
+        return self._engine_is_active()
+
     def auto_refresh_feed(self) -> bool:
-        self.collection_manager.apply_sort_and_refresh()
+        self.collection_manager.apply_sort_and_refresh(reset_to_top=False)
         if self._engine_is_active():
             self.refresh_pagination_only()
             return True
         self.refresh_presenter_state()
         return False
+
+    def _is_next_outside_active_window(self) -> bool:
+        try:
+            current_idx = self.collection_manager.get_current_index()
+            window_start = self.collection_manager.get_window_start()
+            window_size = self.collection_manager.get_window_size()
+        except Exception:
+            return False
+        return current_idx + 1 >= window_start + window_size
 
     def _engine_is_active(self) -> bool:
         controller = getattr(self, "controller", None)
@@ -331,7 +409,7 @@ class CalendarPresenter:
         if adapter is None:
             return False
         try:
-            return bool(adapter.is_generation_active())
+            return adapter.is_generation_active() is True
         except Exception:
             return False
 
@@ -402,25 +480,62 @@ class CalendarPresenter:
         except Exception as e:
             print(f"Error updating exam period range: {e}")
 
-    def _handle_export(self, destination_file_path: str) -> None:
+    def _handle_export(
+        self,
+        destination_file_path: str,
+        export_format: str = "text",
+        open_after_export: bool = False,
+    ) -> Optional[str]:
+        """Export the currently displayed board.
+
+        export_format="text" keeps the legacy text export. export_format="ics"
+        creates an RFC 5545 iCalendar file that contains only the active exam
+        events. Manual drag-and-drop edits are respected because the active board
+        is read through _active_board() (PLAN-562 / PLAN-556).
+        """
         try:
-            # Export the currently displayed board including manual edits, not the
-            # original on-disk one (PLAN-562).
             active_schedule = self._active_board()
+            normalized_format = (export_format or "text").strip().lower()
+
+            if normalized_format in {"ics", "calendar", "ical"}:
+                # PLAN-556: external calendar export. Constraints, excluded days,
+                # ranking metrics, and other internal scheduler data are not
+                # serialized by CalendarIcsExporter; only visible exam slots become
+                # VEVENT blocks.
+                export_handler = getattr(self.model, "export_schedule_to_ics", None)
+                exported_path = None
+                if callable(export_handler):
+                    exported_path = export_handler(active_schedule, destination_file_path)
+                if not isinstance(exported_path, str) or not exported_path.strip():
+                    exported_path = CalendarIcsExporter().export_schedule(
+                        active_schedule,
+                        destination_file_path,
+                    )
+                print(f"Calendar schedule exported successfully to {exported_path}")
+                return exported_path
+
+            # Legacy text option from the two-choice export dialog.
             with open(destination_file_path, "w", encoding="utf-8") as out_file:
                 out_file.write("--- EXPORTED EXAM SCHEDULE SYSTEM OPTION ---\n")
                 for exam in active_schedule.exams:
-                    formatted_line = f"Date: {exam.exam_date.strftime('%d-%m-%Y')} | Course: {exam.course.course_id} - {exam.course.course_name}\n"
+                    formatted_line = (
+                        f"Date: {exam.exam_date.strftime('%d-%m-%Y')} | "
+                        f"Course: {exam.course.course_id} - {exam.course.course_name}\n"
+                    )
                     out_file.write(formatted_line)
             print(f"Schedule exported successfully to {destination_file_path}")
+            return destination_file_path
         except Exception as e:
             print(f"Failed to export destination file: {e}")
+            return None
 
     def _handle_filter_click(self) -> None:
         try:
-            # Guard Clause: Block filtering actions if a background generation process is already active
+            # Guard Clause: Block filtering actions if background generation is active (PLAN-421).
+            # Once the engine finishes, app_controller._load_snapshot_schedules() calls
+            # clear_finished_worker() which allows filtering to resume.
             if self._engine_is_active():
-                print("[CalendarPresenter][Block] Request denied. Background engine calculation is currently active.")
+                print("[CalendarPresenter][Block] Filter blocked while generation is active. Try again when complete.")
                 return
 
             selected_programs = []
@@ -450,11 +565,9 @@ class CalendarPresenter:
             print(f"Error handling filter execution pipeline: {e}")
 
     def _handle_sync_action(self):
-        # Guard Clause: Block manual sync dispatch synchronization if background run is active
-        if self._engine_is_active():
-            print("[CalendarPresenter][Block] Request denied. Generation pipeline is currently active.")
-            return
-
+        # Sync is always allowed - regenerates schedules with current filter settings.
+        # The engine adapter clears finished workers automatically, so stale generation
+        # states don't block subsequent operations (PLAN-421).
         self.collection_manager.clear_cache() 
         if self.controller:
             self.controller.regenerate_schedules_snapshot()

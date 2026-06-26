@@ -1,5 +1,8 @@
 import customtkinter as ctk
 import calendar
+import os
+import subprocess
+import sys
 from datetime import datetime
 from tkinter import filedialog
 from typing import Callable, Dict, List
@@ -10,6 +13,7 @@ from src.MVP.views.components.date_edit_modal import show_date_edit_popup
 from src.MVP.views.components.robot_mascot import RobotMascot
 from src.MVP.views.components.ranking_bar import RankingBar
 from src.MVP.views.components.info_modal import show_metrics_info_popup, show_metrics_values_popup
+from src.MVP.views.components.export_choice_modal import show_export_choice_popup
 from src.MVP.views.components.constraints_modal import (
     show_constraints_popup, default_constraints_data, normalize_constraints_data
 )
@@ -35,6 +39,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_date_selected, self.on_filter_clicked = None, None 
         self.get_exam_periods_callback = None
         self.on_load_more_clicked = None
+        self.on_refresh_feed_clicked = None
         self.on_save_constraints = None
         self._constraints_state = default_constraints_data()
         self._constraints_save_enabled = True
@@ -51,6 +56,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.toolbar = TopToolbar(self, is_monthly=False)
         self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
         self.toolbar.on_load_more = lambda: self.on_load_more_clicked() if self.on_load_more_clicked else None
+        self.toolbar.on_refresh_feed = lambda: self.on_refresh_feed_clicked() if self.on_refresh_feed_clicked else None
         
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
         self.toolbar.on_next = lambda: self.on_next_clicked() if self.on_next_clicked else None
@@ -269,6 +275,7 @@ class CalendarGridView(ctk.CTkFrame):
         if cell_key not in self._cell_widget_pools:
             self._cell_widget_pools[cell_key] = {
                 "day_label": None,
+                "holiday_label": None,  
                 "exams_container": None,
                 "exam_cards": []
             }
@@ -293,6 +300,55 @@ class CalendarGridView(ctk.CTkFrame):
             # Just update text if it changed
             if pool["day_label"].cget("text") != str(day_num):
                 pool["day_label"].configure(text=str(day_num))
+
+        # Handle holiday name label (show only if excluded + has holiday_name)
+        holiday_name = cell_data.get("holiday_name")
+        if cell_data.get("is_excluded") and holiday_name:
+            if pool["holiday_label"] is None:
+                # Create holiday label with translation + proper wrapping for annual view
+                trans_key = f"holiday_{holiday_name}"
+                display_name = holiday_name
+                if trans_key in TRANSLATIONS:
+                    display_name = TRANSLATIONS[trans_key].get(self.current_lang, holiday_name)
+                
+                # Split multi-word names across lines (e.g., "Rosh Hashanah" -> "Rosh\nHashanah")
+                display_name = "\n".join(display_name.split())
+                
+                holiday_lbl = ctk.CTkLabel(
+                    cell_frame,
+                    text=display_name,
+                    font=("Arial", 10),  # Larger font for annual view
+                    text_color="#d32f2f",
+                    wraplength=100,  # Large wraplength for annual view cells
+                    justify="right" if self.current_lang == "he" else "left"
+                )
+                holiday_lbl.pack(anchor="ne" if self.current_lang == "he" else "nw", padx=4, pady=0, fill="x")
+                holiday_lbl.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
+                pool["holiday_label"] = holiday_lbl
+            else:
+                # Update existing holiday label
+                trans_key = f"holiday_{holiday_name}"
+                display_name = holiday_name
+                if trans_key in TRANSLATIONS:
+                    display_name = TRANSLATIONS[trans_key].get(self.current_lang, holiday_name)
+                
+                # Split multi-word names across lines
+                display_name = "\n".join(display_name.split())
+                
+                if pool["holiday_label"].cget("text") != display_name:
+                    pool["holiday_label"].configure(text=display_name)
+                # Ensure it's visible
+                try:
+                    pool["holiday_label"].pack(anchor="ne" if self.current_lang == "he" else "nw", padx=4, pady=0, fill="x")
+                except:
+                    pass
+        else:
+            # Hide holiday label if no holiday or not excluded
+            if pool["holiday_label"] is not None:
+                try:
+                    pool["holiday_label"].pack_forget()
+                except:
+                    pass
 
         # Handle exams container - use pack_forget/pack instead of destroy
         exams = cell_data.get("exams", [])
@@ -322,17 +378,13 @@ class CalendarGridView(ctk.CTkFrame):
 
         # Update exam cards in the pool (only if we have an exams container)
         if exams_container:
-            elegant_colors = [
-                ("#0d6efd", "#0077b6"), # blue
-                ("#20c997", "#128260"), # green-magenta
-                ("#f39c12", "#d68910"), # orange
-                ("#e83e8c", "#b8306f"), # pink
-                ("#8e44ad", "#6c3483")  # purple
-            ]
-
             # Update or create exam cards
             for i, exam in enumerate(exams):
-                pill_color = elegant_colors[i % len(elegant_colors)]
+                # Color by course type: Mandatory (ח) = Blue, Elective (ב) = Green
+                if exam.get("type") == "ח":
+                    pill_color = ("#0d6efd", "#0077b6")  # Blue for Mandatory
+                else:
+                    pill_color = ("#20c997", "#128260")  # Green for Elective
                 
                 if i < len(pool["exam_cards"]):
                     # Card exists, update it and show it
@@ -459,8 +511,50 @@ class CalendarGridView(ctk.CTkFrame):
             show_exam_popup(self, self._last_exam_data, lang)
 
     def _handle_export(self):
-        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")], title="Save")
-        if file_path and self.on_export_clicked: self.on_export_clicked(file_path)
+        """Open the PLAN-556 two-option export flow."""
+        show_export_choice_popup(
+            parent=self,
+            current_lang=self.current_lang,
+            on_choice_callback=self._handle_export_choice,
+        )
+
+    def _handle_export_choice(self, choice: str):
+        normalized_choice = (choice or "").strip().lower()
+
+        if normalized_choice == "text":
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                title=format_text("export_text_dialog_title", self.current_lang),
+            )
+            if file_path and self.on_export_clicked:
+                # Preserve the legacy one-argument text export callback contract.
+                self.on_export_clicked(file_path)
+            return
+
+        if normalized_choice == "calendar":
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".ics",
+                filetypes=[("iCalendar files", "*.ics"), ("All files", "*.*")],
+                title=format_text("export_calendar_dialog_title", self.current_lang),
+            )
+            if not file_path or not self.on_export_clicked:
+                return
+            exported_path = self.on_export_clicked(file_path, "ics", True)
+            if exported_path:
+                self._open_local_calendar_file(exported_path)
+
+    def _open_local_calendar_file(self, file_path: str) -> None:
+        """Open the exported .ics through the operating system's default app."""
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(file_path)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", file_path])
+            else:
+                subprocess.Popen(["xdg-open", file_path])
+        except Exception as ex:
+            print(f"[CalendarGridView] Could not open local calendar file: {ex}")
 
     # ===== Manual drag & drop of exam cards (PLAN-560/561/563) ===============
 
