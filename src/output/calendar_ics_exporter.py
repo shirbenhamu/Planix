@@ -33,11 +33,8 @@ class CalendarIcsExporter:
         self._validate_schedule(schedule)
         destination = self._validate_destination(destination_path)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(
-            self.build_calendar(schedule, calendar_name=calendar_name),
-            encoding="utf-8",
-            newline="",
-        )
+        with open(destination, "w", encoding="utf-8", newline="") as f:
+            f.write(self.build_calendar(schedule, calendar_name=calendar_name))
         return str(destination)
 
     def build_calendar(
