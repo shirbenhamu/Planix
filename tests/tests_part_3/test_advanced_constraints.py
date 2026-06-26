@@ -6,12 +6,11 @@ from src.engine.advanced_exam_scheduler import AdvancedExamScheduler
 from src.engine.scheduling_constraints import SchedulingConstraints
 
 """
-Tests verifying that the engine enforces the SRS section-2 threshold
+Tests verifying that the engine enforces the threshold
 constraints (2.1-2.5) while generating an exam schedule.
 """
 
 # --- Core Fixtures and Mocks for Testing ---
-
 
 @pytest.fixture
 def mock_context():
@@ -49,6 +48,16 @@ def mock_context():
     # Intentionally empty: conflicts are derived structurally
     conflict_matrix = set()
 
+    schedule_with_span_2 = Schedule(exams=[
+        ScheduledExam(course=course_a, exam_date=date(2026, 7, 1)),
+        ScheduledExam(course=course_b, exam_date=date(2026, 7, 2))
+    ])
+    
+    schedule_with_span_10 = Schedule(exams=[
+        ScheduledExam(course=course_a, exam_date=date(2026, 7, 1)),
+        ScheduledExam(course=course_b, exam_date=date(2026, 7, 10))  
+    ])
+
     return {
         "course_a": course_a,
         "course_b": course_b,
@@ -56,28 +65,28 @@ def mock_context():
         "elective_x": elective_x,
         "elective_y": elective_y,
         "elective_z": elective_z,
-        "conflict_matrix": conflict_matrix,
+        "conflict_matrix": set(),
+        "schedule_with_span_2": schedule_with_span_2,
+        "schedule_with_span_10": schedule_with_span_10,
     }
-
-
+ 
 @pytest.fixture
 def scheduler():
     """A clean, isolated AdvancedExamScheduler engine instance."""
     return AdvancedExamScheduler()
-
 
 # --- Constraint 2.1: Minimum Day Intervals for Obligatory Courses ---
 
 def test_constraint_min_days_mandatory_flag_off(mock_context):
     """
     Flag Off: when the constraint is disabled, a sub-k spacing between mandatory
-    courses must still be accepted.
+    courses must be accepted.
     """
     constraints = SchedulingConstraints(
         min_days_mandatory_enabled=False, min_days_mandatory_k=3)
     scheduler = AdvancedExamScheduler(constraints=constraints)
     start_date = date(2026, 1, 1)
-    invalid_date = date(2026, 1, 2)  # would fail if enabled
+    invalid_date = date(2026, 1, 2)  
 
     scheduled_exams = [ScheduledExam(
         course=mock_context["course_a"], exam_date=start_date)]
@@ -120,7 +129,7 @@ def test_constraint_min_days_mandatory_exact_boundary(mock_context):
     scheduler = AdvancedExamScheduler(constraints=constraints)
 
     start_date = date(2026, 1, 1)
-    exact_boundary_date = start_date + timedelta(days=k_value)  # 2026-01-04
+    exact_boundary_date = start_date + timedelta(days=k_value)  
 
     scheduled_exams = [ScheduledExam(
         course=mock_context["course_a"], exam_date=start_date)]
@@ -152,7 +161,7 @@ def test_constraint_min_days_mandatory_past_date(mock_context):
 
 def test_constraint_min_days_mandatory_different_program_is_not_blocked(mock_context):
     """
-    Scoping (negative): 2.1 applies only within the same (program, year). Two
+    2.1 constraint applies only within the same (program, year). Two
     mandatory courses in DIFFERENT programs may sit closer than k days apart.
     """
     constraints = SchedulingConstraints(
@@ -173,7 +182,7 @@ def test_constraint_min_days_mandatory_different_program_is_not_blocked(mock_con
 
 
 def test_constraint_min_days_mandatory_invalid_k():
-    """Validation: a non-positive or non-integer 'k' raises during init."""
+    """Validation: a non-positive or non-integer 'k'."""
     with pytest.raises((ValueError, TypeError)):
         SchedulingConstraints(
             min_days_mandatory_enabled=True, min_days_mandatory_k=-1)
@@ -199,7 +208,6 @@ def test_constraint_min_days_any_exam_flag_off(mock_context):
     scheduled_exams = [ScheduledExam(course=mock_context["course_a"], exam_date=test_date)]
     scheduler._push_state(mock_context["course_a"], test_date, scheduled_exams, mock_context["conflict_matrix"])
 
-    # course_b shares program 83101 with course_a -> would fail if enabled.
     assert scheduler._can_add_exam_to_schedule(
         mock_context["course_b"], test_date, scheduled_exams, mock_context["conflict_matrix"]) is True
 
@@ -225,16 +233,15 @@ def test_constraint_min_days_any_exam(mock_context):
 
 def test_constraint_min_days_any_exam_sanity(mock_context):
     """
-    Flag On, passing input: a same-(program, year) exam comfortably outside the
-    spacing window is accepted. Uses course_b (program 83101, like course_a) so
-    the gap rule is actually exercised rather than skipped by program scoping.
+    Flag On, passing input: a same-(program, year) exam outside the
+    spacing window is accepted. 
     """
     constraints = SchedulingConstraints(
         min_days_any_enabled=True, min_days_any_k=1)
     scheduler = AdvancedExamScheduler(constraints=constraints)
 
     start_date = date(2026, 1, 15)
-    valid_future_date = date(2026, 1, 20)  # 5 days apart, well outside k=1
+    valid_future_date = date(2026, 1, 20)  # 5 days apart, outside k=1
 
     scheduled_exams = [ScheduledExam(
         course=mock_context["course_a"], exam_date=start_date)]
@@ -248,8 +255,7 @@ def test_constraint_min_days_any_exam_sanity(mock_context):
 def test_constraint_min_days_any_exam_exact_boundary(mock_context):
     """
     Edge case: exactly k days apart within the same (program, year). With k=1
-    the next calendar day satisfies the >= k rule and is accepted. Uses course_b
-    (same program as course_a) so the boundary is genuinely tested.
+    the next calendar day satisfies the >= k rule and is accepted. 
     """
     k_value = 1
     constraints = SchedulingConstraints(
@@ -257,7 +263,7 @@ def test_constraint_min_days_any_exam_exact_boundary(mock_context):
     scheduler = AdvancedExamScheduler(constraints=constraints)
 
     start_date = date(2026, 1, 15)
-    exact_boundary_date = start_date + timedelta(days=k_value)  # 2026-01-16
+    exact_boundary_date = start_date + timedelta(days=k_value)  
 
     scheduled_exams = [ScheduledExam(
         course=mock_context["course_a"], exam_date=start_date)]
@@ -266,6 +272,33 @@ def test_constraint_min_days_any_exam_exact_boundary(mock_context):
 
     assert scheduler._can_add_exam_to_schedule(
         mock_context["course_b"], exact_boundary_date, scheduled_exams, mock_context["conflict_matrix"]) is True
+
+
+def test_constraint_min_days_any_exam_larger_k_boundary(mock_context):
+    """
+    Boundary Test: Verifies the minimum day interval logic for k > 1.
+    
+    With k=5, the 'forbidden window' is any date within 4 days of the existing exam.
+    - gap < k (e.g., 4 days): Must be rejected.
+    - gap == k (e.g., 5 days): Must be accepted as the minimum valid interval.
+    """
+    constraints = SchedulingConstraints(
+        min_days_any_enabled=True, min_days_any_k=5)
+    scheduler = AdvancedExamScheduler(constraints=constraints)
+
+    start_date = date(2026, 1, 15)
+    just_inside = date(2026, 1, 19)   # gap 4 (< k) -> reject
+    on_boundary = date(2026, 1, 20)   # gap 5 (== k) -> accept
+
+    scheduled_exams = [ScheduledExam(
+        course=mock_context["course_a"], exam_date=start_date)]
+    scheduler._push_state(
+        mock_context["course_a"], start_date, scheduled_exams, mock_context["conflict_matrix"])
+
+    assert scheduler._can_add_exam_to_schedule(
+        mock_context["course_b"], just_inside, scheduled_exams, mock_context["conflict_matrix"]) is False
+    assert scheduler._can_add_exam_to_schedule(
+        mock_context["course_b"], on_boundary, scheduled_exams, mock_context["conflict_matrix"]) is True
 
 
 def test_constraint_min_days_any_different_program_is_not_blocked(mock_context):
@@ -279,17 +312,16 @@ def test_constraint_min_days_any_different_program_is_not_blocked(mock_context):
 
     test_date = date(2026, 1, 15)
     scheduled_exams = [ScheduledExam(
-        course=mock_context["course_a"], exam_date=test_date)]  # program 83101
+        course=mock_context["course_a"], exam_date=test_date)]
     scheduler._push_state(
         mock_context["course_a"], test_date, scheduled_exams, mock_context["conflict_matrix"])
 
-    # course_c (program 83102) -> different group -> same-day placement allowed.
     assert scheduler._can_add_exam_to_schedule(
         mock_context["course_c"], test_date, scheduled_exams, mock_context["conflict_matrix"]) is True
 
 
 def test_constraint_min_days_any_invalid_k_raises_error():
-    """Validation: a non-positive or non-integer global 'k' raises during init."""
+    """Validation: a non-positive or non-integer 'k'"""
     with pytest.raises((ValueError, TypeError)):
         SchedulingConstraints(min_days_any_enabled=True, min_days_any_k=-5)
     with pytest.raises((ValueError, TypeError)):
@@ -318,7 +350,7 @@ def test_constraint_max_elective_conflicts_flag_off(mock_context):
 
 def test_constraint_max_elective_conflicts_negative(mock_context):
     """
-    Flag On, failing input: two distinct electives in the same program (83108)
+    Flag On, failing input: two distinct electives in the same program
     on the same day form one conflict. With k=0 this must be rejected.
     """
     constraints = SchedulingConstraints(
@@ -366,6 +398,37 @@ def test_constraint_max_elective_conflicts_boundary_allowance(mock_context):
 
     assert scheduler._can_add_exam_to_schedule(
         mock_context["elective_y"], test_date, scheduled_exams, mock_context["conflict_matrix"]) is True
+
+
+def test_constraint_max_elective_conflicts_upper_boundary_rejects_k_plus_one(mock_context):
+    """
+    Upper boundary: with k=1 the FIRST same-program same-day elective overlap is allowed,
+    but a SECOND overlap (which would make 2 conflicts > k) must be rejected. 
+    """
+    elective_w = Course(
+        course_id="77777", course_name="Physics 3", instructor="Dr. Bohr",
+        evaluation_method="Exam",
+        program_info=[ProgramCourseInfo(
+            program_id="83108", year=1, semester="FALL", requirement="Elective")],
+    )
+    constraints = SchedulingConstraints(
+        max_elective_conflicts_enabled=True, max_elective_conflicts_k=1)
+    scheduler = AdvancedExamScheduler(constraints=constraints)
+
+    test_date = date(2026, 1, 20)
+    # Two electives already on the date == 1 conflict (within k=1)
+    scheduled_exams = [
+        ScheduledExam(course=mock_context["elective_x"], exam_date=test_date),
+        ScheduledExam(course=mock_context["elective_y"], exam_date=test_date),
+    ]
+    scheduler._push_state(
+        mock_context["elective_x"], test_date, scheduled_exams, mock_context["conflict_matrix"])
+    scheduler._push_state(
+        mock_context["elective_y"], test_date, scheduled_exams, mock_context["conflict_matrix"])
+
+    # Adding a third same-program elective would create 2 more conflicts -> > k -> reject
+    assert scheduler._can_add_exam_to_schedule(
+        elective_w, test_date, scheduled_exams, mock_context["conflict_matrix"]) is False
 
 
 def test_constraint_max_elective_invalid_k_raises_error():
@@ -416,9 +479,9 @@ def test_constraint_span_mandatory_negative(scheduler, mock_context):
 
 def test_constraint_span_mandatory_blocked_through_main_gate(scheduler, mock_context):
     """
-    Wiring: a span violation must also be rejected through the main admission
-    gate (_can_add_exam_to_schedule), not only the _check_span_mandatory helper.
-    Only the span constraint is enabled so nothing else can mask the result.
+    Verifies that the 'span' constraint is correctly enforced.
+    Ensures that adding a new exam exceeding the mandatory span (k=5) is 
+    properly blocked by the scheduler.
     """
     scheduler.constraints = SchedulingConstraints(
         span_mandatory_enabled=True, span_mandatory_k=5)
@@ -426,6 +489,24 @@ def test_constraint_span_mandatory_blocked_through_main_gate(scheduler, mock_con
 
     assert scheduler._can_add_exam_to_schedule(
         mock_context["course_b"], date(2026, 7, 15), [], mock_context["conflict_matrix"]) is False
+
+
+def test_constraint_span_mandatory_srs_minimum_direction(scheduler, mock_context):
+    """
+    Sanity test: Mandatory span must be AT LEAST k days.
+    - Span < k  -> REJECT (False)
+    - Span >= k -> ACCEPT (True)
+    """
+    scheduler.constraints = SchedulingConstraints(
+        span_mandatory_enabled=True, span_mandatory_k=5)
+    
+    scheduler._exam_dates_by_program_year[("83101", 1)] = [date(2026, 7, 1)]
+
+    assert scheduler.validate_full_schedule_span(
+        mock_context["schedule_with_span_2"], scheduler.constraints) is False
+
+    assert scheduler.validate_full_schedule_span(
+        mock_context["schedule_with_span_10"], scheduler.constraints) is True
 
 
 def test_constraint_span_mandatory_boundary_limits(scheduler, mock_context):
@@ -467,7 +548,7 @@ def test_constraint_span_mandatory_different_program_is_not_blocked(scheduler, m
 
 
 def test_constraint_span_mandatory_invalid_k_raises_error():
-    """Validation: a negative or non-integer span 'k' raises during init."""
+    """Validation: a negative or non-integer span 'k'."""
     with pytest.raises((ValueError, TypeError)):
         SchedulingConstraints(span_mandatory_enabled=True, span_mandatory_k=-7)
     with pytest.raises((ValueError, TypeError)):
@@ -478,7 +559,7 @@ def test_constraint_span_mandatory_invalid_k_raises_error():
 # --- Constraint 2.5: Maximum Exams Per Day Capacity ---
 
 def test_constraint_max_exams_per_day_flag_off(mock_context):
-    """Flag Off: the daily-capacity check is bypassed when 2.5 is disabled."""
+    """Flag Off: the daily-capacity check is bypassed when 2.5 constraint is disabled."""
     constraints = SchedulingConstraints(max_exams_per_day_enabled=False, max_exams_per_day_k=1)
     scheduler = AdvancedExamScheduler(constraints=constraints)
     test_date = date(2026, 1, 29)
@@ -536,7 +617,7 @@ def test_constraint_max_exams_per_day_extended_boundary(mock_context):
 
 
 def test_constraint_max_exams_per_day_invalid_k_raises_error():
-    """Validation: a negative or non-integer daily cap 'k' raises during init."""
+    """Validation: a negative or non-integer daily cap 'k'."""
     with pytest.raises((ValueError, TypeError)):
         SchedulingConstraints(
             max_exams_per_day_enabled=True, max_exams_per_day_k=-2)
