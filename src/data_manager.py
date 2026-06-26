@@ -1,6 +1,7 @@
 # Data Manager class to handle loading and managing course and exam period data.
 # It uses a parser to read data from files and provides methods to access the loaded data.
 
+import os
 from typing import Dict, List
 from src.parsers.base_parser import BaseParser
 from src.MVP.models.course import Course
@@ -26,8 +27,34 @@ class DataManager:
         self.courses: Dict[str, Course] = {}
         self.exam_periods: List[ExamPeriod] = []
         self.selected_programs: List[str] = []
+        self._parse_cache: dict = {}
         self.__initialized = True
         
+    @staticmethod
+    def _file_signature(path: str):
+        try:
+            st = os.stat(path)
+            return (st.st_mtime_ns, st.st_size)
+        except OSError:
+            return None
+            
+    def _parse_cached(self, kind: str, path: str, parse_fn):
+        """
+        Loads data using the provided parsing function, only if the 
+        file signature has changed or the data is not in cache.
+        """
+        if not hasattr(self, "_parse_cache"): 
+            self._parse_cache = {}
+        sig = self._file_signature(path)
+        entry = self._parse_cache.get((kind, path))
+        # Return cached result if the file signature matches
+        if entry is not None and sig is not None and entry[0] == sig:
+            return entry[1]       
+        # Otherwise, parse the file and update cache         
+        result = parse_fn(path)
+        self._parse_cache[(kind, path)] = (sig, result)
+        return result
+    
     # Method to load data from files using the parser
     def load_data(
         self,
@@ -36,18 +63,21 @@ class DataManager:
         selected_programs_path: str,
         mode: str = "replace"
     ):
-        parsed_courses = self.parser.parse_courses(courses_path)
+
+        if mode not in ("replace", "append"):
+            raise ValueError("mode must be either 'replace' or 'append'.")
+
+        parsed_courses = self._parse_cached("courses", courses_path, self.parser.parse_courses)
 
         if mode == "replace":
             self.courses.clear()
-        elif mode != "append":
-            raise ValueError("mode must be either 'replace' or 'append'.")
-
         for course in parsed_courses:
             self.courses[course.course_id] = course
 
-        self.exam_periods = self.parser.parse_exam_periods(exam_periods_path)
-        self.selected_programs = self.parser.parse_selected_programs(selected_programs_path)
+        self.exam_periods = list(self._parse_cached(
+            "exam_periods", exam_periods_path, self.parser.parse_exam_periods))
+        self.selected_programs = list(self._parse_cached(
+            "programs", selected_programs_path, self.parser.parse_selected_programs))
 
         self.validate_selected_programs()
         print("Data loaded successfully.")

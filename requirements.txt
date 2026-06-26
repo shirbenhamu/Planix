@@ -1,3 +1,5 @@
 customtkinter
 python-bidi
 pillow
+psutil
+pytest-mock
