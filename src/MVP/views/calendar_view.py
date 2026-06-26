@@ -378,17 +378,13 @@ class CalendarGridView(ctk.CTkFrame):
 
         # Update exam cards in the pool (only if we have an exams container)
         if exams_container:
-            elegant_colors = [
-                ("#0d6efd", "#0077b6"), # blue
-                ("#20c997", "#128260"), # green-magenta
-                ("#f39c12", "#d68910"), # orange
-                ("#e83e8c", "#b8306f"), # pink
-                ("#8e44ad", "#6c3483")  # purple
-            ]
-
             # Update or create exam cards
             for i, exam in enumerate(exams):
-                pill_color = elegant_colors[i % len(elegant_colors)]
+                # Color by course type: Mandatory (ח) = Blue, Elective (ב) = Green
+                if exam.get("type") == "ח":
+                    pill_color = ("#0d6efd", "#0077b6")  # Blue for Mandatory
+                else:
+                    pill_color = ("#20c997", "#128260")  # Green for Elective
                 
                 if i < len(pool["exam_cards"]):
                     # Card exists, update it and show it

@@ -271,18 +271,30 @@ class CalendarPresenter:
             cell_key = f"{row_idx}-{col_idx}"
 
             real_c = all_courses.get(exam.course.course_id, exam.course)
-            is_mandatory = getattr(real_c, "is_mandatory", True)
-            exam_type_marker = "ח" if is_mandatory else "ב"
+            # Extract course type from program_info: check if requirement is "Elective"
+            is_elective = False
+            program_info = getattr(real_c, "program_info", [])
+            if program_info and len(program_info) > 0:
+                # Use the first program_info to determine type (all should be same within a cohort)
+                is_elective = program_info[0].requirement == "Elective"
+            exam_type_marker = "ב" if is_elective else "ח"
 
             course_id = str(getattr(exam.course, "course_id", "")).strip()
             linked_programs = course_to_programs.get(course_id, [])
             program_text = ", ".join(linked_programs) if linked_programs else "Prog"
+            
+            # Extract academic year from course.program_info (first year in cohort)
+            year = "N/A"
+            program_info = getattr(exam.course, "program_info", [])
+            if program_info and len(program_info) > 0:
+                year = str(program_info[0].year)
 
             grid_data[cell_key]["exams"].append({
                 "short_name": getattr(exam.course, "course_name", "")[:10],
                 "course_id": getattr(exam.course, "course_id", ""),
                 "type": exam_type_marker,
                 "program": program_text,
+                "year": year,
             })
 
         self.view.render_calendar_data(grid_data)
@@ -519,9 +531,11 @@ class CalendarPresenter:
 
     def _handle_filter_click(self) -> None:
         try:
-            # Guard Clause: Block filtering actions if a background generation process is already active
+            # Guard Clause: Block filtering actions if background generation is active (PLAN-421).
+            # Once the engine finishes, app_controller._load_snapshot_schedules() calls
+            # clear_finished_worker() which allows filtering to resume.
             if self._engine_is_active():
-                print("[CalendarPresenter][Block] Request denied. Background engine calculation is currently active.")
+                print("[CalendarPresenter][Block] Filter blocked while generation is active. Try again when complete.")
                 return
 
             selected_programs = []
@@ -551,11 +565,9 @@ class CalendarPresenter:
             print(f"Error handling filter execution pipeline: {e}")
 
     def _handle_sync_action(self):
-        # Guard Clause: Block manual sync dispatch synchronization if background run is active
-        if self._engine_is_active():
-            print("[CalendarPresenter][Block] Request denied. Generation pipeline is currently active.")
-            return
-
+        # Sync is always allowed - regenerates schedules with current filter settings.
+        # The engine adapter clears finished workers automatically, so stale generation
+        # states don't block subsequent operations (PLAN-421).
         self.collection_manager.clear_cache() 
         if self.controller:
             self.controller.regenerate_schedules_snapshot()
