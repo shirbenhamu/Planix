@@ -70,6 +70,7 @@ class InputPresenter:
         """
         Acceptance Criteria Met: Input Presenter reads toggle and k-value state from the settings view.
         Maintains decoupling and long-lived model instance storage mapping.
+        PLAN-555: Extracts multi-select religion selections and persists choices safely.
         """
         # Guard Clause: Prevent saving updates if the background engine process is currently active
         if self.controller and self.controller.engine_adapter and self.controller.engine_adapter.is_generation_active():
@@ -95,6 +96,7 @@ class InputPresenter:
                     "span_mandatory_k": getattr(self.view, "span_mandatory_k", 14),
                     "max_exams_per_day_enabled": getattr(self.view, "max_exams_per_day_enabled", True), 
                     "max_exams_per_day_k": getattr(self.view, "max_exams_per_day_k", 1),
+                    "selected_religions": getattr(self.view, "selected_religions", []),
                 }
 
         print(f"[InputPresenter] Save Action detected. Reading fields from view: {ui_constraints_data}")
@@ -115,7 +117,13 @@ class InputPresenter:
         self.model.constraints.max_exams_per_day_enabled = bool(ui_constraints_data.get("max_exams_per_day_enabled", False))
         self.model.constraints.max_exams_per_day_k = self._safe_int_conversion(ui_constraints_data.get("max_exams_per_day_k", 0))
 
-        print("[InputPresenter] Model constraint layout updated successfully.")
+        # PLAN-555: Persist selected religions array directly within system state config dataclass
+        self.model.constraints.selected_religions = list(ui_constraints_data.get("selected_religions", []))
+
+        # PLAN-555: Enforce the updated exclusions context directly to the DataManager
+        self.model.enforce_state_to_data_manager()
+
+        print("[InputPresenter] Model constraint layout and religious exclusions updated successfully.")
 
         # Triggers clean engine snapshot calculation via the Controller
         if self.controller is not None:

@@ -185,6 +185,7 @@ class AppWindow(ctk.CTk):
             mt.on_export = lambda: ct.on_export() if ct.on_export else None
             mt.on_filter = lambda: ct.on_filter() if ct.on_filter else None
             mt.on_load_more = lambda: ct.on_load_more() if ct.on_load_more else None
+            mt.on_refresh_feed = lambda: ct.on_refresh_feed() if ct.on_refresh_feed else None
             mt.on_undo = lambda: ct.on_undo() if ct.on_undo else None
 
         # Route the monthly ranking bar through the same presenter handlers the
@@ -192,6 +193,10 @@ class AppWindow(ctk.CTk):
         self.monthly_view.on_sort_changed = (
             lambda keys, asc: self.calendar_view.on_sort_changed(keys, asc)
             if self.calendar_view.on_sort_changed else None
+        )
+        self.monthly_view.on_refresh_feed_clicked = (
+            lambda: self.calendar_view.on_refresh_feed_clicked()
+            if self.calendar_view.on_refresh_feed_clicked else None
         )
 
         # Route monthly drag & drop through the same presenter handlers as annual.

@@ -1,5 +1,6 @@
 # src/engine/scheduling_constraints.py
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 
 @dataclass
 class SchedulingConstraints:

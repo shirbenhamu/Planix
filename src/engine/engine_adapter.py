@@ -92,7 +92,20 @@ class PlanixEngineAdapter:
 
     # This method allows the UI to check if an engine generation process is currently active
     def is_generation_active(self) -> bool:
-        return self._worker_process is not None and self._worker_process.is_alive()
+        if self._worker_process is None:
+            return False
+        try:
+            # Check if the process is still alive
+            if self._worker_process.is_alive():
+                return True
+            else:
+                # Process finished; clear the reference immediately so filter/search isn't blocked
+                self._worker_process = None
+                return False
+        except Exception:
+            # If there's any error checking the process, clear it and allow operations
+            self._worker_process = None
+            return False
 
     # This method allows the UI to clear the worker reference once it has detected that the process has finished,
     # ensuring that subsequent generation runs can be initiated without stale state interference.
