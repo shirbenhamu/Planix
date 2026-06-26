@@ -126,31 +126,26 @@ class AppController:
             self.collection_manager.clear_cache()
             self._set_constraints_save_state(enabled=True)
             return
-            
-        # UI Lock fall-through logic: if process is running, just show current view safely
+        
+        self.collection_manager.clear_cache()
+        self._set_constraints_save_state(enabled=False)
+        self.app_window.switch_view("annual")
+        
         if self.engine_adapter.is_generation_active():
-            print("[AppController] Existing generation process is active. UI Lock engaged. Routing user straight to current preview screen.")
-            self._set_constraints_save_state(enabled=False)
-            self.collection_manager.clear_cache()
-            self.collection_manager.snapshot_mode = True
-            self.app_window.switch_view("annual")
+            print("[AppController] Active generation detected. Reusing it; routing to calendar snapshot.")
             self.app_window.switch_view("calendar")
             self.app_window.after(100, self._load_snapshot_schedules)
             return
-
-        print("[AppController] Engine idle. Initiating clean schedule generation pipeline...")
-        self._set_constraints_save_state(enabled=False)
-        self.collection_manager.clear_cache()
-        self.app_window.switch_view("annual")
         
+        print("[AppController] Engine idle. Initiating clean schedule generation pipeline...")
         if hasattr(self.model, "is_generating") and self.model.is_generating:
             self.model.is_generating = False
-
         self.collection_manager.snapshot_mode = False
         
+        output_path = getattr(self, "output_path", "output_results/final_schedules.txt")
         # Launch new Advanced engine generation with the updated SchedulingConstraints setup
         self.engine_adapter.generate_from_model(
-            model=self.model, output_path=self.output_path)
+            model=self.model, output_path=output_path)
             
         self.app_window.switch_view("calendar")
         self.app_window.after(100, self._load_snapshot_schedules)

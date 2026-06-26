@@ -302,11 +302,11 @@ def test_filter_click_preserves_model_when_view_selection_is_empty():
     model.update_selected_programs.assert_not_called()
     controller.regenerate_schedules_snapshot.assert_called_once()
 
-
-def test_sync_action_clears_cache_and_regenerates_when_controller_exists():
+def test_sync_action_clears_cache_and_regenerates_when_controller_exists(mocker):
     presenter, view, model, collection_manager, controller = build_presenter()
-
+    
+    mocker.patch.object(presenter, '_engine_is_active', return_value=False)
     presenter._handle_sync_action()
-
+    
     collection_manager.clear_cache.assert_called_once()
     controller.regenerate_schedules_snapshot.assert_called_once()

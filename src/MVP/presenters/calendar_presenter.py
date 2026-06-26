@@ -564,10 +564,12 @@ class CalendarPresenter:
         except Exception as e:
             print(f"Error handling filter execution pipeline: {e}")
 
-    def _handle_sync_action(self):
-        # Sync is always allowed - regenerates schedules with current filter settings.
-        # The engine adapter clears finished workers automatically, so stale generation
-        # states don't block subsequent operations (PLAN-421).
+    def _handle_sync_action(self):        
+        # Guard Clause: Block manual sync dispatch synchronization if background run is active
+        if self._engine_is_active():
+            print("[CalendarPresenter][Block] Request denied. Generation pipeline is currently active.")
+            return
+        
         self.collection_manager.clear_cache() 
         if self.controller:
             self.controller.regenerate_schedules_snapshot()
