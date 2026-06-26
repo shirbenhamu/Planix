@@ -473,7 +473,7 @@ class CalendarPresenter:
         destination_file_path: str,
         export_format: str = "text",
         open_after_export: bool = False,
-    ) -> str | None:
+    ) -> Optional[str]:
         """Export the currently displayed board.
 
         export_format="text" keeps the legacy text export. export_format="ics"
