@@ -47,6 +47,7 @@ TRANSLATIONS = {
     "course_id": {"he": "קוד קורס:", "en": "Course ID:"},
     "type": {"he": "סוג:", "en": "Type:"},
     "program": {"he": "תוכנית:", "en": "Prog:"},
+    "year": {"he": "שנת לימוד:", "en": "Academic year:"},
     "close": {"he": "סגור", "en": "Close"},
     
     # --- Input View & Dates Modal Translations ---
@@ -59,7 +60,6 @@ TRANSLATIONS = {
     "max_programs_err": {"he": "לא ניתן לבחור יותר מ-5 תוכניות לימוד במקביל", "en": "Cannot select more than 5 programs at once"},
     "icon_upload": {"he": "העלה", "en": "Upload"},
     "icon_trash": {"he": "מחק", "en": "Delete"},
-    "year": {"he": "שנה", "en": "Year"},
 
     # --- Dates File Load Chooser ---
     "dates_load_title": {"he": "טעינת קובץ תאריכים", "en": "Load Dates File"},

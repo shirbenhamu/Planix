@@ -299,18 +299,12 @@ class MonthlyGridView(ctk.CTkFrame):
             if hasattr(exams_container, "_parent_canvas"):
                 exams_container._parent_canvas.bind("<Button-1>", lambda e, k=original_key: self._handle_cell_click(k))
 
-            # Elegant color palette for when there are multiple exams on the same day
-            elegant_colors = [
-                ("#0d6efd", "#0077b6"), # Blue
-                ("#20c997", "#128260"), # Mint-green
-                ("#f39c12", "#d68910"), # Orange
-                ("#e83e8c", "#b8306f"), # Pink
-                ("#8e44ad", "#6c3483")  # Purple
-            ]
-
             for i, exam in enumerate(exams):
-                # Pick a color dynamically based on the exam index
-                pill_color = elegant_colors[i % len(elegant_colors)]
+                # Color by course type: Mandatory (ח) = Blue, Elective (ב) = Green
+                if exam.get("type") == "ח":
+                    pill_color = ("#0d6efd", "#0077b6")  # Blue for Mandatory
+                else:
+                    pill_color = ("#20c997", "#128260")  # Green for Elective
                 
                 # "Pill" styling with very rounded corners
                 card = ctk.CTkFrame(exams_container, fg_color=pill_color, corner_radius=10)
