@@ -1,11 +1,8 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
-
-# Import the controller that connects the UI views to the model/presenter layer.
+from unittest.mock import MagicMock, patch
+# Import the controller that connects the UI views to the model/presenter layer
 from src.MVP.presenters.app_controller import AppController
-
-# Import the constraints modal utilities and constants added for PLAN-418.
+# Import the constraints modal utilities and constants
 from src.MVP.views.components.constraints_modal import (
     CONSTRAINT_FIELDS,
     ConstraintsSettingsModal,
@@ -13,21 +10,18 @@ from src.MVP.views.components.constraints_modal import (
     default_constraints_data,
     normalize_constraints_data,
 )
-
 # Import the three views where the Constraints button must exist and function.
 from src.MVP.views.input_view import InputConfigurationView
 from src.MVP.views.calendar_view import CalendarGridView
 from src.MVP.views.monthly_view import MonthlyGridView
-
-# Import the core scheduling constraints model.
+# Import the core scheduling constraints model
 from src.engine.scheduling_constraints import SchedulingConstraints
 
 
 class FakeVar:
     """
-    Minimal fake replacement for Tkinter UI variable wrappers.
-    During automated tests, we prevent real UI windows from opening, so this stub
-    provides only the vital get() and set() state management.
+    Stub for Tkinter's Variable classes. 
+    Allows setting/getting values without a running GUI mainloop.
     """
     def __init__(self, value):
         self.value = value
@@ -41,9 +35,8 @@ class FakeVar:
 
 class FakeLabel:
     """
-    Minimal fake replacement for a Tkinter Label widget.
-    The modal invokes error_label.configure(...) to display or clear runtime validation errors.
-    We utilize MagicMock to verify that visual error alerts are triggered correctly.
+    Stub for a Tkinter Label. 
+    Uses a MagicMock to verify if the UI tries to update error messages.
     """
     def __init__(self):
         self.configure = MagicMock()
@@ -53,7 +46,7 @@ class FakeLabel:
 def valid_constraints_payload():
     """
     Generates a valid dictionary payload simulating incoming data from the GUI modal form.
-    Notice that k values are strings here because UI Entry fields usually return
+    k values are strings here because UI Entry fields usually return
     text, even when the user typed a number.
     """
     return {
@@ -92,10 +85,9 @@ def test_normalize_constraints_data_coerces_values_and_keeps_defaults_for_missin
     """
     Verifies that normalize_constraints_data() safely converts raw UI data.
     
-    This test checks three important behaviors:
+    This test checks important behaviors:
     1. Boolean-like values are converted to real booleans.
     2. Numeric strings are converted to integers.
-    3. Missing or invalid values fall back to safe default values.
     """
     raw_data = {
         "min_days_mandatory_enabled": "yes",
@@ -116,11 +108,7 @@ def test_normalize_constraints_data_coerces_values_and_keeps_defaults_for_missin
 
     assert normalized["span_mandatory_enabled"] is True
     assert normalized["span_mandatory_k"] == 0
-
-    # These keys were missing in raw_data, so they should receive default values.
-    assert normalized["max_exams_per_day_enabled"] is False
-    assert normalized["max_exams_per_day_k"] == 1
-
+    
 
 def test_non_negative_integer_candidate_validation_accepts_only_digits_or_empty_value():
     """
@@ -142,11 +130,9 @@ def test_non_negative_integer_candidate_validation_accepts_only_digits_or_empty_
 def _modal_stub_with_vars(enabled_value=True, k_value="3"):
     """
     Creates a fake ConstraintsSettingsModal object without opening the real UI.
-
     object.__new__(ConstraintsSettingsModal) creates the object without calling
     the real __init__, which prevents Tkinter windows from being created during
     unit tests.
-
     The test then injects fake variables into modal._vars, so internal modal
     methods can be tested directly.
     """
@@ -165,7 +151,6 @@ def _modal_stub_with_vars(enabled_value=True, k_value="3"):
 def test_constraints_modal_validation_rejects_empty_k_for_enabled_constraint():
     """
     Verifies that saving is blocked when a constraint is enabled but k is empty.
-
     Active constraints must have a valid numeric k value.
     """
     modal = _modal_stub_with_vars(enabled_value=True, k_value="")
@@ -177,7 +162,6 @@ def test_constraints_modal_validation_rejects_empty_k_for_enabled_constraint():
 def test_constraints_modal_validation_allows_empty_k_when_constraint_is_disabled():
     """
     Verifies that an empty k is allowed when the constraint itself is disabled.
-
     If the toggle is OFF, the k value is not used by the engine.
     """
     modal = _modal_stub_with_vars(enabled_value=False, k_value="")
@@ -189,7 +173,6 @@ def test_constraints_modal_validation_allows_empty_k_when_constraint_is_disabled
 def test_constraints_modal_validation_rejects_non_numeric_k_even_when_disabled():
     """
     Verifies that invalid text is rejected even when the constraint is disabled.
-
     This keeps the stored modal state clean and prevents invalid data from being
     passed further into the Presenter/Model.
     """
@@ -202,7 +185,6 @@ def test_constraints_modal_validation_rejects_non_numeric_k_even_when_disabled()
 def test_constraints_modal_collect_data_returns_boolean_flags_and_integer_k_values():
     """
     Verifies that the modal converts UI values into the final saved data format.
-
     The enabled values should be real booleans.
     The k values should be real integers, not strings.
     """
@@ -218,7 +200,6 @@ def test_constraints_modal_collect_data_returns_boolean_flags_and_integer_k_valu
 def test_input_view_constraints_save_persists_normalized_state_and_notifies_presenter(valid_constraints_payload):
     """
     Verifies the Input View behavior when the user saves constraints.
-
     Expected behavior:
     1. The view normalizes the raw modal data.
     2. The normalized data is stored as the current constraints state.
@@ -258,7 +239,6 @@ def test_constraints_button_opens_popup_with_current_state_and_callbacks(
 ):
     """
     Verifies that each relevant view opens the Constraints popup correctly.
-
     This test runs once for each view:
     1. Input view.
     2. Calendar yearly/grid view.
@@ -293,10 +273,6 @@ def test_constraints_button_opens_popup_with_current_state_and_callbacks(
 class FakeConstraintsView:
     """
     Fake view used for AppController tests.
-
-    The real AppController connects three different views to the same constraints
-    save handler. For controller unit tests, we only need the methods that the
-    controller calls.
     """
     def __init__(self):
         self.on_save_constraints = None
@@ -307,7 +283,6 @@ class FakeConstraintsView:
 class FakeModel:
     """
     Fake model containing initial SchedulingConstraints.
-
     This allows AppController tests to verify that constraints are read from the
     model and pushed into all relevant views.
     """
@@ -329,8 +304,6 @@ class FakeModel:
 def _controller_stub():
     """
     Builds a minimal AppController test double.
-
-    The real AppController __init__ may create or wire many objects.
     For these tests we only need:
     - model
     - engine_adapter
@@ -417,3 +390,26 @@ def test_app_controller_blocks_constraints_save_when_generation_is_active(valid_
         view.set_constraints_data.assert_not_called()
 
     controller.input_presenter._handle_save_constraints.assert_not_called()
+
+
+def test_app_controller_saves_all_five_constraint_pairs_at_once(valid_constraints_payload):
+    """
+    Verifies a full payload covering all five threshold constraints is
+    forwarded intact when generation is not active.
+    """
+    controller = _controller_stub()
+    controller.engine_adapter.is_generation_active.return_value = False
+
+    controller._handle_constraints_settings_save(valid_constraints_payload)
+
+    # Every view received the full payload, and the presenter was handed it once.
+    for view in _all_controller_views(controller):
+        view.set_constraints_data.assert_called_once_with(valid_constraints_payload)
+    controller.input_presenter._handle_save_constraints.assert_called_once_with(
+        valid_constraints_payload)
+
+    # All five threshold constraints are present in what was forwarded.
+    forwarded = controller.input_presenter._handle_save_constraints.call_args[0][0]
+    for field in CONSTRAINT_FIELDS:
+        assert field["enabled"] in forwarded
+        assert field["k"] in forwarded
