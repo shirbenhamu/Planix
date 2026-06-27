@@ -402,6 +402,13 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         if not self._validate_before_save():
             return
         data = self._collect_data()
+        
+        # PLAN-587: Explicitly release interface grab and return focus to parent 
+        # BEFORE running long generation calculations to prevent keyboard focus freeze
+        self.grab_release()
+        if self.parent:
+            self.parent.focus_set()
+            
         if self.on_save_callback:
             self.on_save_callback(data)
         self.destroy()
