@@ -24,26 +24,27 @@ class SchedulingConstraints:
     max_exams_per_day_enabled: bool = False
     max_exams_per_day_k: int = 1
     
+    selected_religions: List[str] = field(default_factory=list)
+    
     def __post_init__(self):
-        # Group A: thresholds that may be zero but never negative (>= 0).
-        non_negative_fields = [
-            "min_days_mandatory_k", 
-            "min_days_any_k", 
-            "max_elective_conflicts_k", 
-            "span_mandatory_k"
+        rules = [
+            ("min_days_mandatory_enabled",     "min_days_mandatory_k",     1),
+            ("min_days_any_enabled",           "min_days_any_k",           1),
+            ("span_mandatory_enabled",         "span_mandatory_k",         1),
+            ("max_exams_per_day_enabled",      "max_exams_per_day_k",      1),
+            ("max_elective_conflicts_enabled", "max_elective_conflicts_k", 0),
         ]
-        
-        # Reject anything that is not an int or is below zero.
-        for field in non_negative_fields:
-            val = getattr(self, field)
-            if not isinstance(val, int) or val < 0:
-                raise ValueError(f"Constraint {field} must be a non-negative integer (>= 0).")
-
-        # Group B: thresholds that must be strictly positive (>= 1); a 0 cap makes no sense here.
-        positive_fields = ["max_exams_per_day_k"]
-        
-        # Reject anything that is not an int or is below one.
-        for field in positive_fields:
-            val = getattr(self, field)
-            if not isinstance(val, int) or val < 1:
-                raise ValueError(f"Constraint {field} must be at least 1.")
+ 
+        for enabled_attr, k_attr, minimum in rules:
+            if not getattr(self, enabled_attr):
+                continue  # disabled constraint: its k is irrelevant.
+ 
+            k = getattr(self, k_attr)
+            # bool is a subclass of int (True == 1), so reject it explicitly.
+            if isinstance(k, bool) or not isinstance(k, int) or k < minimum:
+                bound = "a positive integer (>= 1)" if minimum == 1 \
+                    else "a non-negative integer (>= 0)"
+                raise ValueError(
+                    f"Constraint {k_attr} must be {bound} when enabled (got {k!r})."
+                )
+ 

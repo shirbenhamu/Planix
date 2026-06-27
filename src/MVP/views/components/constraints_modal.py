@@ -253,28 +253,28 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         start_religion_row = len(CONSTRAINT_FIELDS) + 1
         
         # Spacer Line Separator block structure layout
-        divider = ctk.CTkFrame(body, height=2, fg_color=theme.BORDER_DEFAULT)
-        divider.grid(row=start_religion_row, column=0, columnspan=3, sticky="ew", padx=14, pady=16)
+        divider = ctk.CTkFrame(body, height=theme.SPACING_XS, fg_color=theme.BORDER_DEFAULT)
+        divider.grid(row=start_religion_row, column=0, columnspan=3, sticky="ew", padx=theme.SPACING_REGULAR, pady=theme.SPACING_REGULAR)
         
         # Section Header Text label widget
         religions_title = ctk.CTkLabel(
             body,
             text=format_text("religion_section_title", self.current_lang),
-            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=16, weight="bold"),
+            font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_HEADER, weight="bold"),
             text_color=theme.TEXT_ACCENT,
             anchor=header_anchor,
         )
-        religions_title.grid(row=start_religion_row + 1, column=0, columnspan=3, sticky="ew", padx=14, pady=(4, 8))
+        religions_title.grid(row=start_religion_row + 1, column=0, columnspan=3, sticky="ew", padx=theme.SPACING_REGULAR, pady=(theme.SPACING_TINY, theme.SPACING_SMALL))
 
         # Core container grouping box component wrapper
         religions_container = ctk.CTkFrame(
             body, 
             fg_color=theme.BG_CARD, 
             corner_radius=theme.RADIUS_CARD, 
-            border_width=1, 
+            border_width=theme.BORDER_WIDTH_DEFAULT, 
             border_color=theme.BORDER_DEFAULT
         )
-        religions_container.grid(row=start_religion_row + 2, column=0, columnspan=3, sticky="ew", padx=14, pady=4)
+        religions_container.grid(row=start_religion_row + 2, column=0, columnspan=3, sticky="ew", padx=theme.SPACING_REGULAR, pady=theme.SPACING_TINY)
         religions_container.grid_columnconfigure((0, 1, 2), weight=1, uniform="religion_cols")
 
         religions_list = [
@@ -293,7 +293,7 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
                 religions_container,
                 text=format_text(lang_key, self.current_lang),
                 variable=box_var,
-                font=ctk.CTkFont(family=theme.FONT_FAMILY, size=13),
+                font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_BODY),
                 text_color=theme.TEXT_MAIN,
                 fg_color=theme.BORDER_ACTIVE,
                 hover_color=theme.BORDER_ACTIVE
@@ -301,7 +301,7 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
             
             # Align items grid side layout elements properly satisfying language context
             grid_col = (2 - idx) if self.current_lang == "he" else idx
-            cb.grid(row=0, column=grid_col, padx=15, pady=12, sticky="ew")
+            cb.grid(row=0, column=grid_col, padx=theme.SPACING_REGULAR, pady=theme.SPACING_COMPACT, sticky="ew")
 
         # Footer Frame rendering block areas layout
         footer = ctk.CTkFrame(outer, fg_color=theme.TRANSPARENT)

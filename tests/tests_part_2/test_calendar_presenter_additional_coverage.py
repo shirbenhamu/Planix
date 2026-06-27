@@ -144,7 +144,10 @@ def test_render_active_schedule_uses_elective_marker_when_course_is_not_mandator
     exam = make_exam("10001", "Elective Course", date(2026, 2, 15))
     real_course = MagicMock()
     real_course.course_id = "10001"
-    real_course.is_mandatory = False
+    elective_info = MagicMock()
+    elective_info.requirement = "Elective"
+    real_course.program_info = [elective_info]
+
 
     model.data_manager.get_courses.return_value = [real_course]
     presenter.active_months = [1]
