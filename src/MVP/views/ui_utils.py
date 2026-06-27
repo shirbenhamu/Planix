@@ -29,8 +29,8 @@ TRANSLATIONS = {
     # Deep search ("Find best"): scan a large bounded space, keep the top-N best.
     "load_all_title": {"he": "חיפוש מעמיק", "en": "Deep search"},
     "load_all_warning": {
-        "he": "חיפוש מעמיק יסרוק כמות עצומה של שיבוצים אפשריים וישמור רק את 100,000 הטובים ביותר עבור המיון והאילוצים הנוכחיים שלך.\n\nהסריקה רצה עד 10 דקות (או עד שנגמרות כל האפשרויות) — מד ההתקדמות מציג את הזמן שחלף מתוך התקציב. בזמן החיפוש האפליקציה ממשיכה לעבוד כרגיל ותוכל לדפדף בשיבוצים שכבר על המסך; אפשר גם לבטל בכל רגע בלחיצה על אותו כפתור.\n\nבסיום יוצגו השיבוצים הטובים ביותר ויוצג כמה שיבוצים נסרקו עבורם. להתחיל?",
-        "en": "Deep search scans a huge number of possible schedules and keeps only the best 100,000 for your current sort and constraints.\n\nIt runs for up to 10 minutes (or until the whole space is exhausted) — the progress meter shows elapsed time out of that budget. The app keeps working while it runs and you can browse the schedules already on screen; you can cancel anytime by clicking the same button.\n\nWhen it finishes the best schedules are shown along with how many were scanned for them. Start?",
+        "he": "חיפוש מעמיק יסרוק כמות עצומה של שיבוצים אפשריים וישמור רק את מאה אלף הטובים ביותר עבור המיון והאילוצים הנוכחיים שלך\n\nהסריקה רצה עד 10 דקות (או עד שנגמרות כל האפשרויות) — מד ההתקדמות מציג את הזמן שחלף מתוך התקציב בזמן החיפוש האפליקציה ממשיכה לעבוד כרגיל ותוכל לדפדף בשיבוצים שכבר על המסך; אפשר גם לבטל בכל רגע בלחיצה על אותו כפתור\n\n בסיום יוצגו השיבוצים הטובים ביותר ויוצג כמה שיבוצים נסרקו עבורם \n?להתחיל",
+        "en": "Deep search scans a huge number of possible schedules and keeps only the best 100,000 for your current sort and constraints.\n\nIt runs for up to 10 minutes (or until the whole space is exhausted) — the progress meter shows elapsed time out of that budget. The app keeps working while it runs and you can browse the schedules already on screen; you can cancel anytime by clicking the same button.\n\nWhen it finishes the best schedules are shown along with how many were scanned for them. \nStart?",
     },
     "load_all_confirm": {"he": "התחל חיפוש מעמיק", "en": "Start deep search"},
     "load_all_btn": {"he": "חיפוש מעמיק", "en": "Deep search"},
@@ -128,7 +128,7 @@ TRANSLATIONS = {
     "metrics_values_empty": {"he": "אין עדיין מדדים להצגה", "en": "No metrics to display yet"},
     "sort_selector_tooltip": {"he": "בחירת מדדי מיון וסדר עדיפות", "en": "Choose sort metrics and priority order"},
     "sort_selector_title": {"he": "בחירת סדר מיון", "en": "Sort Criteria Priority"},
-    "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון. סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי. ניתן להשתמש בחצים.", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
+    "sort_selector_hint": {"he": "סמן את המדדים שישתתפו במיון. סדר השורות קובע עדיפות: השורה הראשונה היא המדד הראשי. ניתן להשתמש בחצים", "en": "Select the metrics used for sorting. Row order sets priority: the first row is the primary criterion. Drag rows or use the arrow buttons."},
     "sort_selector_empty_error": {"he": "יש לבחור לפחות מדד מיון אחד", "en": "Select at least one sort metric"},
     
     "holiday_Rosh Hashanah": {"he": "ראש השנה", "en": "Rosh Hashanah"},
@@ -271,7 +271,7 @@ TRANSLATIONS = {
     },
     "info_button_export_title": {"he": "ייצוא", "en": "Export"},
     "info_button_export_desc": {
-        "he": "כפתור הייצוא פותח שתי אפשרויות: שמירת קובץ טקסט, או יצירת קובץ ICS תקני שניתן לפתוח ב-Google Calendar, Outlook או Apple Calendar. קובץ ה-ICS כולל רק אירועי מבחן מהלוח המוצג בפועל, ללא אילוצים פנימיים, ימי חג או נתוני חישוב",
+        "he": " כפתור הייצוא פותח שני אפשרויות: שמירת קובץ טקסט או יצירת קובץ יומן תקני שניתן לפתוח אותו בלוח השנה של גוגל או באאוטלוק או ביומן של אפל. קובץ היומן כולל רק אירועי מבחן מהלוח המוצג בפועל ללא אילוצים פנימיים ימי חג או נתוני חישוב",
         "en": "The Export button opens two options: save a text file, or create a standards-compliant ICS file that can be opened in Google Calendar, Outlook, or Apple Calendar. The ICS file contains only exam events from the currently displayed schedule, without internal constraints, holiday blocks, or calculation data.",
     },
 

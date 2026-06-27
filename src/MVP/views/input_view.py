@@ -413,7 +413,7 @@ class InputConfigurationView(ctk.CTkFrame):
                     semester_display = semester_raw
 
                 if self.current_lang == "he":
-                    header_text = f"📌 {year} {year_str} | {semester_display} סמסטר"
+                    header_text = f" {semester_display} \u200Fסמסטר\u200F | {year} \u200Fשנה\u200F 📌"
                 else:
                     header_text = f"📌 Year {year} | Semester {semester_display}"
 
