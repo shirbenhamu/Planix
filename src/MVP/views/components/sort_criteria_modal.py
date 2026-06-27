@@ -359,18 +359,40 @@ class SortCriteriaSelectorModal(ctk.CTkToplevel):
         self.error_label.configure(text="")
         return True
 
+    def _dismiss(self) -> None:
+        """Release the input grab and hand focus back to the main window before
+        destroying the modal. Without this, the grab taken in __init__ (combined
+        with overrideredirect) is not handed back, leaving the calendar controls
+        — notably the page-jump box — unclickable until the window is re-focused
+        some other way (switching views, alt-tab, etc.)."""
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        parent_toplevel = None
+        try:
+            parent_toplevel = self.parent.winfo_toplevel()
+        except Exception:
+            parent_toplevel = None
+        self.destroy()
+        if parent_toplevel is not None:
+            try:
+                parent_toplevel.focus_force()
+            except Exception:
+                pass
+
     def _save_and_close(self) -> None:
         if not self._validate_before_save():
             return
         sort_keys = self._collect_sort_keys()
         if self.on_save_callback:
             self.on_save_callback(sort_keys)
-        self.destroy()
+        self._dismiss()
 
     def _close_without_saving(self) -> None:
         if self.on_close_callback:
             self.on_close_callback()
-        self.destroy()
+        self._dismiss()
 
     def _center_on_parent(self) -> None:
         try:

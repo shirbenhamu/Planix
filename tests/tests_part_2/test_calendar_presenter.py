@@ -65,6 +65,34 @@ class TestCalendarPresenter:
 
         # Assert - Verify it was called gracefully.
         mock_view.show_empty_state.assert_called()
+        # PLAN-594: once generation has finished, a stale schedule count from a
+        # previous run must be reset to 0 rather than left on screen.
+        mock_view.update_pagination.assert_called_with(current_page=0, total_pages=0)
+
+    def test_refresh_presenter_state_keeps_count_while_generation_active(
+        self,
+        mock_view,
+        mock_collection_manager,
+        presenter
+    ):
+        """PLAN-594 follow-up: the counter must NOT be zeroed mid-generation.
+
+        While the engine is still producing schedules the count is briefly 0
+        before the first board lands; zeroing it then looks like a freeze.
+        """
+        mock_collection_manager.get_total_count.return_value = 0
+        controller = MagicMock()
+        controller.engine_adapter.is_generation_active.return_value = True
+        controller.input_presenter = None
+        presenter.controller = controller
+        mock_view.update_pagination.reset_mock()
+
+        # Act
+        presenter.refresh_presenter_state()
+
+        # Assert - empty state shown, but the count was left untouched.
+        mock_view.show_empty_state.assert_called()
+        mock_view.update_pagination.assert_not_called()
 
     def test_render_active_schedule_transforms_data_to_grid_coordinates(
         self,

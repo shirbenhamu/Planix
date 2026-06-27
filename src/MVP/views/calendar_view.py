@@ -39,6 +39,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.on_date_selected, self.on_filter_clicked = None, None 
         self.get_exam_periods_callback = None
         self.on_load_more_clicked = None
+        self.on_load_all_clicked = None
         self.on_refresh_feed_clicked = None
         self.on_save_constraints = None
         self._constraints_state = default_constraints_data()
@@ -56,6 +57,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.toolbar = TopToolbar(self, is_monthly=False)
         self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
         self.toolbar.on_load_more = lambda: self.on_load_more_clicked() if self.on_load_more_clicked else None
+        self.toolbar.on_load_all = lambda: self._confirm_load_all()
         self.toolbar.on_refresh_feed = lambda: self.on_refresh_feed_clicked() if self.on_refresh_feed_clicked else None
         
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
@@ -108,6 +110,94 @@ class CalendarGridView(ctk.CTkFrame):
         self.ranking_bar.show_no_more_results()
         if getattr(self, "monthly_view", None):
             self.monthly_view.show_no_more_results()
+
+    # ===== Load All + remaining-to-load indicator ============================
+
+    def _confirm_load_all(self):
+        """Idle: warn, then start the deep search. Running: cancel immediately
+        (no warning) — the same callback toggles start/cancel in the controller."""
+        if getattr(self, "_deep_search_running", False):
+            if self.on_load_all_clicked:
+                self.on_load_all_clicked()
+            return
+        from src.MVP.views.components.confirm_modal import show_confirm_popup
+        show_confirm_popup(
+            self,
+            title=format_text("load_all_title", self.current_lang),
+            message=format_text("load_all_warning", self.current_lang),
+            confirm_text=format_text("load_all_confirm", self.current_lang),
+            cancel_text=format_text("cancel", self.current_lang),
+            on_confirm=lambda: self.on_load_all_clicked() if self.on_load_all_clicked else None,
+        )
+
+    def set_load_all_running(self, running: bool):
+        self._deep_search_running = running
+        self.toolbar.set_load_all_running(running)
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_load_all_running"):
+            self.monthly_view.set_load_all_running(running)
+
+    def _rtl(self, text: str) -> str:
+        return f"\u200F{text}\u200F" if self.current_lang == "he" else text
+
+    def update_remaining_indicator(self, remaining: int, total: int, loaded: int, all_loaded: bool):
+        """How many schedules remain in the warehouse -> shown on the Load More
+        hover tooltip. The deep-search button stays enabled (it is the entry
+        point AND the cancel toggle); only Load More is retired when everything
+        is loaded."""
+        self.toolbar.set_load_more_remaining(0 if all_loaded else remaining)
+        if all_loaded:
+            self.toolbar.set_remaining_text(self._rtl(format_text("all_loaded", self.current_lang)))
+            self.toolbar.set_load_more_enabled(False)
+        else:
+            self.toolbar.set_remaining_text("")   # side meter only used during the search
+            self.toolbar.set_load_more_enabled(True)
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "update_remaining_indicator"):
+            self.monthly_view.update_remaining_indicator(remaining, total, loaded, all_loaded)
+
+    def set_load_all_progress(self, percent: float):
+        """Side percentage meter while the deep search scans (time-based)."""
+        text = TRANSLATIONS["load_all_progress"][self.current_lang].format(p=f"{percent:.2f}")
+        self.toolbar.set_remaining_text(self._rtl(text))
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_load_all_progress"):
+            self.monthly_view.set_load_all_progress(percent)
+
+    def set_load_all_saving(self):
+        """Shown after the scan budget is reached while the best-N are written."""
+        self.toolbar.set_remaining_text(self._rtl(format_text("load_all_saving", self.current_lang)))
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_load_all_saving"):
+            self.monthly_view.set_load_all_saving()
+
+    def set_deep_search_done(self, scanned: int, kept: int):
+        """Final summary: how many were scanned for the kept best-N."""
+        text = TRANSLATIONS["deep_search_done"][self.current_lang].format(
+            scanned=f"{scanned:,}", kept=f"{kept:,}")
+        self.toolbar.set_remaining_text(self._rtl(text))
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_deep_search_done"):
+            self.monthly_view.set_deep_search_done(scanned, kept)
+
+    def set_load_more_enabled(self, enabled: bool):
+        self.toolbar.set_load_more_enabled(enabled)
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_load_more_enabled"):
+            self.monthly_view.set_load_more_enabled(enabled)
+
+    def set_load_all_enabled(self, enabled: bool):
+        self.toolbar.set_load_all_enabled(enabled)
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_load_all_enabled"):
+            self.monthly_view.set_load_all_enabled(enabled)
+
+    def set_load_more_calculating(self):
+        self.toolbar.set_load_more_calculating()
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "set_load_more_calculating"):
+            self.monthly_view.set_load_more_calculating()
+
+    def clear_load_indicators(self):
+        """Wipe the side meter and reset the Load More tooltip immediately (e.g.
+        a new run replaces a prior deep-search result, so 'best 100K…' and the
+        stale remaining number must go at once, not after the next count)."""
+        self.toolbar.set_remaining_text("")
+        self.toolbar.set_load_more_remaining(None)
+        if getattr(self, "monthly_view", None) and hasattr(self.monthly_view, "clear_load_indicators"):
+            self.monthly_view.clear_load_indicators()
 
     def _handle_load_more(self):
         print("Annual View: Load more requested")

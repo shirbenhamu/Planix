@@ -396,6 +396,28 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         self.error_label.configure(text="")
         return True
 
+    def _dismiss(self) -> None:
+        """Release the input grab and return focus to the main window before
+        destroying the modal. Without this the grab taken in __init__ (with
+        overrideredirect) is not handed back, leaving the calendar controls —
+        notably the page-jump box — unclickable until the window is re-focused
+        some other way."""
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        parent_toplevel = None
+        try:
+            parent_toplevel = self.parent.winfo_toplevel()
+        except Exception:
+            parent_toplevel = None
+        self.destroy()
+        if parent_toplevel is not None:
+            try:
+                parent_toplevel.focus_force()
+            except Exception:
+                pass
+
     def _save_and_close(self) -> None:
         if not self.save_enabled:
             return
@@ -404,12 +426,12 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         data = self._collect_data()
         if self.on_save_callback:
             self.on_save_callback(data)
-        self.destroy()
+        self._dismiss()
 
     def _close_without_saving(self) -> None:
         if self.on_close_callback:
             self.on_close_callback(self._collect_data())
-        self.destroy()
+        self._dismiss()
 
     def _start_drag(self, event) -> None:
         self._drag_start_x = event.x_root - self.winfo_x()

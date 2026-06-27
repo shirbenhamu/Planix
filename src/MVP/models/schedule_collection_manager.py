@@ -298,6 +298,16 @@ class ScheduleCollectionManager:
         self._current_index = index
         return True
 
+    # The effective sort as a list of (metric_position, ascending) pairs: the
+    # user's active sort, or the documented default when none is set. The deep
+    # search (Load All / Find Best) uses this so its top-N reflects exactly the
+    # ordering currently on screen.
+    def get_active_sort_spec(self) -> List[Tuple[int, bool]]:
+        with self._lock:
+            if self._sort_spec is not None:
+                return list(self._sort_spec)
+        return self._resolve_sort_spec(list(DEFAULT_SORT_KEYS), DEFAULT_SORT_ASCENDING)
+
     # Re-orders the sparse index in place by one or more metrics, in priority
     # order (primary key first), descending by default (PLAN-411). This is a pure
     # in-memory operation on _offsets: no file I/O and no schedule materialization.
@@ -614,7 +624,8 @@ class ScheduleCollectionManager:
             exam_date = datetime.strptime(
                 match.group("date"), "%d-%m-%Y").date()
             course_id = match.group("course_id").strip()
-            course = self._resolve_course(course_id)
+            course_name = match.group("course_name").strip()
+            course = self._resolve_course(course_id, course_name)
 
             scheduled_exams.append(
                 ScheduledExam(course=course, exam_date=exam_date)
@@ -626,18 +637,31 @@ class ScheduleCollectionManager:
 
         return Schedule(exams=scheduled_exams)
 
-    def _resolve_course(self, course_id: str) -> Course:
+    def _resolve_course(self, course_id: str, course_name: str = "") -> Course:
         if course_id not in self._course_lookup:
             self._course_lookup = {
              course.course_id: course
              for course in self._data_manager.get_courses()
         }
-        try:
-            return self._course_lookup[course_id]
-        except KeyError as exc:
-            raise ValueError(
-                f"Course '{course_id}' could not be resolved from the data manager."
-            ) from exc
+        course = self._course_lookup.get(course_id)
+        if course is not None:
+            return course
+        # The loaded data set no longer contains this course (e.g. a different
+        # program or data file was loaded after these schedules were generated).
+        # Rather than raise and sink the ENTIRE board into a misleading "no
+        # schedules" empty state, synthesize a minimal course from the schedule
+        # block's own id + name so the schedule still renders (PLAN-594).
+        print(
+            f"[ScheduleCollectionManager] Course '{course_id}' is not in the loaded "
+            f"data; rendering it from the schedule file instead."
+        )
+        return Course(
+            course_id=course_id,
+            course_name=course_name or course_id,
+            instructor="",
+            evaluation_method="",
+            program_info=[],
+        )
 
     def _validate_output_file_path(self, output_file_path: str) -> str:
         if not isinstance(output_file_path, str):

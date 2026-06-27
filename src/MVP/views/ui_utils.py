@@ -26,7 +26,31 @@ TRANSLATIONS = {
     "empty_state": {"he": "יש לטעון נתונים", "en": "Please load data"},
     "computing": {"he": "מחשב שיבוצים", "en": "Computing schedules..."},
     "no_results": {"he": "לא נמצאו מערכות מתאימות", "en": "No matching schedules found"},
-    
+    # Deep search ("Find best"): scan a large bounded space, keep the top-N best.
+    "load_all_title": {"he": "חיפוש מעמיק", "en": "Deep search"},
+    "load_all_warning": {
+        "he": "חיפוש מעמיק יסרוק כמות עצומה של שיבוצים אפשריים וישמור רק את 100,000 הטובים ביותר עבור המיון והאילוצים הנוכחיים שלך.\n\nהסריקה רצה עד 10 דקות (או עד שנגמרות כל האפשרויות) — מד ההתקדמות מציג את הזמן שחלף מתוך התקציב. בזמן החיפוש האפליקציה ממשיכה לעבוד כרגיל ותוכל לדפדף בשיבוצים שכבר על המסך; אפשר גם לבטל בכל רגע בלחיצה על אותו כפתור.\n\nבסיום יוצגו השיבוצים הטובים ביותר ויוצג כמה שיבוצים נסרקו עבורם. להתחיל?",
+        "en": "Deep search scans a huge number of possible schedules and keeps only the best 100,000 for your current sort and constraints.\n\nIt runs for up to 10 minutes (or until the whole space is exhausted) — the progress meter shows elapsed time out of that budget. The app keeps working while it runs and you can browse the schedules already on screen; you can cancel anytime by clicking the same button.\n\nWhen it finishes the best schedules are shown along with how many were scanned for them. Start?",
+    },
+    "load_all_confirm": {"he": "התחל חיפוש מעמיק", "en": "Start deep search"},
+    "load_all_btn": {"he": "חיפוש מעמיק", "en": "Deep search"},
+    "load_all_cancel": {"he": "בטל חיפוש מעמיק", "en": "Cancel deep search"},
+    "load_all_tooltip": {"he": "חיפוש מעמיק לפי האילוצים הנוכחיים", "en": "Deep search by the current constraints"},
+    # Load More tooltip: how many schedules are still in the warehouse, unbuilt.
+    "load_more_stock": {"he": "נותרו {n} מערכות במחסן", "en": "{n} schedules left to load"},
+    "load_more_stock_none": {"he": "אין עוד מערכות לטעון", "en": "No more schedules to load"},
+    "load_more_tooltip": {"he": "טען מערכות נוספות", "en": "Load more schedules"},
+    "load_more_calc": {"he": "מחשב כמה מערכות נותרו…", "en": "Calculating remaining…"},
+    # Side meter while the deep search scans for the best schedules.
+    "load_all_progress": {"he": "מחפש… {p}%", "en": "Searching… {p}%"},
+    "load_all_saving": {"he": "שומר תוצאות…", "en": "Saving results…"},
+    # End-of-search summary: how many were scanned for the kept best-N.
+    "deep_search_done": {
+        "he": "נסרקו {scanned} שיבוצים — אלו ה-{kept} הטובים ביותר עבור האילוצים שלך",
+        "en": "Scanned {scanned} schedules — these are the best {kept} for your constraints",
+    },
+    "all_loaded": {"he": "המערכות הטובות ביותר מוכנות", "en": "Best schedules ready"},
+
     # --- Loading-indicator & robot translations ---
     "toast_courses_loaded": {"he": "קובץ קורסים נטען בהצלחה", "en": "Courses file loaded successfully"},
     "toast_dates_loaded": {"he": "קובץ תאריכים עודכן בהצלחה", "en": "Dates file updated successfully"},

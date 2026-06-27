@@ -13,6 +13,7 @@ ICON_FILTER = "\uF3DE"     # filter
 ICON_LOAD_MORE = "\uF130"  # arrow-clockwise
 ICON_REFRESH_FEED = "\uF130"  # arrow-clockwise / refresh current sorted feed
 ICON_EXCLUDE = "\uF831"    # x-circle
+ICON_SEARCH = ""     # search (magnifying glass) - deep search
 ICON_SETTINGS = "⚙"        # settings / constraints
 
 class Tooltip:

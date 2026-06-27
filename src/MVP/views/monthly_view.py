@@ -30,6 +30,7 @@ class MonthlyGridView(ctk.CTkFrame):
         self.on_range_update_clicked = None
         self.get_exam_periods_callback = None 
         self.on_load_more_clicked = None
+        self.on_load_all_clicked = None
         self.on_refresh_feed_clicked = None
         self.on_save_constraints = None
         self._constraints_state = default_constraints_data()
@@ -50,6 +51,7 @@ class MonthlyGridView(ctk.CTkFrame):
         self.toolbar = TopToolbar(self, is_monthly=True)
         self.toolbar.pack(fill="x", pady=(15, 15), padx=20)
         self.toolbar.on_load_more = lambda: self.on_load_more_clicked() if self.on_load_more_clicked else None
+        self.toolbar.on_load_all = lambda: self._confirm_load_all()
         self.toolbar.on_refresh_feed = lambda: self.on_refresh_feed_clicked() if self.on_refresh_feed_clicked else None
         self.toolbar.on_hamburger = lambda: self.on_hamburger_clicked() if self.on_hamburger_clicked else None
         self.toolbar.on_month_prev = self._prev_month
@@ -479,6 +481,64 @@ class MonthlyGridView(ctk.CTkFrame):
         """End-of-results boundary indicator for the refresh-feed (PLAN-415)."""
         if hasattr(self, "ranking_bar"):
             self.ranking_bar.show_no_more_results()
+
+    # ===== Load All + remaining-to-load indicator ===========================
+
+    def _confirm_load_all(self):
+        if getattr(self, "_deep_search_running", False):
+            if self.on_load_all_clicked:
+                self.on_load_all_clicked()
+            return
+        from src.MVP.views.components.confirm_modal import show_confirm_popup
+        show_confirm_popup(
+            self,
+            title=format_text("load_all_title", self.current_lang),
+            message=format_text("load_all_warning", self.current_lang),
+            confirm_text=format_text("load_all_confirm", self.current_lang),
+            cancel_text=format_text("cancel", self.current_lang),
+            on_confirm=lambda: self.on_load_all_clicked() if self.on_load_all_clicked else None,
+        )
+
+    def set_load_all_running(self, running: bool):
+        self._deep_search_running = running
+        self.toolbar.set_load_all_running(running)
+
+    def _rtl(self, text: str) -> str:
+        return f"\u200F{text}\u200F" if self.current_lang == "he" else text
+
+    def update_remaining_indicator(self, remaining: int, total: int, loaded: int, all_loaded: bool):
+        self.toolbar.set_load_more_remaining(0 if all_loaded else remaining)
+        if all_loaded:
+            self.toolbar.set_remaining_text(self._rtl(format_text("all_loaded", self.current_lang)))
+            self.toolbar.set_load_more_enabled(False)
+        else:
+            self.toolbar.set_remaining_text("")
+            self.toolbar.set_load_more_enabled(True)
+
+    def set_load_all_progress(self, percent: float):
+        text = TRANSLATIONS["load_all_progress"][self.current_lang].format(p=f"{percent:.2f}")
+        self.toolbar.set_remaining_text(self._rtl(text))
+
+    def set_load_all_saving(self):
+        self.toolbar.set_remaining_text(self._rtl(format_text("load_all_saving", self.current_lang)))
+
+    def set_deep_search_done(self, scanned: int, kept: int):
+        text = TRANSLATIONS["deep_search_done"][self.current_lang].format(
+            scanned=f"{scanned:,}", kept=f"{kept:,}")
+        self.toolbar.set_remaining_text(self._rtl(text))
+
+    def set_load_more_enabled(self, enabled: bool):
+        self.toolbar.set_load_more_enabled(enabled)
+
+    def set_load_all_enabled(self, enabled: bool):
+        self.toolbar.set_load_all_enabled(enabled)
+
+    def set_load_more_calculating(self):
+        self.toolbar.set_load_more_calculating()
+
+    def clear_load_indicators(self):
+        self.toolbar.set_remaining_text("")
+        self.toolbar.set_load_more_remaining(None)
 
     def _relocalize_open_ranking_popups(self, lang: str):
         """Rebuild any open info / metrics-values popup in the new language so it

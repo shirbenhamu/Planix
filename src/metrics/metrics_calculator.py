@@ -153,6 +153,20 @@ class MetricsCalculator:
     def compute(self, schedule: Schedule) -> ScheduleMetrics:
         return ScheduleMetrics.from_iterable(self.calculate(schedule))
 
+    # Computes ONLY the requested metric indices (0..4, METRIC_KEYS order). Used
+    # by the deep search to build a sort key without paying for all five metrics
+    # on every one of millions of scanned schedules.
+    def calculate_indices(self, schedule: Schedule, indices) -> Dict[int, float]:
+        exams = self._validate_schedule(schedule)
+        funcs = (
+            self._min_gap_mandatory,
+            self._avg_gap_all,
+            self._elective_conflicts,
+            self._mandatory_span,
+            self._max_exams_per_day,
+        )
+        return {index: funcs[index](exams) for index in indices}
+
     # --- Metric 3.1 -----------------------------------------------------------
     # Minimum number of days between two mandatory exams sharing the same program
     # and the same year. Returns +inf when no such pair exists (no constraint to

@@ -233,7 +233,14 @@ def test_incomplete_schedule_block_raises_value_error(tmp_path):
         manager.get_current_schedule()
 
 
-def test_unknown_course_id_in_schedule_raises_value_error(tmp_path):
+def test_unknown_course_id_renders_from_schedule_block(tmp_path):
+    """PLAN-594: a course missing from the loaded data must NOT blank the board.
+
+    The schedule file is self-describing (it carries the course id + name), so a
+    course the data manager no longer knows about is synthesized from the block
+    itself rather than raising and sinking the whole schedule into an empty
+    "no schedules" state.
+    """
     data_manager = create_data_manager_with_courses([])
 
     output_file = write_schedule_file(
@@ -243,8 +250,12 @@ def test_unknown_course_id_in_schedule_raises_value_error(tmp_path):
 
     manager = ScheduleCollectionManager(str(output_file), data_manager)
 
-    with pytest.raises(ValueError, match="could not be resolved"):
-        manager.get_current_schedule()
+    schedule = manager.get_current_schedule()
+
+    assert len(schedule.exams) == 1
+    exam = schedule.exams[0]
+    assert exam.course.course_id == "99999"
+    assert exam.course.course_name == "Unknown Course"
 
 
 def test_constructor_rejects_invalid_output_file_path():
