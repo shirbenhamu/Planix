@@ -48,6 +48,7 @@ class CalendarGridView(ctk.CTkFrame):
         self.selected_cell_key = None 
         self.active_month_indices = []
         self._last_grid_data = {}  # cache for redrawing only changed cells (prevents flickering on live refresh)
+        self._current_grid_data = {}  # store current grid data to support language switching with re-render
         self._cell_day_number = {}  # day number (1..31) for each valid cell, for calendar-like display
         
         # OBJECT POOLING: Store widget references for each cell to avoid destroy/recreate
@@ -407,12 +408,12 @@ class CalendarGridView(ctk.CTkFrame):
                 holiday_lbl = ctk.CTkLabel(
                     cell_frame,
                     text=display_name,
-                    font=("Arial", 10),  # Larger font for annual view
+                    font=("Arial", 7),  # Smaller font for annual view
                     text_color="#d32f2f",
                     wraplength=100,  # Large wraplength for annual view cells
-                    justify="right" if self.current_lang == "he" else "left"
+                    justify="center"  # Center alignment for multi-word holidays like "Independence Day"
                 )
-                holiday_lbl.pack(anchor="ne" if self.current_lang == "he" else "nw", padx=4, pady=0, fill="x")
+                holiday_lbl.pack(anchor="n", padx=4, pady=0, fill="x")
                 holiday_lbl.bind("<Button-1>", lambda e, k=cell_key: self._handle_cell_click(k))
                 pool["holiday_label"] = holiday_lbl
             else:
@@ -426,7 +427,7 @@ class CalendarGridView(ctk.CTkFrame):
                 display_name = "\n".join(display_name.split())
                 
                 if pool["holiday_label"].cget("text") != display_name:
-                    pool["holiday_label"].configure(text=display_name)
+                    pool["holiday_label"].configure(text=display_name, justify="right" if self.current_lang == "he" else "center")
                 # Ensure it's visible
                 try:
                     pool["holiday_label"].pack(anchor="ne" if self.current_lang == "he" else "nw", padx=4, pady=0, fill="x")
@@ -530,9 +531,13 @@ class CalendarGridView(ctk.CTkFrame):
         if not grid_data:
             self.show_empty_state()
             self._last_grid_data = {}
+            self._current_grid_data = {}
             if hasattr(self, 'monthly_view') and self.monthly_view: self.monthly_view.show_empty_state()
             return
         self.hide_empty_state()
+        
+        # Store current grid data for language switching
+        self._current_grid_data = grid_data
 
         # only update cells that have actually changed to prevent flickering and improve performance
         changed = False
@@ -596,6 +601,11 @@ class CalendarGridView(ctk.CTkFrame):
             # only update anchor for valid day cells that have a day number (skip empty cells at month ends)
             if self._cell_day_number.get(cell_key) is not None and cell_frame.winfo_children() and isinstance(cell_frame.winfo_children()[0], ctk.CTkLabel):
                 cell_frame.winfo_children()[0].pack_configure(anchor="ne" if lang == "he" else "nw")
+
+        # Re-render all cells to update holiday names with new language (fixes PLAN-629)
+        if self._current_grid_data:
+            self._last_grid_data = {}
+            self.render_calendar_data(self._current_grid_data)
 
         if hasattr(self, "popup_box") and self.popup_box.winfo_exists() and hasattr(self, "_last_exam_data"):
             show_exam_popup(self, self._last_exam_data, lang)
