@@ -61,7 +61,8 @@ def test_top_toolbar_language_updates_refresh_feed_label_and_tooltip():
     TopToolbar.update_language(toolbar, "en")
 
     assert toolbar.current_lang == "en"
-    toolbar.refresh_feed_btn.configure.assert_called_with(text="\uf130  Refresh")
+    # Text-only label (no icon): Load More already uses the refresh icon.
+    toolbar.refresh_feed_btn.configure.assert_called_with(text="Refresh")
     assert toolbar.tip_refresh_feed.text == TRANSLATIONS["refresh_feed_tooltip"]["en"]
 
 

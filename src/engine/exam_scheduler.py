@@ -1,10 +1,31 @@
-from typing import Dict, List, Tuple, Iterator, Set
+import heapq
+import itertools
+import time
+from typing import Dict, List, Optional, Tuple, Iterator, Set
 
 from src.MVP.models.course import Course
 from src.MVP.models.exam_period import ExamPeriod
 from src.MVP.models.schedule import Schedule, ScheduledExam
 from src.engine.i_scheduling_engine import ISchedulingEngine
- 
+from src.metrics.metrics_calculator import MetricsCalculator
+
+
+class _BestHeapItem:
+    """Wrapper that turns heapq's min-heap into a bounded max-heap on the sort
+    key: the item with the LARGEST (worst) key compares as the smallest, so it
+    sits at heap[0] and is the one evicted when a better schedule arrives.
+    'Better' = smaller key (matching ScheduleCollectionManager's convention)."""
+
+    __slots__ = ("key", "schedule", "metrics")
+
+    def __init__(self, key, schedule, metrics):
+        self.key = key
+        self.schedule = schedule
+        self.metrics = metrics
+
+    def __lt__(self, other):
+        return self.key > other.key
+
 class ExamScheduler(ISchedulingEngine):
     def generate_schedules(
         self,
@@ -15,6 +36,123 @@ class ExamScheduler(ISchedulingEngine):
         relevant_courses = self.filter_relevant_exam_courses(courses, selected_programs)
         grouped_exams = self.group_exams_by_semester_and_moed(relevant_courses, exam_periods)
         return self.generate_all_valid_exam_schedules(grouped_exams)
+
+    def count_total_schedules(
+        self,
+        courses: List[Course],
+        exam_periods: List[ExamPeriod],
+        selected_programs: List[str],
+        max_per_period: Optional[int] = None,
+    ) -> int:
+        """Count the total number of valid full-year schedules WITHOUT building
+        them all.
+
+        A full-year schedule pairs one valid per-period schedule from every
+        period (an ``itertools.product`` of the per-period generators), so the
+        total equals the PRODUCT of the per-period valid counts. Counting each
+        period independently is the *sum* of the per-period sizes — dramatically
+        cheaper than enumerating the full cartesian product (e.g. 2000 + 2000
+        instead of 2000 * 2000). Passing ``max_per_period`` caps each period the
+        same way generation does; ``None`` counts the true, uncapped total.
+        """
+        generators = self.generate_schedules(courses, exam_periods, selected_programs)
+        total = 1
+        for generator in generators.values():
+            if max_per_period is not None:
+                generator = itertools.islice(generator, max_per_period)
+            period_count = sum(1 for _ in generator)
+            if period_count == 0:
+                return 0
+            total *= period_count
+        return total
+
+    @staticmethod
+    def _deep_search_sort_key(metrics: Tuple[float, ...], sort_spec):
+        # 'better' = smaller key. Descending metrics are negated so a single
+        # ascending tuple comparison yields the requested per-key direction —
+        # identical to ScheduleCollectionManager._build_sort_key.
+        return tuple(
+            metrics[index] if ascending else -metrics[index]
+            for index, ascending in sort_spec
+        )
+
+    def find_best_schedules(
+        self,
+        courses: List[Course],
+        exam_periods: List[ExamPeriod],
+        selected_programs: List[str],
+        sort_spec,
+        top_n: int,
+        max_scan: Optional[int] = None,
+        max_seconds: Optional[float] = None,
+        progress_callback=None,
+        cancel_callback=None,
+        progress_every: int = 50000,
+    ):
+        """Deep search: stream full-year combinations and keep ONLY the top_n
+        best by the active sort, never holding more than top_n in memory.
+
+        The full solution space can be astronomically large, so the scan is
+        bounded by a TIME budget (``max_seconds``) and/or a count cap
+        (``max_scan``) — whichever is hit first, or the space being exhausted.
+        This both finishes and lets the caller drive a real 0->100% progress
+        bar. ``sort_spec`` is a list of ``(metric_index, ascending)`` pairs
+        ('better' = smaller key). ``cancel_callback`` is polled periodically; if
+        it returns True the scan stops early and returns the best found so far.
+
+        Returns ``(best, scanned)`` where ``best`` is a list of
+        ``(Schedule, metrics_tuple)`` pairs ordered best-first. Metrics are
+        carried through so the writer need not recompute them for the kept set.
+        """
+        generators = self.generate_schedules(courses, exam_periods, selected_programs)
+        period_keys = sorted(generators.keys())
+        # Materialize each period's schedules (bounded by the per-period count,
+        # which is what made counting feasible); the explosion is only in their
+        # product, which we stream and never materialize.
+        pools = [list(generators[key]) for key in period_keys]
+
+        calculator = MetricsCalculator()
+        # The sort only needs these metric indices — computing just them per
+        # scanned schedule is far cheaper than all five. The full five are
+        # computed ONLY for the rare schedules that actually enter the heap.
+        needed = sorted({index for index, _ascending in sort_spec})
+        heap: List[_BestHeapItem] = []
+        scanned = 0
+        start_time = time.time()
+
+        for combo in itertools.product(*pools):
+            if max_scan is not None and scanned >= max_scan:
+                break
+            exams = [exam for sub_schedule in combo for exam in sub_schedule.exams]
+            schedule = Schedule(exams=exams)
+            partial = calculator.calculate_indices(schedule, needed)
+            key = tuple(
+                partial[index] if ascending else -partial[index]
+                for index, ascending in sort_spec
+            )
+            scanned += 1
+
+            if len(heap) < top_n:
+                metrics = calculator.compute(schedule).as_tuple()
+                heapq.heappush(heap, _BestHeapItem(key, schedule, metrics))
+            elif key < heap[0].key:  # better than the current worst kept
+                metrics = calculator.compute(schedule).as_tuple()
+                heapq.heapreplace(heap, _BestHeapItem(key, schedule, metrics))
+
+            # Time / cancel checks are batched to keep the hot loop cheap.
+            if scanned % progress_every == 0:
+                if progress_callback is not None:
+                    progress_callback(scanned)
+                if cancel_callback is not None and cancel_callback():
+                    break
+                if max_seconds is not None and (time.time() - start_time) >= max_seconds:
+                    break
+
+        if progress_callback is not None:
+            progress_callback(scanned)
+
+        best = sorted(heap, key=lambda item: item.key)
+        return [(item.schedule, item.metrics) for item in best], scanned
 
     def filter_relevant_exam_courses(
         self,

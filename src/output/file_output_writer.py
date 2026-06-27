@@ -1,10 +1,10 @@
 import os
 import itertools
 import time
-from typing import Dict, Tuple, Iterator, List
+from typing import Dict, Optional, Tuple, Iterator, List
 from src.output.i_output_generator import IOutputGenerator
 from src.MVP.models.schedule import Schedule
-from src.metrics.metrics_calculator import MetricsCalculator, format_metrics_line
+from src.metrics.metrics_calculator import MetricsCalculator, ScheduleMetrics, format_metrics_line
 
 DEFAULT_MAX_RUNTIME_SECONDS = 29
 MAX_PER_PERIOD = 2000
@@ -14,9 +14,16 @@ This module responsible for generating a formatted text of the calculated exam s
 """
 
 class FileOutputWriter(IOutputGenerator):
-    # Defines a safety timeout for generating the output
-    def __init__(self, max_time_seconds: int = DEFAULT_MAX_RUNTIME_SECONDS):
+    # Defines a safety timeout and per-period cap for generating the output.
+    # Both default to the standard limits; "Load All" passes None for each to
+    # compute every valid schedule with no time limit and no per-period cap.
+    def __init__(
+        self,
+        max_time_seconds: Optional[int] = DEFAULT_MAX_RUNTIME_SECONDS,
+        max_per_period: Optional[int] = MAX_PER_PERIOD,
+    ):
         self.max_time_seconds = max_time_seconds
+        self.max_per_period = max_per_period
         # Scores every full-year schedule at write time so the metrics can be
         # persisted next to it (PLAN-409) and parsed later without re-reading
         # the schedule body. Stateless, so a single shared instance is fine.
@@ -35,11 +42,16 @@ class FileOutputWriter(IOutputGenerator):
         # Sort the period keys (Semester, Moed) to ensure a consistent processing order
         period_keys = sorted(schedules_generators.keys())
 
-        # Limit each period's generator to a maximum number of items to prevent memory exhaustion
-        capped_generators = [
-            itertools.islice(schedules_generators[key], MAX_PER_PERIOD)
-            for key in period_keys
-        ]
+        # Limit each period's generator to a maximum number of items to prevent
+        # memory exhaustion. max_per_period is None for "Load All", which streams
+        # every valid schedule with no cap.
+        if self.max_per_period is None:
+            capped_generators = [schedules_generators[key] for key in period_keys]
+        else:
+            capped_generators = [
+                itertools.islice(schedules_generators[key], self.max_per_period)
+                for key in period_keys
+            ]
 
         # Record the start time to monitor execution duration
         start_time = time.time()
@@ -117,8 +129,9 @@ class FileOutputWriter(IOutputGenerator):
                 # Write a visual separator after finishing one full-year option
                 f.write("-" * 60 + "\n\n")
 
-                # Check if the cumulative execution time has exceeded the allowed limit
-                if time.time() - start_time >= self.max_time_seconds:
+                # Check if the cumulative execution time has exceeded the allowed
+                # limit. max_time_seconds is None for "Load All" — run to the end.
+                if self.max_time_seconds is not None and time.time() - start_time >= self.max_time_seconds:
                     # Explain why the execution was terminated prematurely
                     f.write(
                         "Execution stopped dynamically to guarantee meeting performance requirements.\n")
@@ -126,4 +139,28 @@ class FileOutputWriter(IOutputGenerator):
 
             # If the loop finished without finding any results
             if count == 0 and not append:
+                f.write("No valid full-year combinations could be formed.\n")
+
+    def write_schedule_list(self, schedules_with_metrics, output_file_path: str) -> None:
+        """Write an already-selected list of ``(Schedule, metrics_tuple)`` pairs
+        (e.g. the deep-search top-N, best-first) in the standard block format so
+        the ScheduleCollectionManager can read them. The precomputed metrics are
+        reused — no recomputation for the kept set, which keeps finalize fast."""
+        os.makedirs(os.path.dirname(output_file_path) or ".", exist_ok=True)
+        with open(output_file_path, "w", encoding="utf-8") as f:
+            f.write("=== Complete Academic Year Schedules ===\n")
+            f.write("Each option below represents a FULL schedule for all selected periods.\n\n")
+            count = 0
+            for schedule, metrics in schedules_with_metrics:
+                count += 1
+                f.write(f"--- FULL SYSTEM OPTION {count} ---\n")
+                for exam in sorted(schedule.exams, key=lambda e: e.exam_date):
+                    f.write(
+                        f"  Date: {exam.exam_date.strftime('%d-%m-%Y')} | "
+                        f"Course: {exam.course.course_id} - {exam.course.course_name} | "
+                        f"Instructor: {exam.course.instructor}\n"
+                    )
+                f.write(format_metrics_line(ScheduleMetrics.from_iterable(metrics)) + "\n")
+                f.write("-" * 60 + "\n\n")
+            if count == 0:
                 f.write("No valid full-year combinations could be formed.\n")

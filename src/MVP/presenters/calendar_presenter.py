@@ -87,6 +87,22 @@ class CalendarPresenter:
             return
         self.refresh_presenter_state()
 
+    def _is_generation_active(self) -> bool:
+        """True while the engine is still producing schedules.
+
+        Used to avoid zeroing the schedule counter mid-generation: the count is
+        transiently 0 before the first schedule lands, and resetting it then
+        makes the UI look like generation stopped (PLAN-594 follow-up).
+        """
+        controller = getattr(self, "controller", None)
+        adapter = getattr(controller, "engine_adapter", None) if controller else None
+        if adapter is None:
+            return False
+        try:
+            return bool(adapter.is_generation_active())
+        except Exception:
+            return False
+
     def refresh_pagination_only(self) -> None:
         total_schedules = self.collection_manager.get_total_count()
         if total_schedules == 0:
@@ -105,6 +121,11 @@ class CalendarPresenter:
 
             total_schedules = self.collection_manager.get_total_count()
             if total_schedules == 0:
+                # No schedules: reset the counter to 0 so a stale count from a
+                # previous generation isn't left on screen (PLAN-594). Skip the
+                # reset while generation is still active to avoid a mid-run flash.
+                if not self._is_generation_active():
+                    self.view.update_pagination(current_page=0, total_pages=0)
                 self.view.show_empty_state()
                 return
 
@@ -217,8 +238,11 @@ class CalendarPresenter:
         current_year = schedule.exams[0].exam_date.year if schedule.exams else datetime.now().year
         all_courses = {c.course_id: c for c in self.model.data_manager.get_courses()}
 
-        # Load holidays dict for display (will extract holiday name if is_excluded)
-        selected_religions = self.model.constraints.selected_religions if self.model.constraints else []
+        # Load holidays dict for display (will extract holiday name if is_excluded).
+        # Use getattr: not every SchedulingConstraints build carries the religion
+        # field, and a direct attribute access would raise AttributeError here and
+        # sink the ENTIRE board into the empty "no schedules" state (PLAN-594).
+        selected_religions = getattr(self.model.constraints, "selected_religions", []) if self.model.constraints else []
         holidays_dict = get_holidays_for_religions(selected_religions, year=current_year) if selected_religions else {}
 
         for row_idx, month_idx in enumerate(self.active_months, start=1):

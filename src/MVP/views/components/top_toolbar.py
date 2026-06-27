@@ -4,7 +4,7 @@ import customtkinter as ctk
 from src.MVP.views.ui_utils import TRANSLATIONS
 from src.MVP.views import theme
 from src.MVP.views.components.ui_components import (
-    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_REFRESH_FEED, ICON_EXCLUDE, ICON_EXPORT, ICON_SETTINGS
+    Tooltip, ICON_EDIT, ICON_LOAD_MORE, ICON_REFRESH_FEED, ICON_EXCLUDE, ICON_EXPORT, ICON_SETTINGS, ICON_SEARCH
 )
 
 
@@ -18,6 +18,10 @@ class TopToolbar(ctk.CTkFrame):
                               size=theme.FONT_SIZE_TITLE if is_monthly else theme.FONT_SIZE_HEADER, weight=theme.FONT_WEIGHT_BOLD)
         f_btn = ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_BUTTON, weight=theme.FONT_WEIGHT_BOLD)
         f_icon = ctk.CTkFont(family=theme.FONT_BOOTSTRAP_ICONS, size=theme.FONT_SIZE_ICON)
+        # Kept for toggling the deep-search button between an icon glyph (search)
+        # and a plain bold "✕" (cancel) which renders in the regular font.
+        self._f_icon = f_icon
+        self._f_btn = f_btn
 
         # Callbacks
         self.on_hamburger = None
@@ -30,6 +34,7 @@ class TopToolbar(ctk.CTkFrame):
         self.on_month_prev = None
         self.on_month_next = None
         self.on_load_more = None
+        self.on_load_all = None
         self.on_refresh_feed = None
         self.on_edit_dates = None
         self.on_constraints_settings = None
@@ -56,11 +61,27 @@ class TopToolbar(ctk.CTkFrame):
         ctk.CTkButton(self.nav_frame, text="<", font=f_btn, width=theme.CONTROL_WIDTH_NAV, height=theme.CONTROL_HEIGHT_TINY,
                       command=lambda: self.on_prev() if self.on_prev else None).pack(side="left", padx=theme.SPACING_XS)
 
+        # "Dirty" = the user is typing an unsubmitted jump target into the page
+        # box. While dirty, a background pagination refresh (e.g. the 500ms poll
+        # while the engine keeps generating) must NOT overwrite the box, or the
+        # user can never finish entering a jump. It is set ONLY by real
+        # keystrokes — NOT by mere focus — so plain prev/next browsing (no typing)
+        # still keeps the page counter in sync.
+        self._page_current = 1
+        self._page_total = 1
+        self._page_entry_dirty = False
+        # How many schedules are still in the warehouse (unbuilt). Shown on the
+        # Load More hover tooltip so the user can see when it reaches 0.
+        self._load_more_remaining = None
+        # Whether a deep search is running (button shows 'Cancel deep search').
+        self._load_all_running = False
+
         self.page_entry = ctk.CTkEntry(self.nav_frame, width=theme.CONTROL_WIDTH_PAGE_ENTRY, height=theme.CONTROL_HEIGHT_TINY, justify="center", font=f_btn,
                                        fg_color=theme.BG_CARD, border_color=theme.BORDER_DEFAULT, text_color=theme.TEXT_MAIN)
         self.page_entry.pack(side="left", padx=theme.SPACING_XS)
-        self.page_entry.bind("<Return>", lambda e: self.on_page_jump(
-            int(self.page_entry.get())) if self.on_page_jump else None)
+        self.page_entry.bind("<Return>", self._on_page_entry_return)
+        self.page_entry.bind("<KeyRelease>", self._on_page_entry_key)
+        self.page_entry.bind("<FocusOut>", self._on_page_entry_focus_out)
 
         self.out_of_lbl = ctk.CTkLabel(
             self.nav_frame, text="", font=f_btn, width=theme.CONTROL_WIDTH_PAGE_LABEL, anchor="w", text_color=theme.TEXT_MUTED)
@@ -70,8 +91,10 @@ class TopToolbar(ctk.CTkFrame):
 
         self.refresh_feed_btn = ctk.CTkButton(
             self.nav_frame,
-            text=f"{ICON_REFRESH_FEED}  רענן",
-            font=f_icon,
+            # Text-only (no icon): the Load More button already uses the refresh
+            # icon, so a plain label keeps the two actions visually distinct.
+            text="רענן",
+            font=f_btn,
             width=theme.CONTROL_WIDTH_REFRESH,
             height=theme.CONTROL_HEIGHT_TINY,
             fg_color=theme.TEXT_ACCENT,
@@ -109,6 +132,25 @@ class TopToolbar(ctk.CTkFrame):
         self.load_more_btn.pack(side="left", padx=theme.SPACING_TINY)
         self.tip_load_more = Tooltip(self.load_more_btn, "טען מערכות נוספות")
 
+        # Deep search: a magnifying-glass icon button. Hover shows 'Deep search';
+        # while running it turns red (cancel). Opens a warning first via on_load_all.
+        self.load_all_btn = ctk.CTkButton(
+            self, text=ICON_SEARCH, font=f_icon,
+            fg_color=theme.SUCCESS, hover_color=theme.ACCENT_HOVER,
+            text_color=theme.TEXT_ON_ACCENT, height=theme.CONTROL_HEIGHT_SMALL,
+            width=theme.CONTROL_WIDTH_ICON, corner_radius=theme.RADIUS_SMALL,
+            command=lambda: self.on_load_all() if self.on_load_all else None,
+        )
+        self.load_all_btn.pack(side="left", padx=theme.SPACING_TINY)
+        self.tip_load_all = Tooltip(self.load_all_btn, TRANSLATIONS["load_all_tooltip"][self.current_lang])
+
+        # Small "X schedules remain to load" indicator next to the load buttons.
+        self.remaining_lbl = ctk.CTkLabel(
+            self, text="", font=ctk.CTkFont(family=theme.FONT_FAMILY, size=theme.FONT_SIZE_XS),
+            text_color=theme.TEXT_MUTED, anchor="w",
+        )
+        self.remaining_lbl.pack(side="left", padx=theme.SPACING_XS)
+
         self.exclude_btn = ctk.CTkButton(
             self, text=f" {ICON_EXCLUDE} ", font=f_icon, fg_color=theme.DANGER, hover_color=theme.DANGER_HOVER,
             text_color=theme.TEXT_ON_ACCENT, height=theme.CONTROL_HEIGHT_SMALL, width=theme.CONTROL_WIDTH_ICON_SMALL,
@@ -140,44 +182,140 @@ class TopToolbar(ctk.CTkFrame):
         self.on_sync_clicked = None 
 
         # Sync button
-        btn_run = ctk.CTkButton(
-            self, 
-            text="Sync", 
+        self.sync_btn = ctk.CTkButton(
+            self,
+            text="Sync",
             width=theme.CONTROL_WIDTH_SYNC,
-            fg_color=theme.SUCCESS, 
+            fg_color=theme.SUCCESS,
             command=self._on_sync_btn_click
         )
-        btn_run.pack(side="right", padx=theme.SPACING_COMPACT)
+        self.sync_btn.pack(side="right", padx=theme.SPACING_COMPACT)
 
     def _on_sync_btn_click(self):
         if self.on_sync_clicked:
             self.on_sync_clicked()
 
+    def set_sync_enabled(self, enabled: bool):
+        if hasattr(self, "sync_btn"):
+            self.sync_btn.configure(state="normal" if enabled else "disabled")
+
     def set_undo_enabled(self, enabled: bool):
         self.undo_btn.configure(state="normal" if enabled else "disabled")
 
-    def set_pagination(self, current: int, total: int):
+    def set_load_more_enabled(self, enabled: bool):
+        if hasattr(self, "load_more_btn"):
+            self.load_more_btn.configure(state="normal" if enabled else "disabled")
+
+    def set_load_all_enabled(self, enabled: bool):
+        if hasattr(self, "load_all_btn"):
+            self.load_all_btn.configure(state="normal" if enabled else "disabled")
+
+    def set_load_all_running(self, running: bool):
+        """Toggle the deep-search icon button: magnifying glass (idle, green) vs
+        x-circle (running, red). A running search is cancelled with a second
+        click. The tooltip text switches accordingly (bilingual)."""
+        self._load_all_running = running
+        if not hasattr(self, "load_all_btn"):
+            return
+        if running:
+            self.load_all_btn.configure(
+                text="✕", font=self._f_btn,   # plain X -> cancel
+                fg_color=theme.DANGER, hover_color=theme.DANGER_HOVER,
+            )
+            self.tip_load_all.text = TRANSLATIONS["load_all_cancel"][self.current_lang]
+        else:
+            self.load_all_btn.configure(
+                text=ICON_SEARCH, font=self._f_icon,   # magnifying glass -> deep search
+                fg_color=theme.SUCCESS, hover_color=theme.ACCENT_HOVER,
+            )
+            self.tip_load_all.text = TRANSLATIONS["load_all_tooltip"][self.current_lang]
+
+    def set_remaining_text(self, text: str):
+        """Side meter text (used for the Load All progress percentage)."""
+        if hasattr(self, "remaining_lbl"):
+            self.remaining_lbl.configure(text=text)
+
+    def _render_load_more_tooltip(self):
+        if getattr(self, "_load_more_remaining", None) is None:
+            self.tip_load_more.text = TRANSLATIONS["load_more_tooltip"][self.current_lang]
+        elif self._load_more_remaining <= 0:
+            self.tip_load_more.text = TRANSLATIONS["load_more_stock_none"][self.current_lang]
+        else:
+            self.tip_load_more.text = TRANSLATIONS["load_more_stock"][self.current_lang].format(
+                n=f"{self._load_more_remaining:,}")
+
+    def set_load_more_remaining(self, remaining):
+        """How many schedules remain in the warehouse; rendered on the Load More
+        hover tooltip so the user can see it count down toward 0."""
+        self._load_more_remaining = remaining
+        self._render_load_more_tooltip()
+
+    def set_load_more_calculating(self):
+        """Shown on the Load More tooltip while the total is being counted, so
+        the number isn't blank until the background count finishes."""
+        self.tip_load_more.text = TRANSLATIONS["load_more_calc"][self.current_lang]
+
+    _NON_TYPING_KEYS = {"Return", "KP_Enter", "Tab", "Escape", "Up", "Down", "Left", "Right"}
+
+    def _on_page_entry_key(self, event=None):
+        # A real edit keystroke: the box now holds an unsubmitted jump target,
+        # so guard it against background refreshes. Navigation/submit keys don't
+        # count as composing a jump.
+        if event is not None and getattr(event, "keysym", "") in self._NON_TYPING_KEYS:
+            return
+        self._page_entry_dirty = self.page_entry.get().strip() != str(self._page_current)
+
+    def _on_page_entry_return(self, _event=None):
+        # Submitting the jump clears the dirty guard so the box resyncs to the
+        # page actually shown afterwards.
+        self._page_entry_dirty = False
+        if not self.on_page_jump:
+            return
+        try:
+            self.on_page_jump(int(self.page_entry.get()))
+        except (ValueError, TypeError):
+            # Non-numeric / empty input: just restore the current page number.
+            self._write_page_entry(self._page_current)
+
+    def _on_page_entry_focus_out(self, _event=None):
+        # Leaving the box discards any half-typed value and shows the real page.
+        self._page_entry_dirty = False
+        self._write_page_entry(self._page_current)
+
+    def _write_page_entry(self, current: int) -> None:
         self.page_entry.delete(0, "end")
         self.page_entry.insert(0, str(current))
+
+    def set_pagination(self, current: int, total: int):
+        self._page_current = current
+        self._page_total = total
+        # Skip the rewrite ONLY while the user is mid-typing a jump target, so a
+        # background poll can't wipe their input. Plain prev/next browsing sets
+        # no keystrokes, so the counter still tracks the displayed schedule.
+        if not self._page_entry_dirty:
+            self._write_page_entry(current)
         self.out_of_lbl.configure(text=f" / {total}")
 
     def update_language(self, lang: str):
         self.current_lang = lang
         # Update the tooltips according to the UI language
+        # Load All / Cancel button + tooltip track the language and run state.
+        if hasattr(self, "load_all_btn"):
+            self.set_load_all_running(self._load_all_running)
+        # Load More tooltip re-renders from the stored remaining count.
+        self._render_load_more_tooltip()
         if lang == "he":
             self.tip_edit.text = "עריכת תאריכים"
-            self.refresh_feed_btn.configure(text=f"{ICON_REFRESH_FEED}  רענן")
+            self.refresh_feed_btn.configure(text="רענן")
             self.tip_refresh_feed.text = TRANSLATIONS["refresh_feed_tooltip"]["he"]
-            self.tip_load_more.text = "טען מערכות נוספות"
             self.tip_constraints.text = "הגדרות אילוצים"
             self.tip_exclude.text = "החרג יום נבחר"
             self.tip_undo.text = "בטל שינויים ידניים"
             self.tip_export.text = "ייצוא לוח זמנים"
         else:
             self.tip_edit.text = "Edit Dates"
-            self.refresh_feed_btn.configure(text=f"{ICON_REFRESH_FEED}  Refresh")
+            self.refresh_feed_btn.configure(text="Refresh")
             self.tip_refresh_feed.text = TRANSLATIONS["refresh_feed_tooltip"]["en"]
-            self.tip_load_more.text = "Load More"
             self.tip_constraints.text = "Constraints Settings"
             self.tip_exclude.text = "Exclude Date"
             self.tip_undo.text = "Undo manual changes"
