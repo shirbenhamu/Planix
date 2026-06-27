@@ -66,12 +66,17 @@ def _reset_singleton():
 
 def test_system_accepts_all_five_constraint_criteria():
     """Validates that SchedulingConstraints supports all five defined criteria."""
-    criteria = [
-        "min_days_mandatory", "min_days_any",
-        "max_elective_conflicts", "span_mandatory", "max_exams_per_day",
-    ]
-    for c in criteria:
-        assert SchedulingConstraints(**{f"{c}_enabled": True}) is not None
+    criteria_configs = {
+        "min_days_mandatory": 1,
+        "min_days_any": 1,
+        "max_elective_conflicts": 0,  
+        "span_mandatory": 1,
+        "max_exams_per_day": 1,
+    }
+    
+    for c, k_val in criteria_configs.items():
+        payload = {f"{c}_enabled": True, f"{c}_k": k_val}
+        assert SchedulingConstraints(**payload) is not None
 
 # ---------------------------------------------------------------------------
 # Rank and Slice (Sorting & Windowing)

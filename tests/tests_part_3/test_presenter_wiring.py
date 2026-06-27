@@ -32,6 +32,8 @@ class DummyModel:
     def get_selected_programs(self):
         return self.selected_programs
 
+    def enforce_state_to_data_manager(self):   
+        pass
 
 class DummyController:
     def __init__(self, mock_window):

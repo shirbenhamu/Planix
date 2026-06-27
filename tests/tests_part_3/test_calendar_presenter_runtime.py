@@ -8,6 +8,7 @@ from src.MVP.models.schedule_collection_manager import ScheduleCollectionManager
 from src.MVP.presenters.calendar_presenter import CalendarPresenter
 from src.output.file_output_writer import FileOutputWriter
 from src.parsers.base_parser import BaseParser
+from src.engine.scheduling_constraints import SchedulingConstraints 
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -65,6 +66,8 @@ def _fake_model(courses):
         get_exam_periods=lambda: [],
         get_user_excluded_dates=lambda: [],
         get_selected_programs=lambda: [],
+        constraints=SchedulingConstraints(),                      
+        get_program_course_hierarchy=lambda prog_id=None: {},
     )
 
 # Return the day gap between the first and last exam of a schedule.

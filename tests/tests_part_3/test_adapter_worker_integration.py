@@ -85,7 +85,6 @@ def _run_adapter(output_path, constraints, timeout=60):
 
     courses, exam_periods, programs = _small_dataset()
 
-    # Initialize DataManager with mock data
     DataManager._instance = None
     dm = DataManager(parser=_DummyParser(courses, exam_periods, programs))
     dm.courses = {c.course_id: c for c in courses}
@@ -97,17 +96,16 @@ def _run_adapter(output_path, constraints, timeout=60):
     adapter = PlanixEngineAdapter()
     adapter.generate_from_model(model=model, output_path=str(output_path))
 
-    # Wait for the background worker to complete.
+    proc = adapter._worker_process
+
     deadline = time.monotonic() + timeout
     while adapter.is_generation_active():
         if time.monotonic() > deadline:
             raise TimeoutError("Worker did not finish within the timeout period.")
         time.sleep(0.2)
 
-    proc = getattr(adapter, "_worker_process", None)
-    proc = getattr(adapter, "_worker_process", None)
     if proc is not None:
-        proc.join(timeout=5)   # Ensure cleanup
+        proc.join(timeout=5)
     return proc
 
 

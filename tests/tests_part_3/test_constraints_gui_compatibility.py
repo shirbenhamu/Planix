@@ -140,6 +140,7 @@ def _modal_stub_with_vars(enabled_value=True, k_value="3"):
     modal.current_lang = "en"
     modal.error_label = FakeLabel()
     modal._vars = {}
+    modal._religion_boxes = {}   
 
     for field in CONSTRAINT_FIELDS:
         modal._vars[field["enabled"]] = FakeVar(enabled_value)
