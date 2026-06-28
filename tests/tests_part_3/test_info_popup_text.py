@@ -1,7 +1,6 @@
-"""PLAN-582 information pop-up text coverage."""
+"""Information pop-up text coverage."""
 
 from pathlib import Path
-
 from src.MVP.views.ui_utils import TRANSLATIONS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,7 +26,6 @@ CALENDAR_BUTTON_KEYS = [
     "export",
 ]
 
-
 def test_plan_582_information_popup_translations_exist_for_both_languages():
     base_keys = [
         "info_constraints_title",
@@ -49,7 +47,6 @@ def test_plan_582_information_popup_translations_exist_for_both_languages():
                 text = TRANSLATIONS[f"info_button_{key}_{suffix}"][lang]
                 assert text, f"missing info_button_{key}_{suffix}/{lang}"
 
-
 def test_information_popup_source_renders_hebrew_with_rtl_embedding():
     source = (ROOT / "src/MVP/views/components/info_modal.py").read_text(encoding="utf-8")
 
@@ -58,7 +55,6 @@ def test_information_popup_source_renders_hebrew_with_rtl_embedding():
     assert "\\u202C" in source
     assert "info_constraints_title" in source
     assert "info_calendar_buttons_title" in source
-
 
 def test_information_popup_sort_text_describes_priority_selector_not_old_secondary_dropdown():
     he = TRANSLATIONS["info_sort_desc"]["he"]

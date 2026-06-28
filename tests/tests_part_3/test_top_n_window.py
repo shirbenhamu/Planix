@@ -1,7 +1,5 @@
-from datetime import date
-
 import pytest
-
+from datetime import date
 from src.data_manager import DataManager
 from src.MVP.models.course import Course, ProgramCourseInfo
 from src.MVP.models.schedule import Schedule, ScheduledExam
@@ -15,7 +13,6 @@ from src.parsers.base_parser import BaseParser
 
 _MIN_GAP_POS = METRIC_KEYS.index("min_gap_mandatory")
 
-
 class _DummyParser(BaseParser):
     def parse_courses(self, file_path):
         return []
@@ -26,11 +23,9 @@ class _DummyParser(BaseParser):
     def parse_selected_programs(self, file_path):
         return []
 
-
 def _course(cid):
     return Course(cid, f"C{cid}", "T", "Exam",
                   [ProgramCourseInfo("83108", 1, "FALL", "Obligatory")])
-
 
 def _manager_with_gaps(tmp_path, gaps):
     c1, c2 = _course("10001"), _course("10002")
@@ -47,17 +42,13 @@ def _manager_with_gaps(tmp_path, gaps):
     dm.courses = {c1.course_id: c1, c2.course_id: c2}
     return ScheduleCollectionManager(str(out), dm)
 
-
 def _first_gap(schedule):
     # min_gap of a 2-exam schedule == the day delta between its two exams.
     days = sorted(e.exam_date for e in schedule.exams)
     return (days[-1] - days[0]).days
 
-
-# --- PLAN-499: configurable window size -------------------------------------
 def test_default_window_size():
     assert DEFAULT_WINDOW_SIZE == 10
-
 
 def test_window_size_limits_materialized_count(tmp_path):
     manager = _manager_with_gaps(tmp_path, list(range(2, 14)))  # 12 schedules
@@ -68,12 +59,10 @@ def test_window_size_limits_materialized_count(tmp_path):
     assert len(window) == 5
     assert all(isinstance(s, Schedule) for s in window)
 
-
 def test_window_smaller_than_size_returns_all(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5])
     manager.set_window_size(10)
     assert len(manager.materialize_window(0)) == 3
-
 
 def test_set_window_size_validation(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3])
@@ -86,7 +75,6 @@ def test_set_window_size_validation(tmp_path):
     with pytest.raises(TypeError):
         manager.set_window_size(True)
 
-
 # --- window reflects the sorted order (top-N) -------------------------------
 def test_window_returns_top_n_of_sorted_index(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5, 1, 7])
@@ -97,8 +85,7 @@ def test_window_returns_top_n_of_sorted_index(tmp_path):
     gaps = [_first_gap(s) for s in window]
     assert gaps == [9, 7, 5]  # top 3 by min_gap descending
 
-
-# --- PLAN-500: seek by offset, no full-file scan ----------------------------
+# --- seek by offset, no full-file scan ----------------------------
 def test_materialization_seeks_by_offset_without_full_scan(tmp_path, monkeypatch):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5, 1, 7])
     manager.set_window_size(2)
@@ -143,8 +130,7 @@ def test_materialization_seeks_by_offset_without_full_scan(tmp_path, monkeypatch
     for off in expected_offsets:
         assert off in seek_targets
 
-
-# --- PLAN-501: switching sort refreshes the materialized window -------------
+# --- switching sort refreshes the materialized window -------------
 def test_switching_sort_refreshes_window(tmp_path):
     manager = _manager_with_gaps(tmp_path, [3, 9, 5, 1, 7])
     manager.set_window_size(2)
@@ -158,7 +144,6 @@ def test_switching_sort_refreshes_window(tmp_path):
     assert asc_window == [1, 3]
     # Window start was reset to the new top on sort change.
     assert manager.get_window_start() == 0
-
 
 # --- windowing past the start (groundwork for refresh-feed PLAN-415) --------
 def test_window_at_arbitrary_start(tmp_path):

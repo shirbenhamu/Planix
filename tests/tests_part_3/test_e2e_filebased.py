@@ -240,3 +240,137 @@ class TestGuiCliEquivalence:
         assert cli_total == gui_total, (
             f"CLI reports {cli_total} schedules but GUI reports {gui_total}"
         )
+
+# ---------------------------------------------------------------------------
+# Stress tests (file-based / CLI pipeline under volume + GUI<->CLI equivalence
+# at scale). One flow ties together: scheduler -> file writer ->
+# rank_and_slice / collection manager -> metrics -> sort.
+# ---------------------------------------------------------------------------
+
+def _gaps_cycle(n, lo=1, hi=27):
+    """`n` deterministic gaps cycling through [lo, hi] (<=27 keeps Feb dates
+    valid). Produces lots of intentional ties to stress the tie-breaker."""
+    span = hi - lo + 1
+    return [lo + (i % span) for i in range(n)]
+
+
+def _monotonic(values, ascending):
+    if ascending:
+        return all(values[i] <= values[i + 1] for i in range(len(values) - 1))
+    return all(values[i] >= values[i + 1] for i in range(len(values) - 1))
+
+
+class _BulkFakeScheduler:
+    """Returns a large precomputed batch of schedules for a single period."""
+
+    def __init__(self, schedules):
+        self._schedules = schedules
+
+    def generate_schedules(self, courses, exam_periods, selected_programs):
+        return {("FALL", "Aleph"): iter(self._schedules)}
+
+
+def _bulk_schedules(c1, c2, gaps):
+    return [
+        Schedule(exams=[ScheduledExam(c1, date(2026, 2, 1)),
+                        ScheduledExam(c2, date(2026, 2, 1 + g))])
+        for g in gaps
+    ]
+
+
+class TestFileBasedStress:
+    """The CLI ranking path under heavy volume and at the window edges."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_singleton(self):
+        DataManager._instance = None
+        yield
+        DataManager._instance = None
+
+    def test_rank_and_slice_orders_large_volume(self, tmp_path):
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "bulk.txt"
+        N = 2000
+        _write(out, c1, c2, _gaps_cycle(N))
+
+        window, _metrics, total = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["min_gap_mandatory"], ascending=False, window_size=N)
+        assert total == N
+        assert len(window) == N
+        assert _monotonic([_gap(s) for s in window], ascending=False)
+
+        DataManager._instance = None
+        window_asc, _m, _t = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["min_gap_mandatory"], ascending=True, window_size=N)
+        assert _monotonic([_gap(s) for s in window_asc], ascending=True)
+
+    def test_window_slicing_edge_conditions_at_scale(self, tmp_path):
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "edges.txt"
+        N = 500
+        _write(out, c1, c2, _gaps_cycle(N))
+
+        w_all, _m, total = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["avg_gap_all"], ascending=False, window_size=10 ** 6)
+        assert total == N and len(w_all) == N  # window larger than total -> all
+
+        DataManager._instance = None
+        w_one, _m, _t = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["avg_gap_all"], ascending=False, window_size=1)
+        assert len(w_one) == 1
+        # the single best must equal the head of the full ranking
+        assert _gap(w_one[0]) == _gap(w_all[0])
+
+    def test_all_metrics_sortable_under_volume(self, tmp_path, monkeypatch):
+        c1, c2 = _course("10001"), _course("10002")
+        schedules = _bulk_schedules(c1, c2, _gaps_cycle(400))
+        monkeypatch.setattr(cli, "_load_data_manager", lambda opts: (_dm(c1, c2), ["83101"]))
+        monkeypatch.setattr(cli, "ExamScheduler", lambda: _BulkFakeScheduler(schedules))
+
+        for key in METRIC_KEYS:
+            output = tmp_path / f"bulk_{key}.txt"
+            work = tmp_path / f"bulk_work_{key}.txt"
+            rc = cli.main([
+                "--programs", "83101",
+                "--sort", key,
+                "--window", "50",
+                "--output", str(output),
+                "--work-file", str(work),
+            ])
+            assert rc == 0, f"--sort {key} failed under volume"
+            text = output.read_text(encoding="utf-8")
+            assert "RANK 1" in text and "RANK 50" in text
+
+
+class TestGuiCliEquivalenceStress:
+    """GUI and CLI must produce the identical ranking for a large, tie-heavy
+    input, not just for a handful of distinct schedules."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_singleton(self):
+        DataManager._instance = None
+        yield
+        DataManager._instance = None
+
+    def test_gui_and_cli_agree_on_full_ranking_at_scale(self, tmp_path):
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "equiv.txt"
+        N = 1200
+        _write(out, c1, c2, _gaps_cycle(N))
+
+        # CLI path
+        cli_window, _m, cli_total = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["min_gap_mandatory"], ascending=False, window_size=N)
+
+        # GUI path
+        DataManager._instance = None
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"], ascending=False)
+        manager.set_window_size(N)
+        gui_window = manager.materialize_window(start_index=0)
+        gui_total = manager.get_total_count()
+
+        assert cli_total == gui_total == N
+        assert len(cli_window) == len(gui_window) == N
+        # Tie-break agnostic but strict: the per-rank metric sequence is identical.
+        assert [_gap(s) for s in cli_window] == [_gap(s) for s in gui_window]

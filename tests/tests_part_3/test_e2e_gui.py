@@ -159,3 +159,137 @@ class TestGuiSmoke:
         after = len(multiprocessing.active_children())
 
         assert after <= before, "Subprocess leak detected."
+
+# ---------------------------------------------------------------------------
+# Stress tests (multi-subsystem, high volume, still fully headless)
+#
+# A single flow drives the file writer, the collection manager (parse / sort /
+# window / total / current-index), the presenter (navigation, sort, refresh)
+# and the fake view (render) together at scale.
+# ---------------------------------------------------------------------------
+from src.metrics.metrics_calculator import METRIC_KEYS
+
+
+def _gap(schedule):
+    """Span in days between the first and last exam of a schedule."""
+    days = sorted(e.exam_date for e in schedule.exams)
+    return (days[-1] - days[0]).days
+
+
+def _gaps_cycle(n, lo=1, hi=27):
+    """`n` deterministic gap values cycling through [lo, hi]. Kept <= 27 so the
+    second exam (Feb 1 + gap) always lands on a valid February date."""
+    span = hi - lo + 1
+    return [lo + (i % span) for i in range(n)]
+
+
+def _is_monotonic(values, ascending):
+    if ascending:
+        return all(values[i] <= values[i + 1] for i in range(len(values) - 1))
+    return all(values[i] >= values[i + 1] for i in range(len(values) - 1))
+
+
+class TestGuiStress:
+    """High-volume GUI stress: parse -> sort -> navigate -> window ->
+    incremental refresh -> render, with the presenter and a headless view."""
+
+    N = 1200  # schedule blocks
+
+    @pytest.fixture(autouse=True)
+    def _reset_singleton(self):
+        DataManager._instance = None
+        yield
+        DataManager._instance = None
+
+    def _presenter(self, courses, manager):
+        model = SimpleNamespace(
+            data_manager=SimpleNamespace(get_courses=lambda: courses),
+            get_exam_periods=lambda: [],
+            get_user_excluded_dates=lambda: [],
+            get_selected_programs=lambda: ["83101"],
+            constraints=SchedulingConstraints(),
+            get_program_course_hierarchy=lambda prog_id=None: {},
+        )
+        view = _FakeView()
+        presenter = CalendarPresenter(view=view, model=model, collection_manager=manager)
+        presenter.controller = MagicMock()
+        presenter.controller.engine_adapter.is_generation_active.return_value = False
+        return presenter, view
+
+    def test_large_collection_sort_window_and_navigation(self, tmp_path):
+        """Sort a large collection, verify the whole-collection window is
+        best-first, then hammer the presenter with hundreds of navigation
+        steps without ever leaving the valid index range."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "big.txt"
+        _write(out, c1, c2, _gaps_cycle(self.N))
+
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"], ascending=False)
+        assert manager.get_total_count() == self.N
+
+        manager.set_window_size(self.N)
+        window = manager.materialize_window(start_index=0)
+        assert len(window) == self.N
+        assert _is_monotonic([_gap(s) for s in window], ascending=False)
+
+        presenter, view = self._presenter([c1, c2], manager)
+        for _ in range(150):
+            presenter._handle_next_schedule()
+            assert 0 <= manager.get_current_index() < self.N
+        for _ in range(150):
+            presenter._handle_prev_schedule()
+            assert 0 <= manager.get_current_index() < self.N
+        assert view.render_count >= 1
+
+        # Flip the sort through the presenter; ordering must invert.
+        presenter._handle_sort_changed(["min_gap_mandatory"], ascending=True)
+        manager.set_window_size(self.N)
+        window_asc = manager.materialize_window(start_index=0)
+        assert manager.get_total_count() == self.N
+        assert _is_monotonic([_gap(s) for s in window_asc], ascending=True)
+
+    def test_incremental_refresh_appends_many_batches(self, tmp_path):
+        """While 'generation' is active, several batches of new schedules land
+        on disk; each auto-refresh must absorb them and grow the total."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "feed.txt"
+
+        first = 600
+        _write(out, c1, c2, _gaps_cycle(first))
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"])
+        presenter, _ = self._presenter([c1, c2], manager)
+        presenter.controller.engine_adapter.is_generation_active.return_value = True
+        assert manager.get_total_count() == first
+
+        total = first
+        for extra in (200, 200, 200):
+            new_total = total + extra
+            # full cumulative list, skip the already-written prefix, append tail
+            _write(out, c1, c2, _gaps_cycle(new_total), skip_count=total, append=True)
+            assert presenter.auto_refresh_feed() is True
+            assert manager.get_total_count() == new_total
+            total = new_total
+        assert total == 1200
+
+    def test_repeated_resort_is_consistent_and_leak_free(self, tmp_path):
+        """Sorting by every metric, many times over, must keep the total and
+        the window length stable and must never spawn lingering processes."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "resort.txt"
+        size = 800
+        _write(out, c1, c2, _gaps_cycle(size))
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.set_window_size(size)
+
+        before = len(multiprocessing.active_children())
+        for _ in range(12):
+            for key in METRIC_KEYS:
+                manager.sort_collection([key], ascending=False)
+                window = manager.materialize_window(start_index=0)
+                assert len(window) == size
+                assert manager.get_total_count() == size
+        time.sleep(0.2)
+        after = len(multiprocessing.active_children())
+        assert after <= before, "repeated sorting must not leak subprocesses"

@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 from src.MVP.presenters.app_controller import AppController
 
-
 class TestAppController:
     @pytest.fixture
     def mock_window(self):
