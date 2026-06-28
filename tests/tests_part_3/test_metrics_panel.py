@@ -143,6 +143,7 @@ def test_calendar_and_monthly_language_update_refreshes_compact_ranking_bar():
     calendar_view.month_labels = []
     calendar_view.grid_cells = {}
     calendar_view._cell_day_number = {}
+    calendar_view._current_grid_data = None  # PLAN-629: update_language re-reads this
     calendar_view.update_pagination = MagicMock()
     calendar_view.update_language("he")
     calendar_view.ranking_bar.set_language.assert_called_once_with("he")
@@ -155,6 +156,7 @@ def test_calendar_and_monthly_language_update_refreshes_compact_ranking_bar():
     monthly_view._total_pages = 1
     monthly_view.day_headers = []
     monthly_view.active_months = []
+    monthly_view._current_grid_data = None  # PLAN-629: update_language re-reads this
     monthly_view.update_pagination = MagicMock()
     monthly_view.update_language("he")
     monthly_view.ranking_bar.set_language.assert_called_once_with("he")

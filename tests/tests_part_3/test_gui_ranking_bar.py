@@ -8,7 +8,6 @@ from src.MVP.views.components.ranking_bar import (
 from src.MVP.views.ui_utils import TRANSLATIONS
 from src.metrics.metrics_calculator import METRIC_KEYS
 
-
 def _bar(lang="he", primary="avg_gap_all", secondary=None, ascending=False):
     """Build a RankingBar without the heavy CTk __init__ (no display in CI),
     seeding just the state + label maps that the logic methods touch."""
@@ -29,7 +28,6 @@ def _bar(lang="he", primary="avg_gap_all", secondary=None, ascending=False):
     bar._dir_desc = f"{bar._t('sort_dir_desc')} ▼"
     bar._dir_asc = f"{bar._t('sort_dir_asc')} ▲"
     return bar
-
 
 # _fire with one key reports it, descending by default.
 def test_fire_single_key_descending_default():
@@ -59,7 +57,6 @@ def test_fire_noop_without_handler():
     bar = _bar()
     bar.on_sort_changed = None
     bar._fire()  # must not raise
-
 
 # Choosing a primary metric updates state and fires the callback.
 def test_on_primary_updates_key_and_fires():
@@ -131,7 +128,6 @@ def test_show_no_more_results_localized():
     bar_en.show_no_more_results()
     assert "End of results" in bar_en.metrics_label.configure.call_args.kwargs["text"]
 
-
 # --- value formatting + metric coverage ---
 
 @pytest.mark.parametrize("value,expected", [
@@ -151,14 +147,12 @@ def test_display_order_covers_all_metrics_default_first():
     assert set(METRIC_DISPLAY_ORDER) == set(METRIC_KEYS)
     assert METRIC_DISPLAY_ORDER[0] == "avg_gap_all"
 
-
 # Every metric has both long and short labels in each language.
 @pytest.mark.parametrize("key", METRIC_KEYS)
 @pytest.mark.parametrize("lang", ["he", "en"])
 def test_translations_exist_for_every_metric(key, lang):
     assert TRANSLATIONS[f"metric_{key}"][lang]
     assert TRANSLATIONS[f"metric_short_{key}"][lang]
-
 
 # Every info/help string is translated in each language.
 @pytest.mark.parametrize("lang", ["he", "en"])

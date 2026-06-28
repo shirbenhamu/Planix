@@ -1,16 +1,12 @@
-# tests/tests_part_4/test_religious_holidays.py
-
 import pytest
 from datetime import date
 from unittest.mock import MagicMock, patch
-
 from src.engine.scheduling_constraints import SchedulingConstraints
 from src.engine.holiday_data import get_holidays_for_religions
 from src.MVP.models.planix_model import PlanixModel
 from src.MVP.models.exam_period import ExamPeriod, ExcludedDate
 from src.MVP.presenters.input_presenter import InputPresenter
 from src.MVP.views.components.constraints_modal import normalize_constraints_data, default_constraints_data
-
 
 # =====================================================================
 # 1. HOLIDAY DATA LAYER TESTS (DYNAMIC)
@@ -31,7 +27,6 @@ def test_get_holidays_for_religions_empty_and_invalid():
     assert get_holidays_for_religions([]) == {}
     assert get_holidays_for_religions(["Buddhism", "Unknown"]) == {}
 
-
 # =====================================================================
 # 2. SCHEDULING CONSTRAINTS DATACLASS TESTS
 # =====================================================================
@@ -41,7 +36,6 @@ def test_scheduling_constraints_initialization():
     assert hasattr(constraints, "selected_religions")
     assert isinstance(constraints.selected_religions, list)
     assert len(constraints.selected_religions) == 0
-
 
 # =====================================================================
 # 3. PLANIX MODEL CACHE & INJECTION INTEGRATION TESTS
@@ -92,7 +86,6 @@ def test_model_enforce_state_injects_holidays_to_data_manager():
     ]
     assert len(religious_exclusions) >= 1
 
-
 # =====================================================================
 # 4. INPUT PRESENTER MULTI-SELECT PIPELINE TESTS
 # =====================================================================
@@ -115,7 +108,6 @@ def test_presenter_extracts_and_saves_selected_religions_from_view():
     assert mock_model.constraints.min_days_mandatory_k == 3
     assert mock_model.constraints.selected_religions == ["Jewish", "Muslim"]
     mock_model.enforce_state_to_data_manager.assert_called_once()
-
 
 # =====================================================================
 # 5. VIEW CONSTRAINTS MODAL DATA NORMALIZATION TESTS

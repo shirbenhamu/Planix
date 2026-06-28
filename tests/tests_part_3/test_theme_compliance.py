@@ -1,4 +1,4 @@
-"""PLAN-422 theme-token compliance checks for Sprint 3 UI components."""
+"""theme-token compliance checks for Sprint 3 UI components."""
 
 from pathlib import Path
 import re
@@ -29,10 +29,8 @@ STYLE_LITERAL_PATTERNS = {
     "literal pack/grid pady": re.compile(r'pady\s*=\s*\d+'),
 }
 
-
 def _source(path: Path) -> str:
     return path.read_text(encoding="utf-8")
-
 
 def test_sprint3_components_do_not_define_local_style_literals():
     violations = []
@@ -43,7 +41,6 @@ def test_sprint3_components_do_not_define_local_style_literals():
                 violations.append(f"{path.relative_to(ROOT)} contains {label}")
 
     assert violations == []
-
 
 def test_theme_exposes_tokens_needed_by_sprint3_components():
     theme_source = _source(ROOT / "src/MVP/views/theme.py")
@@ -63,7 +60,6 @@ def test_theme_exposes_tokens_needed_by_sprint3_components():
 
     missing = [token for token in required_tokens if f"{token} =" not in theme_source]
     assert missing == []
-
 
 def test_design_document_records_theme_compliance_update():
     design_doc = ROOT / "docs/theme_compliance_plan_422.md"

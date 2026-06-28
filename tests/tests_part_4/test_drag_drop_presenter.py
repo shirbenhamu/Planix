@@ -1,24 +1,19 @@
+import pytest
 from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock
-
-import pytest
-
 from src.engine.scheduling_constraints import SchedulingConstraints
 from src.MVP.models.course import Course, ProgramCourseInfo
 from src.MVP.models.exam_period import ExamPeriod
 from src.MVP.models.schedule import Schedule, ScheduledExam
 from src.MVP.presenters.calendar_presenter import CalendarPresenter
 
-
 def _course(cid, program="83101", year=1, requirement="Obligatory"):
     return Course(cid, f"C{cid}", "T", "Exam",
                   [ProgramCourseInfo(program, year, "FALL", requirement)])
 
-
 def _period():
     return ExamPeriod("FALL", "Aleph", date(2026, 2, 1), date(2026, 2, 28), [])
-
 
 def _build_presenter(exams, constraints=None):
     c_by_id = {c.course_id: c for c, _ in exams}
@@ -55,22 +50,20 @@ def _build_presenter(exams, constraints=None):
     presenter.refresh_presenter_state = MagicMock()
     return presenter, view, manager
 
-
 def _current_date(presenter, course_id):
     for e in presenter._active_board().exams:
         if e.course.course_id == course_id:
             return e.exam_date
     return None
 
+# --- the view callbacks are wired ---
 
-# --- the view callbacks are wired (PLAN-560 / PLAN-563) ---------------------
 def test_drag_and_undo_callbacks_are_wired():
     presenter, view, _ = _build_presenter([(_course("11111"), date(2026, 2, 3))])
     assert view.on_exam_dropped == presenter._handle_exam_dropped
     assert view.on_undo_clicked == presenter._handle_undo
 
-
-# --- PLAN-560: a valid drop moves the exam ----------------------------------
+# --- a valid drop moves the exam ---
 def test_valid_drop_moves_exam_and_redraws():
     presenter, view, _ = _build_presenter([
         (_course("11111"), date(2026, 2, 3)),
@@ -83,8 +76,7 @@ def test_valid_drop_moves_exam_and_redraws():
     assert _current_date(presenter, "11111") == date(2026, 2, 10)
     presenter.refresh_presenter_state.assert_called()  # redrew
 
-
-# --- PLAN-561: an invalid drop snaps back (board unchanged) -----------------
+# --- an invalid drop snaps back (board unchanged) ---
 def test_invalid_drop_out_of_semester_snaps_back():
     presenter, _, _ = _build_presenter([(_course("11111"), date(2026, 2, 3))])
     presenter.cell_to_date_mapping = {"src": date(2026, 2, 3), "dst": date(2026, 5, 1)}
@@ -93,7 +85,6 @@ def test_invalid_drop_out_of_semester_snaps_back():
 
     assert _current_date(presenter, "11111") == date(2026, 2, 3)  # unchanged
     presenter.refresh_presenter_state.assert_called()  # still redrew (snap back)
-
 
 def test_invalid_drop_violating_constraint_snaps_back():
     constraints = SchedulingConstraints(min_days_mandatory_enabled=True, min_days_mandatory_k=5)
@@ -106,8 +97,7 @@ def test_invalid_drop_violating_constraint_snaps_back():
     presenter._handle_exam_dropped("11111", "src", "dst")
     assert _current_date(presenter, "11111") == date(2026, 2, 3)  # unchanged
 
-
-# --- PLAN-563: undo reverts -------------------------------------------------
+# --- undo reverts ---
 def test_undo_reverts_manual_changes():
     presenter, _, _ = _build_presenter([(_course("11111"), date(2026, 2, 3))])
     presenter.cell_to_date_mapping = {"src": date(2026, 2, 3), "dst": date(2026, 2, 10)}
@@ -118,8 +108,7 @@ def test_undo_reverts_manual_changes():
     presenter._handle_undo()
     assert _current_date(presenter, "11111") == date(2026, 2, 3)
 
-
-# --- PLAN-562: export uses the edited board ---------------------------------
+# --- export uses the edited board ---
 def test_export_reflects_manual_edits(tmp_path):
     presenter, _, _ = _build_presenter([(_course("11111"), date(2026, 2, 3))])
     presenter.cell_to_date_mapping = {"src": date(2026, 2, 3), "dst": date(2026, 2, 12)}
@@ -132,8 +121,7 @@ def test_export_reflects_manual_edits(tmp_path):
     assert "12-02-2026" in text       # the moved date
     assert "03-02-2026" not in text   # not the original date
 
-
-# --- PLAN-554: the five metrics track the edited board ----------------------
+# --- the five metrics track the edited board ---
 def test_metrics_recompute_after_move_and_revert_on_undo():
     # Two mandatory exams in the same cohort. Metric 3.1 (min gap mandatory) is the
     # day-distance between them; dragging them closer must shrink it live, and undo
