@@ -4,3 +4,4 @@ pillow
 psutil
 pytest-mock
 holidays
+pytest-xdist
