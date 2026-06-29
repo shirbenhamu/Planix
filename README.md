@@ -12,7 +12,7 @@ https://shirbenhamo.atlassian.net/jira/software/projects/PLAN/boards/69?atlOrigi
 
 Presentation:
 
-https://canva.link/tz751xhsp8qb7r7
+[https://canva.link/tz751xhsp8qb7r7](https://canva.link/0gfho7y1n4ir21z)
 
 UML Class diagram: In Folder "diagrams".
 
@@ -60,8 +60,10 @@ Agile Development Workflow - The project is managed using Agile methodologies al
 | Command | Description | 
 |---|---|
 |`pip install -r requirements.txt` |Install Dependencies|
-|`python -m src.main` |Run the system|
-|`python -m pytest tests/tests_part_2 -q` |Run version 2.0 tests|
+|`python -m src.main` |Run the GUI version|
+|`   ` |Run the file-based version|
+|`python -m pytest tests/tests_part_3 -q` |Run version 3.0 tests|
+|`python -m pytest tests/tests_part_4 -q` |Run version 4.0 tests|
 |`python -m pytest tests` |Run all the tests|
 
 ## Running Example
