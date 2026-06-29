@@ -293,3 +293,158 @@ class TestGuiStress:
         time.sleep(0.2)
         after = len(multiprocessing.active_children())
         assert after <= before, "repeated sorting must not leak subprocesses"
+
+class TestGuiStressExtra:
+    """Higher-volume, longer-running headless GUI stress."""
+
+    N = 1500  # schedule blocks
+
+    @pytest.fixture(autouse=True)
+    def _reset_singleton(self):
+        DataManager._instance = None
+        yield
+        DataManager._instance = None
+
+    def _presenter(self, courses, manager):
+        model = SimpleNamespace(
+            data_manager=SimpleNamespace(get_courses=lambda: courses),
+            get_exam_periods=lambda: [],
+            get_user_excluded_dates=lambda: [],
+            get_selected_programs=lambda: ["83101"],
+            constraints=SchedulingConstraints(),
+            get_program_course_hierarchy=lambda prog_id=None: {},
+        )
+        view = _FakeView()
+        presenter = CalendarPresenter(view=view, model=model, collection_manager=manager)
+        presenter.controller = MagicMock()
+        presenter.controller.engine_adapter.is_generation_active.return_value = False
+        return presenter, view
+
+    def test_full_collection_window_pagination_is_complete_and_ordered(self, tmp_path):
+        """Walk the entire sorted collection window by window; the pages must
+        tile the full best-first ranking with no gaps, overlaps or reordering,
+        including a partial final page (128 does not divide 1500)."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "gui_pages.txt"
+        _write(out, c1, c2, _gaps_cycle(self.N))
+
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"], ascending=False)
+        assert manager.get_total_count() == self.N
+
+        manager.set_window_size(self.N)
+        full = [_gap(s) for s in manager.materialize_window(start_index=0)]
+        assert _is_monotonic(full, ascending=False)
+
+        page = 128
+        manager.set_window_size(page)
+        seen = []
+        start = 0
+        while start < self.N:
+            chunk = manager.materialize_window(start_index=start)
+            assert 0 < len(chunk) <= page
+            seen.extend(_gap(s) for s in chunk)
+            start += page
+        assert seen == full   # full coverage, exact order
+
+    def test_long_mixed_navigation_walk_with_sort_flips(self, tmp_path):
+        """A long, deterministic walk mixing next/prev bursts with periodic
+        sort flips through the presenter; the current index must always stay in
+        range and the total must never drift, no matter how the walk reorders
+        the collection mid-flight."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "gui_walk.txt"
+        _write(out, c1, c2, _gaps_cycle(self.N))
+
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"], ascending=False)
+        presenter, view = self._presenter([c1, c2], manager)
+
+        ascending = False
+        for step in range(1200):
+            if step % 7 < 4:
+                presenter._handle_next_schedule()
+            else:
+                presenter._handle_prev_schedule()
+            if step % 200 == 199:                       # flip the sort periodically
+                ascending = not ascending
+                presenter._handle_sort_changed(["min_gap_mandatory"], ascending=ascending)
+            idx = manager.get_current_index()
+            assert 0 <= idx < self.N
+            assert manager.get_total_count() == self.N
+        assert view.render_count >= 1
+
+    def test_many_tiny_incremental_refresh_batches(self, tmp_path):
+        """Forty tiny batches of 25 land while 'generation' is active; each
+        auto-refresh must absorb exactly one batch and grow the total by 25,
+        stressing the incremental parse/append path far harder than the coarse
+        batches in the baseline suite."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "gui_feed.txt"
+
+        first = 100
+        _write(out, c1, c2, _gaps_cycle(first))
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"])
+        presenter, _ = self._presenter([c1, c2], manager)
+        presenter.controller.engine_adapter.is_generation_active.return_value = True
+        assert manager.get_total_count() == first
+
+        total = first
+        for _ in range(40):
+            new_total = total + 25
+            _write(out, c1, c2, _gaps_cycle(new_total), skip_count=total, append=True)
+            assert presenter.auto_refresh_feed() is True
+            assert manager.get_total_count() == new_total
+            total = new_total
+        assert total == first + 40 * 25
+
+    def test_idempotent_resort_same_key_keeps_window_stable(self, tmp_path):
+        """Sorting by the same key many times must be idempotent: identical
+        window contents every time, a stable total, and no leaked processes."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "gui_idem.txt"
+        size = 700
+        _write(out, c1, c2, _gaps_cycle(size))
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.set_window_size(size)
+
+        before = len(multiprocessing.active_children())
+        reference = None
+        for _ in range(15):
+            manager.sort_collection(["min_gap_mandatory"], ascending=False)
+            gaps = [_gap(s) for s in manager.materialize_window(start_index=0)]
+            assert len(gaps) == size
+            assert manager.get_total_count() == size
+            if reference is None:
+                reference = gaps
+            else:
+                assert gaps == reference            # idempotent ordering
+        time.sleep(0.2)
+        after = len(multiprocessing.active_children())
+        assert after <= before, "idempotent resorting must not leak subprocesses"
+
+    def test_resort_every_metric_with_navigation_stays_bounded(self, tmp_path):
+        """Cycle through every metric as a sort key, toggling direction, and
+        navigate between resorts; the window length and total stay fixed and the
+        current index never escapes the valid range."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "gui_metrics.txt"
+        size = 600
+        _write(out, c1, c2, _gaps_cycle(size))
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.set_window_size(size)
+        presenter, view = self._presenter([c1, c2], manager)
+
+        ascending = False
+        for _ in range(6):
+            for key in METRIC_KEYS:
+                presenter._handle_sort_changed([key], ascending=ascending)
+                window = manager.materialize_window(start_index=0)
+                assert len(window) == size
+                assert manager.get_total_count() == size
+                for _ in range(20):
+                    presenter._handle_next_schedule()
+                    assert 0 <= manager.get_current_index() < size
+                ascending = not ascending
+        assert view.render_count >= 1
