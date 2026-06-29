@@ -38,6 +38,7 @@ INFO_CALENDAR_BUTTON_KEYS = [
     "exclude",
     "undo",
     "export",
+    "deep_search",
 ]
 
 

@@ -274,6 +274,11 @@ TRANSLATIONS = {
         "he": " כפתור הייצוא פותח שני אפשרויות: שמירת קובץ טקסט או יצירת קובץ יומן תקני שניתן לפתוח אותו בלוח השנה של גוגל או באאוטלוק או ביומן של אפל. קובץ היומן כולל רק אירועי מבחן מהלוח המוצג בפועל ללא אילוצים פנימיים ימי חג או נתוני חישוב",
         "en": "The Export button opens two options: save a text file, or create a standards-compliant ICS file that can be opened in Google Calendar, Outlook, or Apple Calendar. The ICS file contains only exam events from the currently displayed schedule, without internal constraints, holiday blocks, or calculation data.",
     },
+    "info_button_deep_search_title": {"he": "חיפוש מעמיק", "en": "Deep search"},
+    "info_button_deep_search_desc": {
+        "he": "חיפוש מעמיק סורק שיבוצים רבים ושומר את ה-100,000 הטובים ביותר בהתאם למיון והאילוצים שלך ועשוי להימשך עד 10 דקות, ניתן לביטול בלחיצה חוזרת",
+        "en": "Deep search scans many schedules and keeps the best 100,000 for your sort and constraints and can run up to 10 minutes and cancellation is available by clicking again",
+    },
 
     # --- Pruning constraints settings modal (PLAN-418) ---
     "constraints_button": {"he": "אילוצים", "en": "Constraints"},
