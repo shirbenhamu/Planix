@@ -115,12 +115,13 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         self.overrideredirect(True)
         self.title(format_text("constraints_title", current_lang))
         self.configure(fg_color=theme.BG_CARD)
-        self.geometry(theme.CONSTRAINTS_MODAL_GEOMETRY)
-        self.minsize(theme.CONSTRAINTS_MODAL_MIN_WIDTH, theme.CONSTRAINTS_MODAL_MIN_HEIGHT)
+        
+        self.geometry("760x720")
+        self.minsize(theme.CONSTRAINTS_MODAL_MIN_WIDTH, 720)
+        
         self.transient(parent)
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self._close_without_saving)
-
         self._build_ui()
         self._center_on_parent()
         self.lift()
@@ -158,7 +159,7 @@ class ConstraintsSettingsModal(ctk.CTkToplevel):
         title.bind("<ButtonPress-1>", self._start_drag)
         title.bind("<B1-Motion>", self._on_drag)
 
-        body = ctk.CTkScrollableFrame(
+        body = ctk.CTkFrame(
             outer,
             fg_color=theme.BG_CARD,
             border_width=theme.BORDER_WIDTH_DEFAULT,
