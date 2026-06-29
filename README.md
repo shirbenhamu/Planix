@@ -18,35 +18,45 @@ UML Class diagram: In Folder "diagrams".
 
 ## Description
 
-Planix is an exam scheduling system designed to help students in the Faculty of Engineering efficiently organize their examination timetables.
+Planix is an advanced exam scheduling system designed to help engineering faculties efficiently generate, evaluate, and manage examination timetables while satisfying complex academic constraints. 
 
-Planix version 2.0 includes advanced scheduling management capabilities, improved user experience, and a modern visual interface for planning exam schedules .
+Version 34.0 extends the scheduling engine with advanced optimization capabilities, Advanced Scheduling Constraints, Schedule Ranking & Quality Metrics, manual schedule editing, intelligent ranking mechanisms, holiday-aware scheduling, and external calendar integration. The system provides both a command-line interface and a GUI application, allowing users to generate, compare, modify, and export high-quality exam schedules.
 
 **Main Features:**
 
-Interactive User Interface - The system provides dedicated input and output screens that allow users to easily manage, browse, and review possible exam schedules in a user-friendly and intuitive way.
+Advanced Scheduling Constraints - Users can define additional scheduling constraints, including minimum gap between mandatory exams, minimum gap between all exams within the same academic program, maximum number of elective exam conflicts, maximum examination span for mandatory courses, maximum number of exams scheduled on the same day.
 
-Multi-Language Support - The application supports both English and Hebrew interfaces, allowing users to work comfortably in their preferred language.
+Schedule Ranking & Quality Metrics - Every generated schedule is evaluated using multiple quality metrics. Users can sort schedules according to one or more ranking criteria, allowing them to identify the most balanced examination timetable.
 
-Dark Mode & Light Mode - The system includes both day mode and night mode themes to improve accessibility and user comfort.
+Deep Search Optimization - Planix introduces a background optimization engine capable of exploring a significantly larger solution space. During execution, the system continuously searches for better schedules while maintaining only the highest-ranked results in memory.
 
-Flexible Calendar Views - Users can switch between monthly and yearly calendar displays for better visualization.
+Manual Schedule Editing - Users can manually move exams using drag-and-drop. Every modification is validated against all scheduling constraints before being accepted, ensuring that manually edited schedules remain valid.
 
-Data Management - Users can load, replace, and update course and exam period data files directly through the system interface without restarting the application.
+Holiday-Aware Scheduling - Users may select one or more religions before schedule generation. The system automatically retrieves official holiday dates and prevents exams from being scheduled on those days.
 
-Detailed Program Information - Each academic program displays its full list of courses, including semester, academic year, mandatory/elective classification, and evaluation method.
+Export Options - Selected schedules can be exported either as text files, or standard iCalendar (.ics) files compatible with Google Calendar, Outlook, Apple Calendar, and other calendar applications.
 
-Exam Period Management - Users can view and edit exam period dates, including modifying semester exam ranges and excluding specific unavailable dates.
+Flexible Calendar Views - Schedules can be displayed using monthly and yearly calendar views for improved visualization.
 
-Comprehensive Schedule Details - Each generated schedule includes complete course information such as course number, course name, related academic program, and mandatory/elective status.
+Multi-Language Support - The application supports both Hebrew and English user interfaces.
 
-Exporting Results - Users can save selected exam schedules into external files in a readable and organized format.
+Dark Mode & Light Mode - Day and night themes improve accessibility and user comfort.
 
-Filtering and Future Expansion Support - The architecture supports future implementations of schedule filtering and sorting capabilities planned for version 3.0.
+Dual Interface Support (GUI & CLI) - planix supports both a modern Graphical User Interface (GUI) and a Command-Line Interface (CLI).
+
+Color-Coded Calendar Visualization - The calendar provides a clear visual distinction between exam types. Mandatory course exams are displayed in one color, while elective course exams are displayed in a different color, allowing users to quickly identify the nature of each exam and better understand the overall schedule at a glance.
 
 **Technical Highlights:**
 
 MVP Architecture (Model–View–Presenter) - The software is built using the MVP architecture to reduce coupling between components, improving separation of concerns, maintainability, and testability.
+
+Advanced Scheduling Engine - Version 4.0 introduces an extended scheduling engine capable of validating advanced constraints during schedule generation while maintaining high performance.
+
+Multi-Process Background Execution - Computationally intensive scheduling operations execute in separate background processes, keeping the graphical interface fully responsive throughout schedule generation.
+
+Quality Metrics Engine - Each generated schedule is automatically evaluated using multiple quality metrics without requiring additional schedule analysis.
+
+Efficient Result Management - Schedules are indexed rather than fully loaded into memory, allowing efficient sorting and browsing of large result sets with minimal memory usage.
 
 Persistent Internal Caching - The application maintains an internal cache while it is running, enabling fast data reloading and minimizing unnecessary file I/O operations. This supports efficient Persistent Internal Data Handling and improves overall performance.
 
@@ -68,74 +78,35 @@ Agile Development Workflow - The project is managed using Agile methodologies al
 
 ## Running Example
 
-**Input page**
-
-![pic1](./images/inputScreen.png)
+**Constraint Selection**
 
 ![pic1](./images/inputScreen2.png)
 
-**Monthly view output page**
+**Sort Order Selection**
 
 ![pic1](./images/monthlyView.png)
 
-**Yearly view output page**
+**Manual Edit Feature**
 
 ![pic1](./images/yearlyView.png)
 
-**LightMode**
+**Calendar Export**
 
 ![pic1](./images/lightMode.png)
+
+**Religious Exclusions**
+
+![pic1](./images/runningTests2.png)
+
+**Advanced Search**
+
+![pic1](./images/runningTests2.png)
+
+**file-based version (CLI)**
+
+![pic1](./images/runningTests2.png)
+
 
 **Running the tests**
 
 ![pic1](./images/runningTests2.png)
-
-## File-based mode (CLI) — ranking & windowing
-
-The V1.0 file-based version exposes the same ranking and top-N windowing as the
-GUI, driven by CLI flags or a JSON config (it reuses the exact same
-`ScheduleCollectionManager.sort_collection()` code path).
-
-Rank by the default criterion (average days between exams, descending), top 10:
-
-```bash
-python -m src.cli --programs 83101,83102
-```
-
-Rank by max exams/day then min-gap (priority order), show the best 5, to a file:
-
-```bash
-python -m src.cli --programs 83101,83102 \
-    --sort max_exams_per_day,min_gap_mandatory --window 5 --output top5.txt
-```
-
-Run from a JSON config, ascending order:
-
-```bash
-python -m src.cli --config my_run.json --ascending
-```
-
-```json
-{
-  "courses": "data/courses.txt",
-  "exam_periods": "data/exam_periods.txt",
-  "programs": ["83101", "83102"],
-  "sort": ["avg_gap_all", "min_gap_mandatory"],
-  "ascending": false,
-  "window": 10,
-  "output": "top.txt"
-}
-```
-
-Valid sort keys (section-3 metrics): `min_gap_mandatory`, `avg_gap_all`,
-`elective_conflicts`, `mandatory_span`, `max_exams_per_day`. CLI flags override
-matching config keys.
-
-
-### Advanced K-Constraints Configuration (PLAN-407)
-The file-based mode now fully supports dynamic academic constraints injection during schedule generation, ensuring both CLI and GUI modes share identical constraint logic and output matrices.
-
-#### Enforcing Constraints via CLI:
-To run a scheduling matrix enforcing a maximum of 1 exam per day and at least 3 days between mandatory exams directly from the command line:
-```bash
-python -m src.cli --programs 83101,83102 --max-exams-per-day 1 --min-days-mandatory 3 --window 1
