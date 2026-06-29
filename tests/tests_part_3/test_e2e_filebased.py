@@ -374,3 +374,159 @@ class TestGuiCliEquivalenceStress:
         assert len(cli_window) == len(gui_window) == N
         # Tie-break agnostic but strict: the per-rank metric sequence is identical.
         assert [_gap(s) for s in cli_window] == [_gap(s) for s in gui_window]
+
+
+class TestCliPipelineStress:
+    """Heavy, repeated runs of the real CLI entry point and rank_and_slice."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_singleton(self):
+        DataManager._instance = None
+        yield
+        DataManager._instance = None
+
+    def test_cli_main_repeated_invocations_stay_well_formed(self, tmp_path, monkeypatch):
+        """Forty back-to-back CLI runs over a large batch must each exit 0 and
+        emit a correctly truncated, metric-bearing output + work file. Guards
+        against state leaking between runs (stale singletons, half-written
+        files, exhausted generators)."""
+        c1, c2 = _course("10001"), _course("10002")
+        N = 600
+        schedules = _bulk_schedules(c1, c2, _gaps_cycle(N))
+        monkeypatch.setattr(cli, "_load_data_manager", lambda opts: (_dm(c1, c2), ["83101"]))
+        monkeypatch.setattr(cli, "ExamScheduler", lambda: _BulkFakeScheduler(schedules))
+
+        window = 20
+        for i in range(40):
+            output = tmp_path / f"run_{i}.txt"
+            work = tmp_path / f"work_{i}.txt"
+            rc = cli.main([
+                "--programs", "83101",
+                "--sort", "min_gap_mandatory",
+                "--window", str(window),
+                "--output", str(output),
+                "--work-file", str(work),
+            ])
+            assert rc == 0, f"run {i} exited non-zero"
+            text = output.read_text(encoding="utf-8")
+            assert "RANK 1" in text and f"RANK {window}" in text
+            assert f"RANK {window + 1}" not in text  # window strictly truncates
+            # every generated schedule carries exactly one metrics line on disk
+            assert work.read_text(encoding="utf-8").count(METRICS_LINE_PREFIX + "|") == N
+
+    def test_rank_and_slice_is_deterministic_across_repeats(self, tmp_path):
+        """Re-ranking the very same file repeatedly yields an identical metric
+        ordering every time and never mutates the source file (ranking is a
+        pure read)."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "det.txt"
+        N = 1000
+        _write(out, c1, c2, _gaps_cycle(N))
+        original_bytes = out.read_bytes()
+
+        reference = None
+        for _ in range(8):
+            DataManager._instance = None
+            window, _m, total = cli.rank_and_slice(
+                _dm(c1, c2), str(out), ["min_gap_mandatory"],
+                ascending=False, window_size=N)
+            gaps = [_gap(s) for s in window]
+            assert total == N and len(gaps) == N
+            assert _monotonic(gaps, ascending=False)
+            if reference is None:
+                reference = gaps
+            else:
+                assert gaps == reference            # fully deterministic
+        assert out.read_bytes() == original_bytes   # source untouched
+
+    def test_full_collection_pagination_reconstructs_global_order(self, tmp_path):
+        """Page through the entire ranked collection in fixed windows; the
+        concatenation of every page must reproduce the single full-window
+        ranking exactly — every schedule present once, order preserved, with a
+        partial final page."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "pages.txt"
+        N = 950
+        _write(out, c1, c2, _gaps_cycle(N))
+
+        manager = ScheduleCollectionManager(str(out), _dm(c1, c2))
+        manager.sort_collection(["min_gap_mandatory"], ascending=False)
+        assert manager.get_total_count() == N
+
+        # full ranking in one shot (reference)
+        manager.set_window_size(N)
+        full = [_gap(s) for s in manager.materialize_window(start_index=0)]
+        assert len(full) == N and _monotonic(full, ascending=False)
+
+        # the same ranking, walked page by page (100 does not divide 950)
+        page = 100
+        manager.set_window_size(page)
+        paged = []
+        start = 0
+        while start < N:
+            chunk = manager.materialize_window(start_index=start)
+            assert 0 < len(chunk) <= page
+            paged.extend(_gap(s) for s in chunk)
+            start += page
+        assert paged == full   # identical sequence: full coverage, no dupes/gaps
+
+    def test_ascending_and_descending_are_multiset_equivalent_under_ties(self, tmp_path):
+        """A tie-saturated input ranked both ways: each direction is monotonic
+        and both hold exactly the same multiset of schedules (the sort direction
+        never drops or invents a schedule)."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "ties.txt"
+        N = 1500
+        _write(out, c1, c2, _gaps_cycle(N, lo=1, hi=5))  # only 5 distinct gaps
+
+        desc, _m1, t1 = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["min_gap_mandatory"], ascending=False, window_size=N)
+        DataManager._instance = None
+        asc, _m2, t2 = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["min_gap_mandatory"], ascending=True, window_size=N)
+
+        dgaps = [_gap(s) for s in desc]
+        agaps = [_gap(s) for s in asc]
+        assert t1 == t2 == N
+        assert _monotonic(dgaps, ascending=False)
+        assert _monotonic(agaps, ascending=True)
+        assert sorted(dgaps) == sorted(agaps)   # same multiset both directions
+
+
+class TestFileWriterIncrementalStress:
+    """The writer's skip_count/append contract feeding the ranker at scale."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_singleton(self):
+        DataManager._instance = None
+        yield
+        DataManager._instance = None
+
+    def test_many_appended_batches_rank_as_one_collection(self, tmp_path):
+        """Build a 1000-schedule file as 20 appended batches of 50 (each batch
+        skips the already-written prefix), then rank the whole thing: the total
+        and the ordering must match a single monolithic write of the same data."""
+        c1, c2 = _course("10001"), _course("10002")
+        out = tmp_path / "incr.txt"
+
+        N, batch = 1000, 50
+        written = 0
+        while written < N:
+            nxt = written + batch
+            _write(out, c1, c2, _gaps_cycle(nxt),
+                   skip_count=written, append=(written > 0))
+            written = nxt
+
+        window, _m, total = cli.rank_and_slice(
+            _dm(c1, c2), str(out), ["min_gap_mandatory"], ascending=False, window_size=N)
+        assert total == N
+        assert _monotonic([_gap(s) for s in window], ascending=False)
+
+        # equivalence to a single-shot write of the identical gaps
+        DataManager._instance = None
+        out2 = tmp_path / "single.txt"
+        _write(out2, c1, c2, _gaps_cycle(N))
+        w2, _m2, total2 = cli.rank_and_slice(
+            _dm(c1, c2), str(out2), ["min_gap_mandatory"], ascending=False, window_size=N)
+        assert total2 == total
+        assert [_gap(s) for s in window] == [_gap(s) for s in w2]
