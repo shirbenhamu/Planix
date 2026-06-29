@@ -294,18 +294,6 @@ class TestGuiStress:
         after = len(multiprocessing.active_children())
         assert after <= before, "repeated sorting must not leak subprocesses"
 
-# ---------------------------------------------------------------------------
-# Additional headless GUI stress coverage
-#
-# More punishing variants of the existing GUI stress flow: full-collection
-# window pagination through the manager, a long mixed navigation walk with
-# mid-walk sort flips, fine-grained incremental refresh (many tiny batches),
-# and idempotent re-sorting. All remain fully headless and leak-checked, and
-# only use APIs already exercised above (CalendarPresenter, the manager and the
-# _FakeView stub).
-# ---------------------------------------------------------------------------
-
-
 class TestGuiStressExtra:
     """Higher-volume, longer-running headless GUI stress."""
 
