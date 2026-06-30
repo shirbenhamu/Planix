@@ -80,33 +80,35 @@ Version 34.0 extends the scheduling engine with advanced optimization capabiliti
 
 **Constraint Selection**
 
-![pic1](./images/inputScreen2.png)
+![pic1](./images/constraintSelection.png)
 
 **Sort Order Selection**
 
-![pic1](./images/monthlyView.png)
+![pic1](./images/sortOrderSelection.png)
 
 **Manual Edit Feature**
 
-![pic1](./images/yearlyView.png)
+![pic1](./images/manualEdit.png)
 
 **Calendar Export**
 
-![pic1](./images/lightMode.png)
+![pic1](./images/calendarExport.png)
+
+![pic1](./images/export.png)
 
 **Religious Exclusions**
 
-![pic1](./images/runningTests2.png)
+![pic1](./images/religiousExclusions.png)
 
 **Advanced Search**
 
-![pic1](./images/runningTests2.png)
+![pic1](./images/advancedSearch.png)
 
 **file-based version (CLI)**
 
-![pic1](./images/runningTests2.png)
+![pic1](./images/cli.png)
 
 
 **Running the tests**
 
-![pic1](./images/runningTests2.png)
+![pic1](./images/runningTests3.png)
