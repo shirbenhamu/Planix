@@ -78,7 +78,6 @@ Version 34.0 extends the scheduling engine with advanced optimization capabiliti
 |`python -m src.cli --programs 83101,83102 --max-exams-per-day 1` |Run the file-based versionwith a constraint of at most 1 exam per day|
 |`python -m src.cli --programs 83101,83102 --min-days-mandatory 3` |Run the file-based version with a minimum gap of 3 days between mandatory exams|
 |`python -m src.cli --programs 83101,83102 --max-exams-per-day 1 --min-days-mandatory 3 --window 1` |Run the file-based version with multiple constraints simultaneously|
-|`python -m src.cli --config my_run.json --window 20 --ascending` |Run the file-based version using a configuration file while overriding settings with CLI arguments (CLI takes precedence over the config file)|
 |`python -m src.cli --courses custom_courses.txt --exam-periods custom_dates.txt --programs 83101,83102` |Run the file-based version with custom input file paths|
 |`python -m src.cli --programs 83101,83102 --sort max_exams_per_day,avg_gap_all --ascending --window 10 --max-exams-per-day 2 --min-days-mandatory 2 --output top_schedules.txt` |Run with all options together - custom sorting, constraints, and output to a file|
 |`python -m pytest tests/tests_part_3 -q` |Run version 3.0 tests|
