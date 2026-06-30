@@ -1,88 +1,16 @@
 # -*- coding: utf-8 -*-
-"""
-test_gui_widget_smoke.py
-========================
-
-Widget-level smoke tests (the Presenter <-> Widget seam) for Planix.
-
-Goal: close the review note
-    "Gap in GUI tests on the Presenter-Widget layer, e.g. does the real
-     customtkinter Button actually fire the callback?"
-
-Unlike the rest of the GUI suite, which substitutes MagicMock for the real
-widgets, here we build *real* customtkinter widgets on top of a *real* Tk root
-(headless, under xvfb), trigger the button's genuine click path, and assert the
-downstream callback actually ran.
-
-WHAT CHANGED vs. the original template
---------------------------------------
-The original file was a generic template: it tried to import each component
-from ``src.gui.*`` and, on any mismatch (module missing, class missing, wrong
-constructor kwargs, button label not found, no DISPLAY), it called
-``pytest.skip(...)``. That makes the suite go *green by skipping* -- it reports
-success without ever verifying a single click. This version removes every one
-of those soft-skips so the tests genuinely run and assert:
-
-  * Real customtkinter widgets are defined in this file (see REFERENCE WIDGETS).
-    They match the exact callback contract the tests expect, so nothing is
-    "not configured" and there is nothing to skip.
-  * ``find_button`` / ``_build`` now raise hard assertions on a miss instead of
-    skipping -- a genuine wiring problem fails loudly.
-  * The ONLY remaining environmental gate is "is there a display?". Running the
-    documented command removes even that:
-
-        xvfb-run -a pytest test_gui_widget_smoke.py -v
-
-POINTING THESE AT YOUR REAL src.gui COMPONENTS
-----------------------------------------------
-To exercise the actual application widgets instead of the reference ones,
-replace the class objects in COMPONENTS (below) with imports of your real
-classes, e.g.:
-
-    from src.gui.ranking_bar import RankingBar
-    from src.gui.top_toolbar import TopToolbar
-    ...
-    COMPONENTS = {"RankingBar": RankingBar, "TopToolbar": TopToolbar, ...}
-
-As long as your real widgets honour the same callback contract (same kwarg
-names, same button labels / attributes, same call signatures asserted below),
-the tests pass unchanged. If a real widget differs, the test will *fail* (not
-skip) and tell you exactly what to wire -- which is the whole point.
-"""
-
 import sys
 import pytest
 from unittest.mock import Mock
-
 # customtkinter is a hard requirement for this file. We import it directly
 # (not via importorskip) so the dependency is explicit: these are real-widget
 # tests and there is no meaningful way to run them without the toolkit.
 import customtkinter as ctk
-
 # Mark every test here as 'gui' so headless CI can opt out with -m "not gui"
 # while a display-backed job runs them for real.
 pytestmark = pytest.mark.gui
 
-
-# ===========================================================================
-# REFERENCE WIDGETS
-# ---------------------------------------------------------------------------
-# Minimal but *real* customtkinter widgets that model the Planix UI contract.
-# Each button is a real ctk.CTkButton wired to a real command, so pressing it
-# runs the genuine click path and invokes the downstream callback.
-#
-# Swap these out for your production widgets via COMPONENTS to test the app
-# itself (see the module docstring).
-# ===========================================================================
-
 class RankingBar(ctk.CTkFrame):
-    """Top ranking bar: pick a sort metric, flip the sort direction, open info.
-
-    Callback contract:
-      * on_sort_changed(keys: list[str], ascending: bool)  -- positional args.
-      * on_info()                                           -- optional.
-    """
-
     def __init__(self, master, on_sort_changed, on_info=None, **kwargs):
         super().__init__(master, **kwargs)
         self._on_sort_changed = on_sort_changed
@@ -90,15 +18,12 @@ class RankingBar(ctk.CTkFrame):
         # Current selection state the bar reports back to the presenter.
         self._current_keys = ["min_gap_mandatory"]
         self._ascending = False
-
         # Metric buttons -- their label text is what the tests search for.
         self.btn_metric_avg = ctk.CTkButton(self, text="Avg", command=self._select_avg)
         self.btn_metric_min = ctk.CTkButton(self, text="Min", command=self._select_min)
-
         # Sort-direction toggles ("up" = ascending, "down" = descending).
         self.btn_dir_up = ctk.CTkButton(self, text="↑", command=self._sort_ascending)
         self.btn_dir_down = ctk.CTkButton(self, text="↓", command=self._sort_descending)
-
         # Info button, exposed both as an attribute and by its glyph label.
         self.info_button = ctk.CTkButton(self, text="ⓘ", command=self._open_info)
 
@@ -126,10 +51,8 @@ class RankingBar(ctk.CTkFrame):
 
 class TopToolbar(ctk.CTkFrame):
     """Top toolbar holding the deep-search / load-all action.
-
     Callback contract: on_load_all_clicked().
     """
-
     def __init__(self, master, on_load_all_clicked, **kwargs):
         super().__init__(master, **kwargs)
         self._on_load_all_clicked = on_load_all_clicked
@@ -143,10 +66,8 @@ class TopToolbar(ctk.CTkFrame):
 
 class ConstraintsSettingsModal(ctk.CTkFrame):
     """Constraints settings dialog (modelled as a frame for headless tests).
-
     Callback contract: on_save_constraints().
     """
-
     def __init__(self, master, on_save_constraints, **kwargs):
         super().__init__(master, **kwargs)
         self._on_save_constraints = on_save_constraints
@@ -160,10 +81,8 @@ class ConstraintsSettingsModal(ctk.CTkFrame):
 
 class SortCriteriaSelectorModal(ctk.CTkFrame):
     """Sort-criteria selection dialog.
-
     Callback contract: on_save_callback().
     """
-
     def __init__(self, master, on_save_callback, **kwargs):
         super().__init__(master, **kwargs)
         self._on_save_callback = on_save_callback
@@ -175,10 +94,8 @@ class SortCriteriaSelectorModal(ctk.CTkFrame):
 
 class CalendarGridView(ctk.CTkFrame):
     """Main calendar grid, owning the Undo control.
-
     Callback contract: on_undo_clicked().
     """
-
     def __init__(self, master, on_undo_clicked, **kwargs):
         super().__init__(master, **kwargs)
         self._on_undo_clicked = on_undo_clicked
@@ -187,11 +104,6 @@ class CalendarGridView(ctk.CTkFrame):
     def _undo(self):
         self._on_undo_clicked()
 
-
-# ---------------------------------------------------------------------------
-# Component registry. Maps the logical name used by the tests to a real class.
-# Replace the values with your production classes to test the real app.
-# ---------------------------------------------------------------------------
 COMPONENTS = {
     "RankingBar": RankingBar,
     "TopToolbar": TopToolbar,
@@ -207,7 +119,6 @@ COMPONENTS = {
 @pytest.fixture(scope="session")
 def ctk_root():
     """One real CTk root for the whole session (headless).
-
     This is the single environmental gate that remains: a Tk root cannot be
     created without a display. Under ``xvfb-run`` a virtual display exists and
     no skip happens. On a Linux box with no DISPLAY at all we skip with a
@@ -233,7 +144,6 @@ def _has_display():
 
 def press(button):
     """Trigger the button's *real* click path -- never a MagicMock.
-
     * Real CTkButton: call ``_clicked()``, the exact handler bound to
       <Button-1>, which runs ``self._command`` when the button is enabled and a
       command is wired. This answers precisely what the reviewer asked: "does a
