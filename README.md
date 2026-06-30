@@ -72,11 +72,18 @@ Version 34.0 extends the scheduling engine with advanced optimization capabiliti
 |`pip install -r requirements.txt` |Install Dependencies|
 |`python -m src.main` |Run the GUI version|
 |`python -m src.cli --programs 83101,83102` |Run the file-based version with specific programs|
+|`python -m src.cli --config my_config.json` |Run fully from a JSON config file (programs, sort, constraints and window all defined in one file)|
+|`python -m src.cli --programs 83101,83102 --courses data/courses.csv` |Run with a specific courses input file|
+|`python -m src.cli --programs 83101,83102 --exam-periods data/dates.csv` |Run with a specific exam-periods (dates) input file|
 |`python -m src.cli --programs 83101,83102 --sort max_exams_per_day,min_gap_mandatory --window 5` |Run the file-based version with custom sorting - primary sort by maximum exams per day, then by minimum mandatory exam gap, showing only the top 5 results|
 |`python -m src.cli --programs 83101,83102 --output my_results.txt` |Run the file-based version and save the output to a file|
+|`python -m src.cli --programs 83101,83102 --work-file raw_results.txt` |Choose where the raw generated results are written (intermediate file)|
 |`python -m src.cli --programs 83101,83102 --ascending` |Run with ascending sorting (lowest values first)|
 |`python -m src.cli --programs 83101,83102 --max-exams-per-day 1` |Run the file-based versionwith a constraint of at most 1 exam per day|
 |`python -m src.cli --programs 83101,83102 --min-days-mandatory 3` |Run the file-based version with a minimum gap of 3 days between mandatory exams|
+|`python -m src.cli --programs 83101,83102 --min-days-any 2` |Run with a minimum gap of 2 days between any two exams|
+|`python -m src.cli --programs 83101,83102 --max-elective-conflicts 0` |Run with a constraint on the maximum number of elective–elective conflicts allowed|
+|`python -m src.cli --programs 83101,83102 --span-mandatory 14` |Run with a maximum span (in days) between the first and last mandatory exam|
 |`python -m src.cli --programs 83101,83102 --max-exams-per-day 1 --min-days-mandatory 3 --window 1` |Run the file-based version with multiple constraints simultaneously|
 |`python -m src.cli --programs 83101,83102 --sort max_exams_per_day,avg_gap_all --ascending --window 10 --max-exams-per-day 2 --min-days-mandatory 2 --output top_schedules.txt` |Run with all options together - custom sorting, constraints, and output to a file|
 |`python -m pytest tests/tests_part_3 -q` |Run version 3.0 tests|
