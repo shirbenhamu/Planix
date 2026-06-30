@@ -153,6 +153,12 @@ class AppController:
         view = getattr(getattr(self, "calendar_presenter", None), "view", None)
         if view is not None and hasattr(view, "clear_load_indicators"):
             view.clear_load_indicators()
+        # Show "computing schedules" on the robot immediately, no matter how the
+        # run was triggered. The input "Run" button sets it via the run-indicator,
+        # but saving constraints reaches regeneration directly — without this the
+        # robot would briefly read "load data" until the first schedule appears.
+        if hasattr(self.app_window, "_set_run_robots_speech"):
+            self.app_window._set_run_robots_speech("computing")
         self.app_window.switch_view("annual")
 
         if self.engine_adapter.is_generation_active():
