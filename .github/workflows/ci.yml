@@ -38,5 +38,4 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}
       run: |
-        apt-get update && apt-get install -y xvfb
-        xvfb-run -a pytest -n auto -v
+        pytest -n auto tests/
