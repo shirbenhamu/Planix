@@ -38,4 +38,4 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}
       run: |
-        pytest -n auto tests/
+        xvfb-run -a pytest -n auto --tb=short
