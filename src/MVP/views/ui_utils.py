@@ -84,9 +84,12 @@ TRANSLATIONS = {
     "max_programs_err": {"he": "לא ניתן לבחור יותר מ-5 תוכניות לימוד במקביל", "en": "Cannot select more than 5 programs at once"},
     "icon_upload": {"he": "העלה", "en": "Upload"},
     "icon_trash": {"he": "מחק", "en": "Delete"},
+    # Courses upload button tooltip (the button opens an add/overwrite chooser).
+    "courses_upload_tooltip": {"he": "העלאת קובץ קורסים", "en": "Upload Courses File"},
 
-    # --- Dates File Load Chooser ---
+    # --- Dates / Courses File Load Chooser ---
     "dates_load_title": {"he": "טעינת קובץ תאריכים", "en": "Load Dates File"},
+    "courses_load_title": {"he": "טעינת קובץ קורסים", "en": "Load Courses File"},
     "add_file": {"he": "הוסף קובץ", "en": "Add File"},
     "overwrite_file": {"he": "דרוס קובץ קיים", "en": "Overwrite Existing"},
     "cancel": {"he": "ביטול", "en": "Cancel"},
