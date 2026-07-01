@@ -170,10 +170,9 @@ class InputConfigurationView(ctk.CTkFrame):
         self.lbl_courses = ctk.CTkLabel(self.courses_cell, text="", font=self.f_title, text_color=theme.TEXT_MAIN)
         self.lbl_courses.pack(pady=(0, theme.SPACING_SMALL))
         
-        self.btn_courses = create_icon_button(self.courses_cell, text=ICON_UPLOAD, command=self._handle_load_courses)
+        self.btn_courses = create_icon_button(self.courses_cell, text=ICON_UPLOAD, command=self._open_courses_load_chooser)
         self.btn_courses.pack()
         self.tip_courses = Tooltip(self.btn_courses, format_text("courses_upload_tooltip", self.current_lang))
-        self._refresh_courses_tooltip()
 
         self.dates_cell = ctk.CTkFrame(self.files_row, fg_color=theme.TRANSPARENT)
         self.lbl_dates = ctk.CTkLabel(self.dates_cell, text="", font=self.f_title, text_color=theme.TEXT_MAIN)
@@ -272,21 +271,23 @@ class InputConfigurationView(ctk.CTkFrame):
     def show_warning_dialog(self, message: str):
         self.mascot.show_speech(format_text("max_programs_err", self.current_lang), duration=3500)
 
-    def _refresh_courses_tooltip(self):
-        """Courses button tooltip depends on state: when a file is already loaded
-        it explains that overwriting requires clearing the current courses first
-        (with the trash button), which users found unclear."""
-        key = "courses_update_tooltip" if self.has_courses else "courses_upload_tooltip"
-        if hasattr(self, "tip_courses"):
-            self.tip_courses.text = format_text(key, self.current_lang)
+    def _open_courses_load_chooser(self):
+        """Like the dates button: ask whether to ADD to the existing courses
+        (append) or OVERWRITE them (replace) before opening the file dialog, so
+        the choice is explicit instead of relying on the trash button first."""
+        show_load_choice_popup(
+            self, self.current_lang,
+            on_choice_callback=self._perform_courses_load,
+            title_key="courses_load_title",
+        )
 
-    def _handle_load_courses(self):
+    def _perform_courses_load(self, mode: str):
+        self.load_mode_var.set(mode)
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt"), ("Excel/CSV Files", "*.xlsx *.xls *.csv"), ("All Files", "*.*")])
         if file_path and self.on_load_courses:
             success = self.on_load_courses(file_path)
             if success:
                 self.has_courses = True
-                self._refresh_courses_tooltip()
                 self.mascot.show_speech(format_text("toast_courses_loaded", self.current_lang))
             else:
                 self.mascot.show_speech(format_text("err_courses_format", self.current_lang), duration=3500)
@@ -312,7 +313,6 @@ class InputConfigurationView(ctk.CTkFrame):
             self.on_clear_courses()
             # The trash button clears only the courses file — the dates state is preserved (has_dates unchanged)
             self.has_courses = False
-            self._refresh_courses_tooltip()
             self.mascot.show_speech(format_text("toast_courses_cleared", self.current_lang))
 
     def _handle_run_click(self):
@@ -471,7 +471,7 @@ class InputConfigurationView(ctk.CTkFrame):
         self.btn_constraints.configure(text=f"{ICON_SETTINGS} {format_text('constraints_button', lang)}")
         self.tip_constraints.text = format_text("constraints_tooltip", lang)
         
-        self._refresh_courses_tooltip()
+        self.tip_courses.text = format_text("courses_upload_tooltip", lang)
         if lang == "he":
             self.tip_dates.text = "העלאת קובץ תאריכים"
             self.tip_clear.text = "נקה נתונים"

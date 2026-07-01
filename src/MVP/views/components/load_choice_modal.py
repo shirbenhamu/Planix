@@ -4,14 +4,18 @@ import customtkinter as ctk
 from src.MVP.views.ui_utils import format_text
 
 
-def show_load_choice_popup(parent, current_lang: str, on_choice_callback=None):
+def show_load_choice_popup(parent, current_lang: str, on_choice_callback=None,
+                           title_key: str = "dates_load_title"):
     """
-    In-app overlay popup (NOT an OS window) for choosing how to load the dates file:
+    In-app overlay popup (NOT an OS window) for choosing how to load a file:
       - "append"  -> add to existing data ("Add File")
       - "replace" -> overwrite existing data ("Overwrite Existing")
 
     Mirrors the attach/place pattern of date_edit_modal so it renders centered over
     the main window without being clipped by inner frames.
+
+    title_key selects the header text (defaults to the dates title); pass
+    "courses_load_title" to reuse the same chooser for the courses file.
 
     on_choice_callback(mode: str) is invoked with "append" or "replace" AFTER the
     popup closes.
@@ -47,7 +51,7 @@ def show_load_choice_popup(parent, current_lang: str, on_choice_callback=None):
     # Title
     ctk.CTkLabel(
         content,
-        text=format_text("dates_load_title", current_lang),
+        text=format_text(title_key, current_lang),
         font=f_title,
         text_color="#87CEEB",
         wraplength=360,
