@@ -84,6 +84,14 @@ TRANSLATIONS = {
     "max_programs_err": {"he": "לא ניתן לבחור יותר מ-5 תוכניות לימוד במקביל", "en": "Cannot select more than 5 programs at once"},
     "icon_upload": {"he": "העלה", "en": "Upload"},
     "icon_trash": {"he": "מחק", "en": "Delete"},
+    # Courses upload button tooltip. When a courses file is already loaded the
+    # tooltip explains that overwriting requires clearing the current courses
+    # first with the trash button (users didn't realize this).
+    "courses_upload_tooltip": {"he": "העלאת קובץ קורסים", "en": "Upload Courses File"},
+    "courses_update_tooltip": {
+        "he": "עדכון קובץ קורסים\n(כדי לדרוס את הקובץ הקיים, מחק תחילה את הקורסים הקיימים בעזרת לחצן הפח )",
+        "en": "Update courses file\n(to overwrite the existing file, first clear the current courses with the trash button )",
+    },
 
     # --- Dates File Load Chooser ---
     "dates_load_title": {"he": "טעינת קובץ תאריכים", "en": "Load Dates File"},
